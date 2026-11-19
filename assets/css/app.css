@@ -1,0 +1,55 @@
+/**
+ * PDFToolKit - Core Application Stylesheet
+ */
+
+/* Drag-and-drop active visual states */
+.dropzone-active {
+    border-color: #3b82f6 !important;
+    background-color: #eff6ff !important;
+    transform: scale(1.005);
+}
+
+.dropzone-container {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ad container stability */
+.ad-slot-container {
+    contain: layout paint;
+}
+
+/* Smooth progress animations */
+.progress-fill-bar {
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Tool card hover transitions */
+.tool-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.tool-card:hover {
+    transform: translateY(-2px);
+}
+
+/* Focus visibility for accessibility */
+a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+/* Modal and banner transitions */
+.fade-in {
+    animation: fadeIn 0.25s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

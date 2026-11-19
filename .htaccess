@@ -1,0 +1,41 @@
+# ====================================================================
+# PDFToolKit - Apache Server Configuration & Clean URL Rewrites
+# ====================================================================
+
+# Prevent Directory Browsing
+Options -Indexes
+
+# Security Headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# URL Rewriting
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Serve existing files or directories directly
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Specific static clean routes
+    RewriteRule ^privacy-policy/?$ pages/privacy-policy.php [L,QSA]
+    RewriteRule ^terms/?$ pages/terms.php [L,QSA]
+    RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
+    # Check for existing tool script: /tools/{slug}.php
+    RewriteCond %{DOCUMENT_ROOT}/tools/$1.php -f
+    RewriteRule ^([a-zA-Z0-9_-]+)/?$ tools/$1.php [L,QSA]
+
+    # Handle 404 for non-existent tools and missing pages
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ pages/404.php [L]
+</IfModule>
+
+# Custom Error Pages
+ErrorDocument 404 /pages/404.php
