@@ -129,6 +129,12 @@ require_once __DIR__ . '/tool-registry.php';
     <!-- Scripts -->
     <script src="/assets/js/cookie-consent.js?v=<?= APP_VERSION ?>"></script>
     <script src="/assets/js/pdf-core.js?v=<?= APP_VERSION ?>"></script>
+
+    <?php if (!empty($extraScripts) && is_array($extraScripts)): ?>
+        <?php foreach ($extraScripts as $scriptSrc): ?>
+            <script src="<?= htmlspecialchars($scriptSrc, ENT_QUOTES, 'UTF-8') ?>"></script>
+        <?php endforeach; ?>
+    <?php endif; ?>
     
     <script>
         function initApp() {
