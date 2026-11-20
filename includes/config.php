@@ -49,7 +49,7 @@ if (!defined('ADS_ENABLED')) {
 
 if (!defined('ADSENSE_PUBLISHER_ID')) {
     $envPubId = getenv('ADSENSE_PUBLISHER_ID');
-    define('ADSENSE_PUBLISHER_ID', $envPubId !== false ? $envPubId : '');
+    define('ADSENSE_PUBLISHER_ID', $envPubId !== false ? $envPubId : 'ca-pub-6082492006145986');
 }
 
 if (!defined('ADSENSE_SLOTS')) {

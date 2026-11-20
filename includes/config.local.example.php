@@ -19,8 +19,8 @@ declare(strict_types=1);
 // 'adsense'     -> Renders real Google AdSense units using ADSENSE_PUBLISHER_ID
 define('AD_MODE', 'off');
 
-// Your Google AdSense Publisher ID (Required when AD_MODE is 'adsense')
-define('ADSENSE_PUBLISHER_ID', 'ca-pub-0000000000000000');
+// Your Google AdSense Publisher ID
+define('ADSENSE_PUBLISHER_ID', 'ca-pub-6082492006145986');
 
 // Optional: Per-slot AdSense Slot IDs
 define('ADSENSE_SLOTS', [

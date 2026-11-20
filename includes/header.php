@@ -28,8 +28,9 @@ $pageMeta = $pageMeta ?? [];
     <!-- Production Minified Tailwind CSS v4 -->
     <link rel="stylesheet" href="/assets/css/tailwind.min.css?v=<?= APP_VERSION ?>">
 
-    <!-- Google AdSense (Loaded asynchronously only when AD_MODE is 'adsense') -->
-    <?php if (defined('AD_MODE') && AD_MODE === 'adsense' && defined('ADSENSE_PUBLISHER_ID') && !empty(ADSENSE_PUBLISHER_ID)): ?>
+    <!-- Google AdSense Publisher Verification & Async Script -->
+    <?php if (defined('ADSENSE_PUBLISHER_ID') && !empty(ADSENSE_PUBLISHER_ID)): ?>
+        <meta name="google-adsense-account" content="<?= htmlspecialchars(ADSENSE_PUBLISHER_ID, ENT_QUOTES, 'UTF-8') ?>">
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=<?= htmlspecialchars(ADSENSE_PUBLISHER_ID, ENT_QUOTES, 'UTF-8') ?>" crossorigin="anonymous"></script>
     <?php endif; ?>
 
