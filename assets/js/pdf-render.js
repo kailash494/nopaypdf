@@ -50,8 +50,28 @@
             const pdfProxy = await loadingTask.promise;
             return {
                 pdfProxy,
+                pdfDoc: pdfProxy,
                 numPages: pdfProxy.numPages,
+                pageCount: pdfProxy.numPages,
             };
+        },
+
+        /**
+         * Convenience alias for loadPreviewDocument
+         */
+        async loadPreviewDoc(arrayBuffer) {
+            return this.loadPreviewDocument(arrayBuffer);
+        },
+
+        /**
+         * Safely destroy a PDFDocumentProxy instance
+         */
+        async destroyDoc(pdfDoc) {
+            if (pdfDoc && typeof pdfDoc.destroy === 'function') {
+                try {
+                    await pdfDoc.destroy();
+                } catch (e) {}
+            }
         },
 
         /**

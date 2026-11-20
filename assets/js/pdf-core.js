@@ -386,6 +386,24 @@
         },
 
         /**
+         * Read a File or Blob as an ArrayBuffer safely across all browser environments.
+         * @param {File|Blob} file
+         * @returns {Promise<ArrayBuffer>}
+         */
+        async readFileAsArrayBuffer(file) {
+            if (!file) throw new Error('No file provided to readFileAsArrayBuffer');
+            if (typeof file.arrayBuffer === 'function') {
+                return await file.arrayBuffer();
+            }
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsArrayBuffer(file);
+            });
+        },
+
+        /**
          * Translate low-level PDF parsing / library errors into clear, friendly guidance.
          * @param {Error|string} error
          * @returns {string}

@@ -5,6 +5,11 @@
 # Prevent Directory Browsing
 Options -Indexes
 
+# MIME Types
+<IfModule mod_mime.c>
+    AddType application/wasm .wasm
+</IfModule>
+
 # Security Headers
 <IfModule mod_headers.c>
     Header set X-Content-Type-Options "nosniff"

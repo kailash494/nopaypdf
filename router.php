@@ -12,7 +12,15 @@ $uri = rawurldecode($uri);
 // Serve existing static assets under /assets/ or static files directly
 $localFilePath = __DIR__ . $uri;
 if ($uri !== '/' && file_exists($localFilePath) && !is_dir($localFilePath)) {
-    // If it's a static asset, return false so the PHP built-in server serves it with proper mime-types
+    // Ensure WebAssembly binary files are served with the required application/wasm MIME type
+    if (pathinfo($localFilePath, PATHINFO_EXTENSION) === 'wasm') {
+        header('Content-Type: application/wasm');
+        header('Content-Length: ' . (string)filesize($localFilePath));
+        header('Cache-Control: public, max-age=31536000, immutable');
+        readfile($localFilePath);
+        return true;
+    }
+    // For other static assets, return false so the PHP built-in server handles them
     return false;
 }
 
