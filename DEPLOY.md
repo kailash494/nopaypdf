@@ -39,22 +39,36 @@ This generates a fully self-contained static release inside the **`dist/`** dire
 - `dist/_redirects` (Clean canonical rewrites)
 - `dist/assets/` (Including `assets/vendor/qpdf/qpdf.wasm` and `assets/css/tailwind.min.css`)
 
-### Step 2: Deploy to Cloudflare Pages
+### Step 2: Continuous Deployment via GitHub Actions (Automated)
 
-#### Method 1: Git Integration (Continuous Deployment)
-1. Push your repository to GitHub or GitLab.
-2. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/) and navigate to **Workers & Pages** &rarr; **Create application** &rarr; **Pages** &rarr; **Connect to Git**.
-3. Select your `NoPayPDF` (or `PDFToolKit`) repository.
-4. Configure Build Settings:
-   - **Framework preset:** `None`
-   - **Build command:** `npx @tailwindcss/cli -i assets/css/tailwind.input.css -o assets/css/tailwind.min.css --minify && php scripts/build-static.php --base-url=https://yourdomain.com --ad-mode=off`
-   - **Build output directory:** `dist`
-5. Click **Save and Deploy**.
+The repository includes a turnkey GitHub Actions workflow at `.github/workflows/deploy.yml` that builds Tailwind CSS v4, exports the static site, and deploys directly to Cloudflare Pages via `cloudflare/wrangler-action@v4` on every push to `main`.
 
-#### Method 2: Direct Upload via Wrangler CLI
+#### 1. Configure GitHub Repository Secrets
+In your GitHub repository ([github.com/kailash494/nopaypdf](https://github.com/kailash494/nopaypdf)):
+Navigate to **Settings** &rarr; **Secrets and variables** &rarr; **Actions** &rarr; **New repository secret**:
+
+1. `CLOUDFLARE_API_TOKEN`:
+   - Go to [Cloudflare Dashboard &rarr; My Profile &rarr; API Tokens](https://dash.cloudflare.com/profile/api-tokens).
+   - Click **Create Token** &rarr; Select the **Cloudflare Pages** template (or create a custom token with `Cloudflare Pages: Edit` permissions).
+   - Copy the generated token and save as `CLOUDFLARE_API_TOKEN`.
+2. `CLOUDFLARE_ACCOUNT_ID`:
+   - In the Cloudflare Dashboard, select your domain or Pages overview.
+   - Copy your 32-character **Account ID** from the right sidebar.
+   - Save as `CLOUDFLARE_ACCOUNT_ID`.
+
+*(You can also set these instantly via GitHub CLI: `gh secret set CLOUDFLARE_API_TOKEN` and `gh secret set CLOUDFLARE_ACCOUNT_ID`)*.
+
+#### 2. Trigger Auto-Deployment
+Once secrets are saved, either push a commit or trigger the workflow manually:
 ```bash
-npm install -g wrangler
-wrangler pages deploy dist --project-name=nopaypdf
+gh workflow run deploy.yml --repo kailash494/nopaypdf
+```
+
+---
+
+### Step 3: Direct Upload via Wrangler CLI (Manual Alternative)
+```bash
+npx wrangler pages deploy dist --project-name=nopaypdf
 ```
 
 ### Step 3: Custom Domain & SSL
