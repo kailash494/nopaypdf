@@ -8,8 +8,20 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 
-function render_seo_head(array $meta = []): void
+function render_seo_head(array $meta = [], array $faqsFallback = []): void
 {
+    // If $meta is a tool array from get_tool_registry() passed directly:
+    if (isset($meta['slug']) && !isset($meta['tool'])) {
+        $tool = $meta;
+        $meta = [
+            'title' => $tool['meta_title'] ?? ($tool['name'] . ' - ' . SITE_NAME),
+            'description' => $tool['meta_desc'] ?? ($tool['short_desc'] ?? SITE_DESCRIPTION),
+            'canonical' => SITE_URL . '/' . $tool['slug'],
+            'tool' => $tool,
+            'faqs' => !empty($faqsFallback) ? $faqsFallback : ($tool['faqs'] ?? []),
+        ];
+    }
+
     $title = $meta['title'] ?? (SITE_NAME . ' - ' . SITE_TAGLINE);
     $description = $meta['description'] ?? SITE_DESCRIPTION;
     $canonical = $meta['canonical'] ?? (SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/'));
