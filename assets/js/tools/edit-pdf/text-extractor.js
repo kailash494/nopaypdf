@@ -100,7 +100,22 @@
                         const g = 255 * (1 - m) * (1 - k);
                         const b = 255 * (1 - y) * (1 - k);
                         currentColor = rgbToHex(r, g, b);
-                    } else if (fn === OPS.showText || fn === OPS.showSpacedText) {
+                    } else if ((fn === OPS.setFillColor || fn === OPS.setFillColorN) && args && args.length >= 1) {
+                        if (args.length === 1) {
+                            currentColor = rgbToHex(args[0], args[0], args[0]);
+                        } else if (args.length === 3) {
+                            currentColor = rgbToHex(args[0], args[1], args[2]);
+                        } else if (args.length >= 4) {
+                            const c = args[0] > 1 ? args[0] / 255 : args[0];
+                            const m = args[1] > 1 ? args[1] / 255 : args[1];
+                            const y = args[2] > 1 ? args[2] / 255 : args[2];
+                            const k = args[3] > 1 ? args[3] / 255 : args[3];
+                            const r = 255 * (1 - c) * (1 - k);
+                            const g = 255 * (1 - m) * (1 - k);
+                            const b = 255 * (1 - y) * (1 - k);
+                            currentColor = rgbToHex(r, g, b);
+                        }
+                    } else if (fn === OPS.showText || fn === OPS.showSpacedText || fn === OPS.nextLineShowText || fn === OPS.nextLineSetSpacingShowText) {
                         textColors.push(currentColor);
                     } else if (fn === OPS.rectangle && args && args.length >= 4) {
                         const x = args[0];
@@ -405,6 +420,7 @@
 
                 if (matchedVectorColor) {
                     b.bgHex = matchedVectorColor;
+                    b.vectorBgHex = matchedVectorColor;
                     b.hasVectorBg = true;
                 } else {
                     // Check if an image sits underneath
@@ -420,6 +436,7 @@
                     b.hasImageBg = hasImage;
                     // Standard vector page: Pure #FFFFFF default
                     b.bgHex = '#ffffff';
+                    b.vectorBgHex = '#ffffff';
                 }
             }
 
@@ -453,6 +470,7 @@
                 matched: run.matched,
                 colorHex: run.colorHex || '#1e293b',
                 bgHex: '#ffffff',
+                vectorBgHex: '#ffffff',
                 hasVectorBg: false,
                 hasImageBg: false,
                 sampleVariance: 0,

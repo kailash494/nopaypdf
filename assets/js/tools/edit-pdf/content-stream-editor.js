@@ -472,14 +472,15 @@
                     const userX = trm[4];
                     const userY = trm[5];
 
-                    // Match against pending target runs within 3.0 pt tolerance
+                    // Match against pending target runs within dynamic tolerance (accounting for matrix transforms & font scale)
                     let matchedTarget = null;
                     for (const t of targetRuns) {
                         if (t.removed) continue;
                         const dx = Math.abs(userX - t.run.pdfX);
                         const dy = Math.abs(userY - (t.run.baselinePdfY !== undefined ? t.run.baselinePdfY : t.run.pdfY));
+                        const maxTol = Math.max(3.5, (t.run.fontSizePt || 12) * 0.35);
 
-                        if (dx <= 3.0 && dy <= 3.0) {
+                        if (dx <= maxTol && dy <= maxTol) {
                             matchedTarget = t;
                             break;
                         }

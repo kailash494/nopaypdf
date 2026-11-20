@@ -230,9 +230,9 @@
 }
 
 .text-quick-pill.tier2 {
-    background-color: #fef3c7;
-    color: #92400e;
-    border-color: #fde68a;
+    background-color: #f1f5f9;
+    color: #334155;
+    border-color: #cbd5e1;
 }
 
 .text-quick-btn {
@@ -261,16 +261,9 @@
     border-color: #2563eb;
 }
 
-/* Warning badge for high background variance (e.g. text over image) */
+/* Discreet indicator for complex background variance if needed */
 .variance-warning-dot {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    width: 8px;
-    height: 8px;
-    background-color: #f59e0b;
-    border-radius: 50%;
-    border: 1px solid #ffffff;
+    display: none;
 }
 
 /* ====================================================================

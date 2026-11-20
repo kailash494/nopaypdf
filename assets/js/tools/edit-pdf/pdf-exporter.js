@@ -15,9 +15,14 @@
     'use strict';
 
     function hexToRgb(hex = '#000000') {
+        if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
+            return window.PDFLib.rgb(1, 1, 1);
+        }
         let c = hex.replace('#', '');
         if (c.length === 3) c = c.split('').map(x => x + x).join('');
-        const num = parseInt(c, 16) || 0;
+        if (c.length !== 6) return window.PDFLib.rgb(1, 1, 1);
+        const num = parseInt(c, 16);
+        if (isNaN(num)) return window.PDFLib.rgb(1, 1, 1);
         const r = ((num >> 16) & 255) / 255;
         const g = ((num >> 8) & 255) / 255;
         const b = (num & 255) / 255;
@@ -133,23 +138,26 @@
                 const wasStreamRemoved = removedBlockIds.has(b.id);
 
                 if (!wasStreamRemoved) {
-                    // Fallback: Draw tight vector background cover rectangle (mask) ONLY if stream removal didn't succeed
-                    const pad = 0.8;
-                    const ascentRatio = b.ascentRatio || 0.85;
-                    const descentRatio = b.descentRatio || -0.20;
+                    // Fallback: Draw tight vector background cover rectangle ONLY if stream removal didn't succeed and background is not transparent
+                    if (b.bgHex && b.bgHex !== 'transparent') {
+                        const pad = 0.8;
+                        const ascentRatio = b.ascentRatio || 0.85;
+                        const descentRatio = b.descentRatio || -0.20;
 
-                    const rectX = Math.max(0, b.pdfX - pad);
-                    const rectY = Math.max(0, baselineY - (b.fontSizePt * Math.abs(descentRatio)) - pad);
-                    const rectW = b.pdfWidth + (pad * 2);
-                    const rectH = (b.fontSizePt * (ascentRatio + Math.abs(descentRatio))) + (pad * 2);
+                        const rectX = Math.max(0, b.pdfX - pad);
+                        const rectY = Math.max(0, baselineY - (b.fontSizePt * Math.abs(descentRatio)) - pad);
+                        const rectW = b.pdfWidth + (pad * 2);
+                        const rectH = (b.fontSizePt * (ascentRatio + Math.abs(descentRatio))) + (pad * 2);
 
-                    pdfPage.drawRectangle({
-                        x: rectX,
-                        y: rectY,
-                        width: rectW,
-                        height: rectH,
-                        color: hexToRgb(b.bgHex || '#ffffff'),
-                    });
+                        const coverColor = (b.bgHex && b.bgHex.startsWith('#')) ? b.bgHex : (b.vectorBgHex || '#ffffff');
+                        pdfPage.drawRectangle({
+                            x: rectX,
+                            y: rectY,
+                            width: rectW,
+                            height: rectH,
+                            color: hexToRgb(coverColor),
+                        });
+                    }
                 }
 
                 // Draw replacement text if not deleted using 2-Tier font embedding

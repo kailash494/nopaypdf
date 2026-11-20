@@ -235,17 +235,13 @@
                     el.textContent = block.currentText;
                 } else if (block.modified) {
                     el.classList.add('modified');
-                    el.style.backgroundColor = block.bgHex || '#ffffff';
+                    const effectiveBg = (block.bgHex && block.bgHex !== 'transparent')
+                        ? block.bgHex
+                        : (block.hasVectorBg ? (block.vectorBgHex || '#ffffff') : '#ffffff');
+                    el.style.backgroundColor = effectiveBg;
                     el.textContent = block.currentText;
                 } else {
                     el.textContent = ''; // Transparent overlay over original crisp PDF.js canvas
-                }
-
-                if (block.sampleVariance > 25) {
-                    const dot = document.createElement('span');
-                    dot.className = 'variance-warning-dot';
-                    dot.title = 'Complex background detected. Edits may show contrast variance.';
-                    el.appendChild(dot);
                 }
 
                 // Click to edit
@@ -306,7 +302,10 @@
             this.selectedBlock = block;
             el.classList.add('editing');
             el.innerHTML = '';
-            el.style.backgroundColor = block.bgHex || '#ffffff';
+            const effectiveBg = (block.bgHex && block.bgHex !== 'transparent')
+                ? block.bgHex
+                : (block.hasVectorBg ? (block.vectorBgHex || '#ffffff') : '#ffffff');
+            el.style.backgroundColor = effectiveBg;
 
             const input = document.createElement('input');
             input.type = 'text';
@@ -331,7 +330,7 @@
             // Revert Button
             const revertBtn = document.createElement('button');
             revertBtn.type = 'button';
-            revertBtn.className = 'text-quick-btn text-amber-700 bg-amber-50';
+            revertBtn.className = 'text-quick-btn text-slate-700 bg-slate-100 hover:bg-slate-200';
             revertBtn.textContent = 'Revert';
             revertBtn.title = 'Revert to original PDF text';
             revertBtn.addEventListener('mousedown', (e) => {

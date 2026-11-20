@@ -396,7 +396,7 @@
                     fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200';
                     fontTierPill.textContent = `Embedded: ${block.realName}`;
                 } else {
-                    fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200';
+                    fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200';
                     fontTierPill.textContent = `Matched: ${block.matched?.name || 'Liberation Sans'}`;
                 }
             }
@@ -462,6 +462,17 @@
             if (window.CanvasStage.selectedBlock) {
                 window.CanvasStage.selectedBlock.bgHex = bgColorInput.value;
                 window.CanvasStage.selectedBlock.modified = true;
+                renderCurrentPage();
+            }
+        });
+
+        const bgAutoBtn = document.getElementById('sub-bg-auto-btn');
+        bgAutoBtn?.addEventListener('click', () => {
+            if (window.CanvasStage.selectedBlock) {
+                const b = window.CanvasStage.selectedBlock;
+                b.bgHex = b.hasVectorBg ? (b.vectorBgHex || '#ffffff') : '#ffffff';
+                if (bgColorInput) bgColorInput.value = (b.bgHex && b.bgHex.startsWith('#')) ? b.bgHex : '#ffffff';
+                b.modified = true;
                 renderCurrentPage();
             }
         });

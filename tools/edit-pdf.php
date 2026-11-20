@@ -286,20 +286,21 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Colors -->
             <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
                 <label class="text-[10px] text-slate-500 font-semibold">Text:</label>
-                <input type="color" id="sub-text-color" value="#1e293b" class="w-6 h-6 rounded cursor-pointer border-0 p-0">
+                <input type="color" id="sub-text-color" value="#1e293b" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Text Color">
             </div>
 
             <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-                <label class="text-[10px] text-slate-500 font-semibold">Mask Fill:</label>
-                <input type="color" id="sub-bg-color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-0 p-0">
+                <label class="text-[10px] text-slate-500 font-semibold">Background:</label>
+                <input type="color" id="sub-bg-color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Background Color (Auto-matched to page)">
+                <button type="button" id="sub-bg-auto-btn" class="text-[10px] font-semibold px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors" title="Match page background automatically">Auto</button>
             </div>
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-            <button type="button" id="sub-reset-btn" class="px-2.5 py-1 rounded-md text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 font-semibold">
+            <button type="button" id="sub-reset-btn" class="px-2.5 py-1 rounded-md text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 font-semibold transition-colors">
                 Reset Text
             </button>
-            <button type="button" id="sub-delete-btn" class="px-2.5 py-1 rounded-md text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 font-semibold">
+            <button type="button" id="sub-delete-btn" class="px-2.5 py-1 rounded-md text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 font-semibold transition-colors">
                 Delete Line
             </button>
         </div>
