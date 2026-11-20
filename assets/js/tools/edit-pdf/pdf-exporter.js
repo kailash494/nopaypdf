@@ -110,32 +110,49 @@
 
         async _applyTextEdits(pdfDoc, pdfPage, pageState) {
             const blocks = pageState.textBlocks || [];
+            const hasEdits = blocks.some(b => b.modified || b.deleted);
+            if (!hasEdits) return;
+
+            // 1. Surgical Sejda-Style Content Stream Removal
+            let removedBlockIds = new Set();
+            if (window.ContentStreamEditor && typeof window.ContentStreamEditor.removeEditedTextRuns === 'function') {
+                try {
+                    removedBlockIds = await window.ContentStreamEditor.removeEditedTextRuns(pdfDoc, pdfPage, pageState);
+                } catch (err) {
+                    console.warn('Content stream text removal failed, using vector mask fallback:', err);
+                }
+            }
+
+            // 2. Process Blocks: Zero-cover stamping for stream-removed blocks, vector mask fallback otherwise
             for (const b of blocks) {
                 if (!b.modified && !b.deleted) {
                     continue; // Leave 100% original vectors untouched
                 }
 
-                // 1. Draw tight background cover rectangle (mask)
-                // Use baselinePdfY, ascentRatio, descentRatio to avoid clipping underlines or table borders
-                const pad = 0.8;
-                const ascentRatio = b.ascentRatio || 0.85;
-                const descentRatio = b.descentRatio || -0.20;
                 const baselineY = b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY;
+                const wasStreamRemoved = removedBlockIds.has(b.id);
 
-                const rectX = Math.max(0, b.pdfX - pad);
-                const rectY = Math.max(0, baselineY - (b.fontSizePt * Math.abs(descentRatio)) - pad);
-                const rectW = b.pdfWidth + (pad * 2);
-                const rectH = (b.fontSizePt * (ascentRatio + Math.abs(descentRatio))) + (pad * 2);
+                if (!wasStreamRemoved) {
+                    // Fallback: Draw tight vector background cover rectangle (mask) ONLY if stream removal didn't succeed
+                    const pad = 0.8;
+                    const ascentRatio = b.ascentRatio || 0.85;
+                    const descentRatio = b.descentRatio || -0.20;
 
-                pdfPage.drawRectangle({
-                    x: rectX,
-                    y: rectY,
-                    width: rectW,
-                    height: rectH,
-                    color: hexToRgb(b.bgHex || '#ffffff'),
-                });
+                    const rectX = Math.max(0, b.pdfX - pad);
+                    const rectY = Math.max(0, baselineY - (b.fontSizePt * Math.abs(descentRatio)) - pad);
+                    const rectW = b.pdfWidth + (pad * 2);
+                    const rectH = (b.fontSizePt * (ascentRatio + Math.abs(descentRatio))) + (pad * 2);
 
-                // 2. Redraw replacement text if not deleted using 2-Tier font embedding
+                    pdfPage.drawRectangle({
+                        x: rectX,
+                        y: rectY,
+                        width: rectW,
+                        height: rectH,
+                        color: hexToRgb(b.bgHex || '#ffffff'),
+                    });
+                }
+
+                // Draw replacement text if not deleted using 2-Tier font embedding
                 if (b.modified && !b.deleted && b.currentText) {
                     const embedResult = await window.FontManager.embedFontForBlock(pdfDoc, b, b.currentText);
                     const font = embedResult.font;

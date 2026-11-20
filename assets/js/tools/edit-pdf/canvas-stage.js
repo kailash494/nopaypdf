@@ -156,10 +156,13 @@
                     viewport,
                 }).promise;
 
-                // Auto-sample colors if not already sampled
+                // Auto-sample colors if not already sampled (only for blocks with raster image backgrounds)
                 if (window.TextExtractor && pageState.textBlocks.length > 0 && !pageState.textBlocks[0].sampled) {
-                    window.TextExtractor.sampleBlockColors(this.baseCanvas, pageState.textBlocks, this.currentScale, pageState.heightPt);
-                    pageState.textBlocks.forEach(b => b.sampled = true);
+                    pageState.textBlocks.forEach(b => {
+                        b.pageWidthPt = pageState.widthPt || 612;
+                        b.sampled = true;
+                    });
+                    window.TextExtractor.sampleBlockColors(this.baseCanvas, pageState.textBlocks, this.currentScale, pageState.heightPt || 792);
                 }
             } catch (err) {
                 console.error('Base canvas render error:', err);
