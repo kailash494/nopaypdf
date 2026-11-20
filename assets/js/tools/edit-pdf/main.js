@@ -147,6 +147,11 @@
             clearError();
             currentPdfProxy = null;
 
+            // Pre-extract embedded font streams using PDFLib
+            const embeddedFontsMap = window.FontManager && typeof window.FontManager.extractEmbeddedFonts === 'function'
+                ? await window.FontManager.extractEmbeddedFonts(arrayBuffer)
+                : null;
+
             // Load via PDFRender without detaching original buffer
             const preview = await window.PDFRender.loadPreviewDocument(arrayBuffer);
             currentPdfProxy = preview.pdfProxy;
@@ -166,7 +171,7 @@
                 });
 
                 // Extract text for each page
-                const textResult = await window.TextExtractor.extractPageText(page, i - 1);
+                const textResult = await window.TextExtractor.extractPageText(page, i - 1, embeddedFontsMap);
                 allPagesBlocks.push(textResult.blocks);
             }
 
@@ -384,7 +389,19 @@
             }
 
             subToolbar?.classList.remove('hidden');
-            if (fontSelect) fontSelect.value = block.fontFamily || 'sans';
+            const fontTierPill = document.getElementById('sub-font-tier-pill');
+            if (fontTierPill) {
+                fontTierPill.classList.remove('hidden');
+                if (block.tier === 1) {
+                    fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200';
+                    fontTierPill.textContent = `Embedded: ${block.realName}`;
+                } else {
+                    fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200';
+                    fontTierPill.textContent = `Matched: ${block.matched?.name || 'Liberation Sans'}`;
+                }
+            }
+
+            if (fontSelect) fontSelect.value = block.tier === 1 ? 'original' : (block.matched?.local || 'sans');
             if (fontSizeInput) fontSizeInput.value = Math.round(block.fontSizePt || 12);
             if (boldBtn) {
                 boldBtn.classList.toggle('active', Boolean(block.bold));

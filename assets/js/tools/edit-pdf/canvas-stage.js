@@ -166,31 +166,66 @@
             }
         }
 
+        getMeasureContext() {
+            if (!this._measureCtx) {
+                const c = document.createElement('canvas');
+                this._measureCtx = c.getContext('2d');
+            }
+            return this._measureCtx;
+        }
+
         _renderDomLayer(pageState, viewportWidth, viewportHeight) {
             this.domLayer.innerHTML = '';
             const scale = this.currentScale;
             const pageHeightPt = pageState.heightPt;
+            const measureCtx = this.getMeasureContext();
 
             // A. Render Text Hitboxes
             for (const block of pageState.textBlocks) {
-                const bx = block.pdfX * scale;
-                // PDF y is bottom-left origin; convert to top-left CSS px
-                const by = (pageHeightPt - block.pdfY - block.fontSizePt) * scale;
-                const bw = Math.max(12, block.pdfWidth * scale);
-                const bh = Math.max(14, block.fontSizePt * 1.25 * scale);
-                const fSize = Math.max(8, block.fontSizePt * scale);
+                const baselineY = (pageHeightPt - (block.baselinePdfY !== undefined ? block.baselinePdfY : block.pdfY)) * scale;
+                const ascentRatio = block.ascentRatio || 0.85;
+                const descentRatio = block.descentRatio || -0.20;
+                const fontSizePx = block.fontSizePt * scale;
+
+                const topPx = baselineY - (fontSizePx * ascentRatio);
+                const leftPx = block.pdfX * scale;
+                const widthPx = Math.max(8, block.pdfWidth * scale);
+                const heightPx = Math.max(10, fontSizePx * (ascentRatio + Math.abs(descentRatio)));
 
                 const el = document.createElement('div');
                 el.className = 'text-hitbox';
                 el.dataset.id = block.id;
-                el.style.left = `${bx}px`;
-                el.style.top = `${by}px`;
-                el.style.minWidth = `${bw}px`;
-                el.style.minHeight = `${bh}px`;
-                el.style.fontSize = `${fSize}px`;
-                el.style.fontFamily = `"${window.FontManager.getCssFamily(block.fontFamily)}", sans-serif`;
+                el.style.left = `${leftPx}px`;
+                el.style.top = `${topPx}px`;
+                el.style.width = `${widthPx}px`;
+                el.style.height = `${heightPx}px`;
+                el.style.fontSize = `${fontSizePx}px`;
+
+                // Determine font family: Tier 1 uses exact PDF.js loadedName
+                const hasCoverage = window.FontManager.checkEmbeddedCoverage(block.embeddedBytes, block.currentText);
+                block.tier = hasCoverage ? 1 : 2;
+
+                const cssFontFamily = block.tier === 1 && block.loadedName
+                    ? `"${block.loadedName}", "${block.matched?.name || 'Liberation Sans'}", sans-serif`
+                    : `"${block.matched?.name || 'Liberation Sans'}", sans-serif`;
+
+                el.style.fontFamily = cssFontFamily;
                 el.style.fontWeight = block.bold ? '700' : '400';
                 el.style.fontStyle = block.italic ? 'italic' : 'normal';
+                el.style.color = block.colorHex || '#1e293b';
+
+                // Calibrate letter-spacing to match original PDF character advances
+                let letterSpacingPx = 0;
+                if (block.originalText && block.originalText.length > 1 && measureCtx) {
+                    measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${fontSizePx}px ${cssFontFamily}`;
+                    const measuredW = measureCtx.measureText(block.originalText).width;
+                    if (measuredW > 0) {
+                        letterSpacingPx = (widthPx - measuredW) / (block.originalText.length - 1);
+                        letterSpacingPx = Math.max(-1.5, Math.min(4.0, letterSpacingPx));
+                    }
+                }
+                block.letterSpacingPx = letterSpacingPx;
+                el.style.letterSpacing = `${letterSpacingPx.toFixed(2)}px`;
 
                 if (block.deleted) {
                     el.classList.add('deleted');
@@ -198,10 +233,9 @@
                 } else if (block.modified) {
                     el.classList.add('modified');
                     el.style.backgroundColor = block.bgHex || '#ffffff';
-                    el.style.color = block.colorHex || '#1e293b';
                     el.textContent = block.currentText;
                 } else {
-                    el.textContent = ''; // Transparent overlay over original crisp PDF.js canvas text
+                    el.textContent = ''; // Transparent overlay over original crisp PDF.js canvas
                 }
 
                 if (block.sampleVariance > 25) {
@@ -269,17 +303,76 @@
             this.selectedBlock = block;
             el.classList.add('editing');
             el.innerHTML = '';
+            el.style.backgroundColor = block.bgHex || '#ffffff';
 
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'text-inline-input';
             input.value = block.currentText;
-            input.style.color = block.colorHex;
-            input.style.backgroundColor = block.bgHex;
+            input.style.color = block.colorHex || '#1e293b';
+            input.style.fontFamily = el.style.fontFamily;
+            input.style.fontSize = el.style.fontSize;
+            input.style.fontWeight = el.style.fontWeight;
+            input.style.fontStyle = el.style.fontStyle;
+            input.style.letterSpacing = el.style.letterSpacing;
 
+            // Create Floating Quick-Action Bar above active text box
+            const quickBar = document.createElement('div');
+            quickBar.className = 'text-quick-bar';
+
+            const fontPill = document.createElement('span');
+            fontPill.className = `text-quick-pill ${block.tier === 1 ? '' : 'tier2'}`;
+            fontPill.textContent = block.tier === 1 ? `Embedded: ${block.realName}` : `Matched: ${block.matched?.name || 'Liberation Sans'}`;
+            quickBar.appendChild(fontPill);
+
+            // Revert Button
+            const revertBtn = document.createElement('button');
+            revertBtn.type = 'button';
+            revertBtn.className = 'text-quick-btn text-amber-700 bg-amber-50';
+            revertBtn.textContent = 'Revert';
+            revertBtn.title = 'Revert to original PDF text';
+            revertBtn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                input.value = block.originalText;
+                input.blur();
+            });
+            quickBar.appendChild(revertBtn);
+
+            // Delete Button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'text-quick-btn text-rose-700 bg-rose-50';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.title = 'Delete line (mask completely)';
+            deleteBtn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                block.deleted = true;
+                input.blur();
+            });
+            quickBar.appendChild(deleteBtn);
+
+            el.appendChild(quickBar);
             el.appendChild(input);
             input.focus();
             input.select();
+
+            // Real-time subset coverage check on typing
+            input.addEventListener('input', () => {
+                const val = input.value;
+                const covered = window.FontManager.checkEmbeddedCoverage(block.embeddedBytes, val);
+                if (covered) {
+                    block.tier = 1;
+                    fontPill.className = 'text-quick-pill';
+                    fontPill.textContent = `Embedded: ${block.realName}`;
+                    input.style.fontFamily = `"${block.loadedName}", "${block.matched?.name || 'Liberation Sans'}", sans-serif`;
+                } else {
+                    block.tier = 2;
+                    fontPill.className = 'text-quick-pill tier2';
+                    fontPill.textContent = `Matched: ${block.matched?.name || 'Liberation Sans'}`;
+                    input.style.fontFamily = `"${block.matched?.name || 'Liberation Sans'}", sans-serif`;
+                    window.FontManager.loadWebFont(block.matched);
+                }
+            });
 
             const finishEdit = () => {
                 const newVal = input.value;

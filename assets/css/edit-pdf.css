@@ -134,32 +134,35 @@
 }
 
 /* ====================================================================
-   3. Layer 2: Existing-Text Hitboxes & Inline Editor Inputs
+   3. Layer 2: Existing-Text Hitboxes & Zero-Shift Inline Editor Inputs
    ==================================================================== */
 
 .text-hitbox {
     position: absolute;
     box-sizing: border-box;
     cursor: text;
-    border: 1px solid transparent;
-    border-radius: 2px;
+    padding: 0;
+    margin: 0;
+    border: none;
     pointer-events: auto;
-    transition: border-color 0.15s ease, background-color 0.15s ease;
     white-space: pre;
-    line-height: 1.1;
+    line-height: 1;
     overflow: visible;
+    user-select: none;
 }
 
 .text-hitbox:hover {
-    border-color: rgba(59, 130, 246, 0.7);
-    background-color: rgba(59, 130, 246, 0.08);
+    outline: 1px dashed rgba(59, 130, 246, 0.7);
+    outline-offset: 1px;
+    background-color: rgba(59, 130, 246, 0.04);
 }
 
 .text-hitbox.editing {
-    border-color: #2563eb;
-    background-color: #ffffff;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
-    z-index: 25;
+    outline: 1.5px solid #2563eb;
+    outline-offset: 1px;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+    z-index: 50;
+    overflow: visible;
 }
 
 .text-hitbox.modified {
@@ -167,10 +170,10 @@
 }
 
 .text-hitbox.deleted {
-    opacity: 0.4;
+    opacity: 0.35;
     text-decoration: line-through;
-    border-color: #ef4444;
-    background-color: rgba(239, 68, 68, 0.05);
+    outline: 1px dashed #ef4444;
+    background-color: rgba(239, 68, 68, 0.08);
 }
 
 .text-inline-input {
@@ -186,7 +189,74 @@
     font-size: inherit;
     font-weight: inherit;
     font-style: inherit;
-    line-height: inherit;
+    line-height: 1;
+    letter-spacing: inherit;
+    display: block;
+}
+
+/* Floating Quick-Action Bar above focused text block */
+.text-quick-bar {
+    position: absolute;
+    top: -38px;
+    left: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #ffffff;
+    padding: 3px 6px;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
+    white-space: nowrap;
+    user-select: none;
+    font-size: 11px;
+    pointer-events: auto;
+}
+
+.text-quick-pill {
+    font-size: 9px;
+    font-weight: 700;
+    background-color: #eff6ff;
+    color: #2563eb;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #bfdbfe;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.text-quick-pill.tier2 {
+    background-color: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.text-quick-btn {
+    padding: 2px 5px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 600;
+    font-size: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s ease;
+}
+
+.text-quick-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.text-quick-btn.active {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
 }
 
 /* Warning badge for high background variance (e.g. text over image) */

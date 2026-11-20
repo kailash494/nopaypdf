@@ -244,10 +244,18 @@ require_once __DIR__ . '/../includes/header.php';
             <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Typography:</span>
             <!-- Font Family -->
             <select id="sub-font-select" class="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium">
+                <option value="original">Original (Embedded)</option>
                 <option value="sans">Liberation Sans (Arial)</option>
                 <option value="serif">Liberation Serif (Times)</option>
                 <option value="mono">Liberation Mono (Courier)</option>
+                <option value="carlito">Carlito (Calibri)</option>
+                <option value="caladea">Caladea (Cambria)</option>
+                <option value="inter">Inter (Segoe UI / SF Pro)</option>
+                <option value="roboto">Roboto</option>
+                <option value="open-sans">Open Sans</option>
+                <option value="montserrat">Montserrat</option>
             </select>
+            <span id="sub-font-tier-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hidden"></span>
 
             <!-- Font Size -->
             <input type="number" id="sub-font-size" value="12" min="6" max="96" class="w-14 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium text-center">

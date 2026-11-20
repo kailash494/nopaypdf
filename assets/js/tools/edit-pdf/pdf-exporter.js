@@ -115,12 +115,17 @@
                     continue; // Leave 100% original vectors untouched
                 }
 
-                // 1. Draw background cover rectangle (mask)
-                const pad = 1.5;
+                // 1. Draw tight background cover rectangle (mask)
+                // Use baselinePdfY, ascentRatio, descentRatio to avoid clipping underlines or table borders
+                const pad = 0.8;
+                const ascentRatio = b.ascentRatio || 0.85;
+                const descentRatio = b.descentRatio || -0.20;
+                const baselineY = b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY;
+
                 const rectX = Math.max(0, b.pdfX - pad);
-                const rectY = Math.max(0, b.pdfY - pad);
+                const rectY = Math.max(0, baselineY - (b.fontSizePt * Math.abs(descentRatio)) - pad);
                 const rectW = b.pdfWidth + (pad * 2);
-                const rectH = (b.fontSizePt * 1.25) + (pad * 2);
+                const rectH = (b.fontSizePt * (ascentRatio + Math.abs(descentRatio))) + (pad * 2);
 
                 pdfPage.drawRectangle({
                     x: rectX,
@@ -130,17 +135,14 @@
                     color: hexToRgb(b.bgHex || '#ffffff'),
                 });
 
-                // 2. Redraw replacement text if not deleted
+                // 2. Redraw replacement text if not deleted using 2-Tier font embedding
                 if (b.modified && !b.deleted && b.currentText) {
-                    const font = await window.FontManager.embedMatchedFont(pdfDoc, {
-                        family: b.fontFamily,
-                        bold: b.bold,
-                        italic: b.italic,
-                    });
+                    const embedResult = await window.FontManager.embedFontForBlock(pdfDoc, b, b.currentText);
+                    const font = embedResult.font;
 
                     pdfPage.drawText(b.currentText, {
                         x: b.pdfX,
-                        y: b.pdfY,
+                        y: baselineY,
                         size: b.fontSizePt,
                         font,
                         color: hexToRgb(b.colorHex || '#1e293b'),
