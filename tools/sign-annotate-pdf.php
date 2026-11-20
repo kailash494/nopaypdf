@@ -76,6 +76,19 @@ require_once __DIR__ . '/../includes/header.php';
             </button>
         </div>
 
+        <!-- Cross-Link Banner to Full PDF Editor -->
+        <div class="bg-blue-50/70 border border-blue-200 text-blue-900 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+                <i data-lucide="sparkles" class="w-4 h-4 text-blue-600 shrink-0"></i>
+                <p class="text-xs sm:text-sm text-blue-800">
+                    <span class="font-bold">Need to directly edit existing text, add links, or create form fields?</span> Try our full in-browser PDF Editor.
+                </p>
+            </div>
+            <a href="/edit-pdf" class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shrink-0 shadow-xs transition-colors">
+                Open Full Editor
+            </a>
+        </div>
+
         <!-- 1. Upload Dropzone -->
         <div id="upload-panel" class="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-10 shadow-xs">
             <div

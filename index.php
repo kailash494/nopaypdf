@@ -112,6 +112,29 @@ require_once __DIR__ . '/includes/header.php';
 
 <!-- Tools Directory Section -->
 <section id="tools-section" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <!-- Flagship Feature Banner: Full PDF Editor -->
+    <div class="mb-10 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="space-y-2 max-w-2xl text-center md:text-left">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-blue-400"></i>
+                <span>Flagship In-Browser Editor</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight">
+                Direct In-Browser PDF Text Editor & Forms
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Directly edit existing text, add signatures, create AcroForm fields, insert clickable links, and redact sensitive data with zero server uploads and 100% private in-memory processing.
+            </p>
+        </div>
+        <a
+            href="/edit-pdf"
+            class="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2 shrink-0 group"
+        >
+            <span>Open PDF Editor</span>
+            <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-0.5 transition-transform"></i>
+        </a>
+    </div>
+
     <!-- Category Filter Pills -->
     <div class="flex items-center justify-center flex-wrap gap-2 mb-10">
         <?php foreach ($categories as $index => $cat): ?>

@@ -85,6 +85,11 @@ $pageMeta = $pageMeta ?? [];
 
                 <!-- Header Actions & Privacy Pill -->
                 <div class="hidden sm:flex items-center gap-3">
+                    <a href="/edit-pdf" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all shadow-xs">
+                        <i data-lucide="file-pen" class="w-3.5 h-3.5 text-blue-600"></i>
+                        <span>Edit PDF</span>
+                        <span class="text-[9px] uppercase tracking-wider font-extrabold bg-blue-600 text-white px-1.5 py-0.5 rounded-md">New</span>
+                    </a>
                     <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         <span>Zero Uploads</span>
@@ -102,6 +107,13 @@ $pageMeta = $pageMeta ?? [];
 
         <!-- Mobile Navigation Drawer -->
         <div id="mobile-menu" class="hidden md:hidden border-b border-slate-200 bg-white px-4 pt-2 pb-4 space-y-1">
+            <a href="/edit-pdf" class="flex items-center justify-between px-3 py-2 rounded-md text-base font-bold text-blue-600 bg-blue-50/70">
+                <span class="flex items-center gap-2">
+                    <i data-lucide="file-pen" class="w-4 h-4"></i>
+                    <span>Full PDF Editor</span>
+                </span>
+                <span class="text-[10px] uppercase font-extrabold bg-blue-600 text-white px-1.5 py-0.5 rounded">New</span>
+            </a>
             <a href="/#tools-section" data-cat="all" class="mobile-cat-link block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50">All Tools</a>
             <a href="/#tools-section" data-cat="organize" class="mobile-cat-link block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50">Organize</a>
             <a href="/#tools-section" data-cat="convert" class="mobile-cat-link block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50">Convert</a>

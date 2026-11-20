@@ -28,6 +28,13 @@ if ($uri !== '/' && file_exists($localFilePath) && !is_dir($localFilePath)) {
         readfile($localFilePath);
         return true;
     }
+    if ($ext === 'ttf') {
+        header('Content-Type: font/ttf');
+        header('Content-Length: ' . (string)filesize($localFilePath));
+        header('Cache-Control: public, max-age=31536000, immutable');
+        readfile($localFilePath);
+        return true;
+    }
     if ($ext === 'svg') {
         header('Content-Type: image/svg+xml');
         readfile($localFilePath);

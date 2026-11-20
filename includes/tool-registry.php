@@ -137,6 +137,17 @@ function get_tool_registry(): array
         ],
 
         // Phase 5: Edit & OCR
+        'edit-pdf' => [
+            'slug' => 'edit-pdf',
+            'name' => 'Edit PDF',
+            'short_desc' => 'Directly edit existing text, add signatures, create forms, insert links, and annotate documents.',
+            'category' => 'Edit & OCR',
+            'icon' => 'file-pen',
+            'phase' => 5,
+            'status' => 'active',
+            'meta_title' => 'Edit PDF Online - Free Full-Featured In-Browser PDF Editor | PDFToolKit',
+            'meta_desc' => 'Directly edit PDF text, fill and create AcroForms, add links, signatures, whiteout, and shapes. 100% private, free, and runs entirely in your browser with zero uploads.',
+        ],
         'sign-annotate-pdf' => [
             'slug' => 'sign-annotate-pdf',
             'name' => 'Sign & Annotate',

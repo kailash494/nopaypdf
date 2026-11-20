@@ -210,6 +210,10 @@ $headersContent = <<<'HEADERS'
   Content-Type: image/svg+xml
   Cache-Control: public, max-age=31536000, immutable
 
+/*.ttf
+  Content-Type: font/ttf
+  Cache-Control: public, max-age=31536000, immutable
+
 /site.webmanifest
   Content-Type: application/manifest+json
   Cache-Control: public, max-age=86400

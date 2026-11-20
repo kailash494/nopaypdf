@@ -96,6 +96,22 @@ $libraries = [
         'purpose' => 'Lightweight, modern vector interface icons throughout the user interface.',
         'url' => 'https://lucide.dev',
     ],
+    [
+        'name' => 'Liberation Fonts',
+        'version' => '2.1.5',
+        'license' => 'SIL Open Font License 1.1',
+        'author' => 'Red Hat, Inc., Google Corp, and Liberation Project',
+        'purpose' => 'Metric-compatible open-source typography (Sans, Serif, Mono) for high-fidelity client-side PDF text editing and vector embedding.',
+        'url' => 'https://github.com/liberationfonts/liberation-fonts',
+    ],
+    [
+        'name' => '@pdf-lib/fontkit',
+        'version' => '1.1.1',
+        'license' => 'MIT License',
+        'author' => 'Devon Govett, Andrew Dillon',
+        'purpose' => 'Advanced font engine for subsetting and embedding custom TrueType/OpenType fonts in PDF documents via pdf-lib.',
+        'url' => 'https://github.com/Hopding/fontkit',
+    ],
 ];
 ?>
 

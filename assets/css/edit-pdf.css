@@ -1,0 +1,328 @@
+/**
+ * PDFToolKit - Full In-Browser PDF Editor Stylesheet
+ * 100% Client-Side. SIL OFL 1.1 Liberation Fonts integration & responsive UI styling.
+ */
+
+/* ====================================================================
+   1. SIL Open Font License (OFL 1.1) Liberation Typography Rules
+   ==================================================================== */
+
+/* Liberation Sans (Metric-compatible replacement for Arial / Helvetica) */
+@font-face {
+    font-family: 'Liberation Sans';
+    src: url('/assets/fonts/liberation/LiberationSans-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Liberation Sans';
+    src: url('/assets/fonts/liberation/LiberationSans-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Liberation Sans';
+    src: url('/assets/fonts/liberation/LiberationSans-Italic.ttf') format('truetype');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Liberation Sans';
+    src: url('/assets/fonts/liberation/LiberationSans-BoldItalic.ttf') format('truetype');
+    font-weight: 700;
+    font-style: italic;
+    font-display: swap;
+}
+
+/* Liberation Serif (Metric-compatible replacement for Times New Roman) */
+@font-face {
+    font-family: 'Liberation Serif';
+    src: url('/assets/fonts/liberation/LiberationSerif-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Liberation Serif';
+    src: url('/assets/fonts/liberation/LiberationSerif-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Liberation Serif';
+    src: url('/assets/fonts/liberation/LiberationSerif-Italic.ttf') format('truetype');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+
+/* Liberation Mono (Metric-compatible replacement for Courier / Courier New) */
+@font-face {
+    font-family: 'Liberation Mono';
+    src: url('/assets/fonts/liberation/LiberationMono-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Liberation Mono';
+    src: url('/assets/fonts/liberation/LiberationMono-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* ====================================================================
+   2. Workspace & 3-Layer Synchronized Stage Architecture
+   ==================================================================== */
+
+.editor-viewport-container {
+    min-height: 600px;
+    background-color: #f1f5f9;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* The parent stage containing Layer 1, Layer 2, Layer 3 */
+.stage-stack {
+    position: relative;
+    margin: 0 auto;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+    transition: transform 0.1s ease-out;
+}
+
+/* Layer 1: PDF.js Base Canvas */
+.stage-layer-base {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Layer 2: Interactive DOM Overlay (Existing Text, Links, Forms) */
+.stage-layer-dom {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 20;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+/* Layer 3: Fabric.js Interactive Vector Overlay */
+.stage-layer-fabric-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 30;
+    pointer-events: none;
+}
+
+.stage-layer-fabric-wrap.interactive {
+    pointer-events: auto;
+}
+
+/* ====================================================================
+   3. Layer 2: Existing-Text Hitboxes & Inline Editor Inputs
+   ==================================================================== */
+
+.text-hitbox {
+    position: absolute;
+    box-sizing: border-box;
+    cursor: text;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    pointer-events: auto;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+    white-space: pre;
+    line-height: 1.1;
+    overflow: visible;
+}
+
+.text-hitbox:hover {
+    border-color: rgba(59, 130, 246, 0.7);
+    background-color: rgba(59, 130, 246, 0.08);
+}
+
+.text-hitbox.editing {
+    border-color: #2563eb;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+    z-index: 25;
+}
+
+.text-hitbox.modified {
+    border-left: 2px solid #10b981;
+}
+
+.text-hitbox.deleted {
+    opacity: 0.4;
+    text-decoration: line-through;
+    border-color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.05);
+}
+
+.text-inline-input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    outline: none;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    font-style: inherit;
+    line-height: inherit;
+}
+
+/* Warning badge for high background variance (e.g. text over image) */
+.variance-warning-dot {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    background-color: #f59e0b;
+    border-radius: 50%;
+    border: 1px solid #ffffff;
+}
+
+/* ====================================================================
+   4. Layer 2: Native PDF Links & AcroForm Controls
+   ==================================================================== */
+
+.link-hotspot {
+    position: absolute;
+    pointer-events: auto;
+    border: 1.5px dashed #2563eb;
+    background-color: rgba(37, 99, 235, 0.12);
+    border-radius: 4px;
+    cursor: pointer;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    padding: 2px;
+}
+
+.link-hotspot:hover {
+    background-color: rgba(37, 99, 235, 0.2);
+}
+
+.link-badge {
+    font-size: 9px;
+    font-weight: 700;
+    background-color: #2563eb;
+    color: #ffffff;
+    padding: 1px 4px;
+    border-radius: 3px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.form-field-hotspot {
+    position: absolute;
+    pointer-events: auto;
+    border: 1.5px solid #6366f1;
+    background-color: rgba(99, 102, 241, 0.1);
+    border-radius: 4px;
+    cursor: move;
+    box-sizing: border-box;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.form-field-hotspot:hover {
+    background-color: rgba(99, 102, 241, 0.18);
+}
+
+.form-field-badge {
+    font-size: 9px;
+    font-weight: 700;
+    background-color: #6366f1;
+    color: #ffffff;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+/* ====================================================================
+   5. Toolbars, Thumbnails & Controls
+   ==================================================================== */
+
+.editor-toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #334155;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.editor-toolbar-btn:hover {
+    background-color: #f8fafc;
+    color: #1e293b;
+    border-color: #cbd5e1;
+}
+
+.editor-toolbar-btn.active {
+    background-color: #eff6ff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.sub-toolbar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+}
+
+/* Thumbnail Strip Rail */
+.thumbnail-rail-card {
+    border: 2px solid transparent;
+    border-radius: 0.75rem;
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.thumbnail-rail-card:hover {
+    border-color: #93c5fd;
+    transform: translateY(-1px);
+}
+
+.thumbnail-rail-card.active {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+/* Signatures Cursive Fonts */
+.sig-font-1 { font-family: 'Brush Script MT', 'Dancing Script', cursive; }
+.sig-font-2 { font-family: 'Great Vibes', 'Allura', cursive; }
+.sig-font-3 { font-family: 'Pacifico', cursive; }
+.sig-font-4 { font-family: 'Caveat', 'Comic Sans MS', cursive; }

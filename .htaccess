@@ -11,6 +11,7 @@ Options -Indexes
     AddType application/wasm .wasm
     AddType image/svg+xml .svg
     AddType application/manifest+json .webmanifest
+    AddType font/ttf .ttf
 </IfModule>
 
 # Block Sensitive Files and Directories
@@ -56,6 +57,7 @@ RewriteRule ^(includes|scripts|dist)/ - [F,L,NC]
     ExpiresByType image/svg+xml "access plus 1 year"
     ExpiresByType image/png "access plus 1 year"
     ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType font/ttf "access plus 1 year"
 </IfModule>
 
 <IfModule mod_headers.c>
