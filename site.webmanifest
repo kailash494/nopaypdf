@@ -1,7 +1,7 @@
 {
-  "name": "PDFToolKit",
-  "short_name": "PDFToolKit",
-  "description": "Free, fast and 100% private in-browser PDF tools suite with zero server uploads.",
+  "name": "NoPayPDF",
+  "short_name": "NoPayPDF",
+  "description": "100% Free browser-based PDF tools with zero subscriptions, sign-ups, or server uploads.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Merge PDF Client-Side Controller
+ * NoPayPDF - Merge PDF Client-Side Controller
  * 100% In-Browser Execution via pdf-lib
  */
 

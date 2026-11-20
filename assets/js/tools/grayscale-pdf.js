@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Grayscale PDF Controller
+ * NoPayPDF - Grayscale PDF Controller
  * Converts color documents to monochrome grayscale or high-contrast black and white.
  * 100% Client-Side. Permissive MIT/Apache 2.0 implementation.
  */

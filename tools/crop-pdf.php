@@ -36,7 +36,7 @@ $howToSteps = [
 $faqs = [
     [
         'q' => 'Is PDF cropping permanent and non-destructive?',
-        'a' => 'Yes. PDFToolKit adjusts the PDF CropBox and MediaBox viewport parameters. All underlying vector elements, sharp fonts, and images are preserved without lossy rasterization or compression artifacts.',
+        'a' => 'Yes. NoPayPDF adjusts the PDF CropBox and MediaBox viewport parameters. All underlying vector elements, sharp fonts, and images are preserved without lossy rasterization or compression artifacts.',
     ],
     [
         'q' => 'Can I crop all pages at once or just specific pages?',

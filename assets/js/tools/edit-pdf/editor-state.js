@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Editor State Module (window.EditorState)
+ * NoPayPDF - Editor State Module (window.EditorState)
  *
  * Central document state manager: multi-page state, undo/redo history,
  * page management, and multi-page Find & Replace engine.

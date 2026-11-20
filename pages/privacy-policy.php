@@ -2,14 +2,14 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Privacy Policy
+ * NoPayPDF - Privacy Policy
  */
 
 require_once __DIR__ . '/../includes/config.php';
 
 $pageMeta = [
     'title' => 'Privacy Policy - 100% Client-Side Guarantee | ' . SITE_NAME,
-    'description' => 'Read how PDFToolKit protects your confidentiality. All PDF documents are processed locally in your browser with zero server uploads or data retention.',
+    'description' => 'Read how NoPayPDF protects your confidentiality. All PDF documents are processed locally in your browser with zero server uploads or data retention.',
     'canonical' => SITE_URL . '/privacy-policy',
 ];
 
@@ -33,9 +33,9 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="flex items-start gap-4">
                 <i data-lucide="shield-check" class="w-6 h-6 text-emerald-600 flex-shrink-0 mt-0.5"></i>
                 <div class="space-y-1 text-sm">
-                    <h3 class="font-bold text-emerald-950">The PDFToolKit Zero-Upload Privacy Guarantee</h3>
+                    <h3 class="font-bold text-emerald-950">The NoPayPDF Zero-Upload Privacy Guarantee</h3>
                     <p class="text-emerald-800 leading-relaxed">
-                        PDFToolKit was designed from the ground up to respect your confidentiality. When you use our tools to merge, split, compress, or edit PDF documents, <strong>your files are never uploaded to our servers</strong>. All processing is executed 100% locally inside your web browser.
+                        NoPayPDF was designed from the ground up to respect your confidentiality. When you use our tools to merge, split, compress, or edit PDF documents, <strong>your files are never uploaded to our servers</strong>. All processing is executed 100% locally inside your web browser.
                     </p>
                 </div>
             </div>
@@ -45,21 +45,21 @@ require_once __DIR__ . '/../includes/header.php';
             <section>
                 <h2 class="text-lg font-bold text-slate-900 mb-2">1. Information We Do Not Collect (Your Documents)</h2>
                 <p>
-                    Because PDFToolKit operates entirely within your web browser using client-side JavaScript, we do not receive, transmit, inspect, store, or log any contents of the files you open or process. Your documents remain exclusively in your computer or device's temporary memory while the browser tab is open, and disappear when you close it.
+                    Because NoPayPDF operates entirely within your web browser using client-side JavaScript, we do not receive, transmit, inspect, store, or log any contents of the files you open or process. Your documents remain exclusively in your computer or device's temporary memory while the browser tab is open, and disappear when you close it.
                 </p>
             </section>
 
             <section>
                 <h2 class="text-lg font-bold text-slate-900 mb-2">2. Client-Side Browser Storage</h2>
                 <p>
-                    PDFToolKit uses your browser's local storage (such as <code>localStorage</code>) strictly to remember your site preferences (for instance, your cookie consent decisions under key <code>pdftoolkit_consent_v1</code>). No document data or personally identifiable information is stored in persistent local storage.
+                    NoPayPDF uses your browser's local storage (such as <code>localStorage</code>) strictly to remember your site preferences (for instance, your cookie consent decisions under key <code>nopaypdf_consent_v1</code>). No document data or personally identifiable information is stored in persistent local storage.
                 </p>
             </section>
 
             <section>
                 <h2 class="text-lg font-bold text-slate-900 mb-2">3. Third-Party Advertising & Cookies</h2>
                 <p>
-                    To keep PDFToolKit 100% free for everyone without charging subscriptions, we may display advertising served by third-party ad networks such as Google AdSense.
+                    To keep NoPayPDF 100% free for everyone without charging subscriptions, we may display advertising served by third-party ad networks such as Google AdSense.
                 </p>
                 <ul class="list-disc pl-5 mt-2 space-y-1">
                     <li>Third-party vendors, including Google, use cookies to serve ads based on a user's prior visits to our website or other websites.</li>

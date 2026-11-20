@@ -40,11 +40,11 @@ $faqs = [
     ],
     [
         'q' => 'How does the Searchable PDF output work?',
-        'a' => 'PDFToolKit overlays an invisible, high-precision vector text layer directly on top of your scanned document images, allowing you to highlight, search (Ctrl+F), and copy text while preserving the original visual scan.',
+        'a' => 'NoPayPDF overlays an invisible, high-precision vector text layer directly on top of your scanned document images, allowing you to highlight, search (Ctrl+F), and copy text while preserving the original visual scan.',
     ],
     [
         'q' => 'What languages are supported?',
-        'a' => 'PDFToolKit supports major global languages including English, Spanish, French, German, Italian, Portuguese, Arabic, Hindi, and Chinese Simplified using specialized neural LSTM recognition models.',
+        'a' => 'NoPayPDF supports major global languages including English, Spanish, French, German, Italian, Portuguese, Arabic, Hindi, and Chinese Simplified using specialized neural LSTM recognition models.',
     ],
     [
         'q' => 'Are my confidential scans uploaded to an external server?',

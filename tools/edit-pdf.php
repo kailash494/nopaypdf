@@ -36,15 +36,15 @@ $howToSteps = [
 $faqs = [
     [
         'q' => 'Can I directly edit existing text in my PDF without uploading it?',
-        'a' => 'Yes. PDFToolKit is 100% client-side. The editor extracts existing text coordinates and lines directly in your browser. Clicking on any line allows you to modify text, update numbers, fix typos, or change styling with zero server uploads.',
+        'a' => 'Yes. NoPayPDF is 100% client-side. The editor extracts existing text coordinates and lines directly in your browser. Clicking on any line allows you to modify text, update numbers, fix typos, or change styling with zero server uploads.',
     ],
     [
         'q' => 'What fonts does the editor use for replacing text?',
-        'a' => 'PDFToolKit uses official metric-compatible SIL Open Font License 1.1 Liberation Fonts (Liberation Sans, Liberation Serif, and Liberation Mono). They are metric equivalents to standard document typefaces, ensuring matching character widths and line layout.',
+        'a' => 'NoPayPDF uses official metric-compatible SIL Open Font License 1.1 Liberation Fonts (Liberation Sans, Liberation Serif, and Liberation Mono). They are metric equivalents to standard document typefaces, ensuring matching character widths and line layout.',
     ],
     [
-        'q' => 'Are created AcroForm fields compatible with Adobe Acrobat and web browsers?',
-        'a' => 'Yes. All text fields, textareas, checkboxes, radio buttons, and dropdowns created in the editor are standard ISO 32000 compliant native PDF AcroForm dictionaries that work in all standard PDF viewers.',
+        'q' => 'Are created AcroForm fields compatible with standard PDF readers and web browsers?',
+        'a' => 'Yes. All text fields, textareas, checkboxes, radio buttons, and dropdowns created in the editor are standard ISO 32000 compliant native PDF AcroForm dictionaries that work in all standard PDF viewers and web browsers.',
     ],
     [
         'q' => 'How does the "Flatten Edited Pages" irreversible redaction work?',

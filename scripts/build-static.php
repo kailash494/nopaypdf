@@ -2,25 +2,25 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Zero-Dependency Static Site Exporter
+ * NoPayPDF - Zero-Dependency Static Site Exporter
  * Generates an optimized, ready-to-deploy static site inside dist/
  * Perfect for Cloudflare Pages ($0/mo), GitHub Pages, Netlify, or Vercel.
  *
  * Usage:
  *   php scripts/build-static.php
- *   php scripts/build-static.php --base-url=https://pdftoolkit.pages.dev --ad-mode=off
+ *   php scripts/build-static.php --base-url=https://nopaypdf.com --ad-mode=off
  */
 
 $options = getopt('', ['base-url::', 'ad-mode::']);
 
-$baseUrl = isset($options['base-url']) ? rtrim($options['base-url'], '/') : 'http://localhost:8080';
+$baseUrl = isset($options['base-url']) ? rtrim($options['base-url'], '/') : 'https://nopaypdf.com';
 $adMode = $options['ad-mode'] ?? 'off';
 
 $rootDir = realpath(__DIR__ . '/..');
 $distDir = $rootDir . '/dist';
 
 echo "\n======================================================\n";
-echo " PDFToolKit - Static Site Exporter\n";
+echo " NoPayPDF - Static Site Exporter\n";
 echo " Base URL: {$baseUrl}\n";
 echo " Ad Mode:  {$adMode}\n";
 echo " Target:   {$distDir}\n";

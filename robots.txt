@@ -1,5 +1,5 @@
-# PDFToolKit - Robots.txt
+# NoPayPDF - Robots.txt
 User-agent: *
 Allow: /
 
-Sitemap: /sitemap.xml
+Sitemap: https://nopaypdf.com/sitemap.xml

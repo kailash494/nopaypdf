@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Unlock PDF Controller
+ * NoPayPDF - Unlock PDF Controller
  * Automatic Security Detection & Client-Side Decryption via QPDF WebAssembly
  */
 

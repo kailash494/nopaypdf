@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - SEO & Structured Data Engine
+ * NoPayPDF - SEO & Structured Data Engine
  * Renders complete metadata, Open Graph, Twitter Cards, and Schema.org JSON-LD.
  */
 

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Homepage & Tool Directory
+ * NoPayPDF - Homepage & Tool Directory
  */
 
 require_once __DIR__ . '/includes/config.php';
@@ -15,10 +15,10 @@ $categories = get_tool_categories();
 $faqs = [
     [
         'q' => 'Are my PDF documents uploaded to your servers?',
-        'a' => 'No. PDFToolKit executes 100% of PDF processing locally inside your web browser using client-side JavaScript. Your confidential files never leave your device or travel across any network.'
+        'a' => 'No. NoPayPDF executes 100% of PDF processing locally inside your web browser using client-side JavaScript. Your confidential files never leave your device or travel across any network.'
     ],
     [
-        'q' => 'Is PDFToolKit completely free to use?',
+        'q' => 'Is NoPayPDF completely free to use?',
         'a' => 'Yes. All tools are 100% free with no hidden fees, subscriptions, watermark additions, or file count restrictions.'
     ],
     [
@@ -26,8 +26,8 @@ $faqs = [
         'a' => 'Because files are processed directly in your device\'s memory rather than uploaded to a remote server, limits depend solely on your computer or phone\'s available memory. Most modern devices comfortably process documents up to 150MB+.'
     ],
     [
-        'q' => 'Can I use PDFToolKit on mobile devices?',
-        'a' => 'Yes. PDFToolKit is fully responsive and compatible with all modern mobile and desktop browsers including Chrome, Safari, Firefox, and Edge.'
+        'q' => 'Can I use NoPayPDF on mobile devices?',
+        'a' => 'Yes. NoPayPDF is fully responsive and compatible with all modern mobile and desktop browsers including Chrome, Safari, Firefox, and Edge.'
     ],
     [
         'q' => 'Do I need to install any software or extensions?',
@@ -36,7 +36,7 @@ $faqs = [
 ];
 
 $pageMeta = [
-    'title' => 'PDFToolKit - 100% Free & Private Online PDF Tools (No Uploads)',
+    'title' => 'NoPayPDF - 100% Free & Private Online PDF Tools (No Uploads)',
     'description' => 'Merge, split, compress, convert, and edit PDF documents directly in your web browser. 100% private with zero file uploads and unlimited free access.',
     'is_homepage' => true,
     'faqs' => $faqs,
@@ -260,7 +260,7 @@ require_once __DIR__ . '/includes/header.php';
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10">
             <h2 class="text-2xl sm:text-3xl font-bold text-slate-900">Frequently Asked Questions</h2>
-            <p class="text-xs sm:text-sm text-slate-600 mt-1">Everything you need to know about PDFToolKit and our client-side architecture.</p>
+            <p class="text-xs sm:text-sm text-slate-600 mt-1">Everything you need to know about NoPayPDF and our client-side architecture.</p>
         </div>
 
         <div class="space-y-4">

@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - GDPR & AdSense-Ready Cookie Consent Manager
+ * NoPayPDF - GDPR & AdSense-Ready Cookie Consent Manager
  * Client-Side Only - Stores choices locally in localStorage
  * Includes Google Consent Mode v2 support for Google AdSense and Analytics
  */
@@ -7,7 +7,7 @@
 (function () {
     'use strict';
 
-    const STORAGE_KEY = 'pdftoolkit_consent_v1';
+    const STORAGE_KEY = 'nopaypdf_consent_v1';
 
     // Google Consent Mode v2 setup
     window.dataLayer = window.dataLayer || [];
@@ -18,7 +18,16 @@
     const ConsentManager = {
         getConsent() {
             try {
-                const stored = localStorage.getItem(STORAGE_KEY);
+                let stored = localStorage.getItem(STORAGE_KEY);
+                if (!stored) {
+                    // Transparent one-time migration fallback from legacy key
+                    const legacy = localStorage.getItem('pdftoolkit_consent_v1');
+                    if (legacy) {
+                        localStorage.setItem(STORAGE_KEY, legacy);
+                        localStorage.removeItem('pdftoolkit_consent_v1');
+                        stored = legacy;
+                    }
+                }
                 return stored ? JSON.parse(stored) : null;
             } catch (e) {
                 return null;
@@ -63,7 +72,7 @@
         },
 
         dispatchUpdate(consentData) {
-            const event = new CustomEvent('pdftoolkit:consent-updated', {
+            const event = new CustomEvent('nopaypdf:consent-updated', {
                 detail: consentData,
             });
             window.dispatchEvent(event);

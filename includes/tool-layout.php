@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Shared Tool Layout Partials
+ * NoPayPDF - Shared Tool Layout Partials
  * Renders standardized hero headers, breadcrumbs, how-to guides, and SEO FAQs.
  */
 

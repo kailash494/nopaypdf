@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Protect PDF Controller
+ * NoPayPDF - Protect PDF Controller
  * AES-256 Bit Client-Side Encryption via QPDF WebAssembly
  */
 

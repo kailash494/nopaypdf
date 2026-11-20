@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Central Tool Registry
+ * NoPayPDF - Central Tool Registry
  * Single source of truth for all planned and active PDF tools across Phases 2–5.
  */
 
@@ -18,7 +18,7 @@ function get_tool_registry(): array
             'icon' => 'files',
             'phase' => 2,
             'status' => 'active',
-            'meta_title' => 'Merge PDF Files Online - Free & 100% Private | PDFToolKit',
+            'meta_title' => 'Merge PDF Files Online - Free & 100% Private | NoPayPDF',
             'meta_desc' => 'Combine PDF files in your preferred order directly in your browser. Fast, free, unlimited, and 100% private with no server uploads.',
         ],
         'split-pdf' => [
@@ -29,7 +29,7 @@ function get_tool_registry(): array
             'icon' => 'scissors',
             'phase' => 2,
             'status' => 'active',
-            'meta_title' => 'Split PDF Online - Extract Pages Privately | PDFToolKit',
+            'meta_title' => 'Split PDF Online - Extract Pages Privately | NoPayPDF',
             'meta_desc' => 'Separate PDF pages or extract custom page ranges quickly. Safe, private, and runs completely inside your browser.',
         ],
         'organize-pdf' => [
@@ -40,7 +40,7 @@ function get_tool_registry(): array
             'icon' => 'layout-grid',
             'phase' => 2,
             'status' => 'active',
-            'meta_title' => 'Organize & Reorder PDF Pages Online | PDFToolKit',
+            'meta_title' => 'Organize & Reorder PDF Pages Online | NoPayPDF',
             'meta_desc' => 'Drag and drop to rearrange, rotate, or remove PDF pages. Fast visual page organizer running 100% in your browser.',
         ],
 
@@ -53,7 +53,7 @@ function get_tool_registry(): array
             'icon' => 'image',
             'phase' => 3,
             'status' => 'active',
-            'meta_title' => 'Convert PDF to JPG Online - High Resolution Images | PDFToolKit',
+            'meta_title' => 'Convert PDF to JPG Online - High Resolution Images | NoPayPDF',
             'meta_desc' => 'Transform PDF pages into crisp JPG images locally on your device. Zero upload required, preserving complete privacy.',
         ],
         'jpg-to-pdf' => [
@@ -64,7 +64,7 @@ function get_tool_registry(): array
             'icon' => 'file-image',
             'phase' => 3,
             'status' => 'active',
-            'meta_title' => 'Convert JPG & Images to PDF Online | PDFToolKit',
+            'meta_title' => 'Convert JPG & Images to PDF Online | NoPayPDF',
             'meta_desc' => 'Easily turn images into clean PDF documents with custom orientation and margins. Instant local conversion in your browser.',
         ],
         'html-to-pdf' => [
@@ -75,7 +75,7 @@ function get_tool_registry(): array
             'icon' => 'code-xml',
             'phase' => 3,
             'status' => 'active',
-            'meta_title' => 'Convert HTML to PDF Online - Free & Private | PDFToolKit',
+            'meta_title' => 'Convert HTML to PDF Online - Free & Private | NoPayPDF',
             'meta_desc' => 'Render HTML content and formatted text into downloadable PDF documents directly on your device.',
         ],
 
@@ -88,7 +88,7 @@ function get_tool_registry(): array
             'icon' => 'file-down',
             'phase' => 4,
             'status' => 'active',
-            'meta_title' => 'Compress PDF Online - Reduce File Size Privately | PDFToolKit',
+            'meta_title' => 'Compress PDF Online - Reduce File Size Privately | NoPayPDF',
             'meta_desc' => 'Optimize and shrink large PDF files quickly without losing quality. Complete in-browser compression keeps your data safe.',
         ],
         'protect-pdf' => [
@@ -99,7 +99,7 @@ function get_tool_registry(): array
             'icon' => 'lock',
             'phase' => 4,
             'status' => 'active',
-            'meta_title' => 'Password Protect PDF Online - Encrypt Documents | PDFToolKit',
+            'meta_title' => 'Password Protect PDF Online - Encrypt Documents | NoPayPDF',
             'meta_desc' => 'Add strong encryption and passwords to your PDF files securely in your web browser. No files are ever sent across the web.',
         ],
         'unlock-pdf' => [
@@ -110,7 +110,7 @@ function get_tool_registry(): array
             'icon' => 'unlock',
             'phase' => 4,
             'status' => 'active',
-            'meta_title' => 'Unlock Password-Protected PDF Online | PDFToolKit',
+            'meta_title' => 'Unlock Password-Protected PDF Online | NoPayPDF',
             'meta_desc' => 'Decrypt and remove password locks from PDFs you own directly on your machine without uploading sensitive files.',
         ],
         'watermark-pdf' => [
@@ -121,7 +121,7 @@ function get_tool_registry(): array
             'icon' => 'stamp',
             'phase' => 4,
             'status' => 'active',
-            'meta_title' => 'Add Watermark to PDF Online - Text & Image Stamps | PDFToolKit',
+            'meta_title' => 'Add Watermark to PDF Online - Text & Image Stamps | NoPayPDF',
             'meta_desc' => 'Stamp confidential marks, copyright notices, or custom logos on PDF documents locally in your browser.',
         ],
         'page-numbers' => [
@@ -132,7 +132,7 @@ function get_tool_registry(): array
             'icon' => 'hash',
             'phase' => 4,
             'status' => 'active',
-            'meta_title' => 'Add Page Numbers to PDF Online | PDFToolKit',
+            'meta_title' => 'Add Page Numbers to PDF Online | NoPayPDF',
             'meta_desc' => 'Customize page numbering format, font, and position on your PDF documents with ease and complete privacy.',
         ],
 
@@ -145,7 +145,7 @@ function get_tool_registry(): array
             'icon' => 'file-pen',
             'phase' => 5,
             'status' => 'active',
-            'meta_title' => 'Edit PDF Online - Free Full-Featured In-Browser PDF Editor | PDFToolKit',
+            'meta_title' => 'Edit PDF Online - Free Full-Featured In-Browser PDF Editor | NoPayPDF',
             'meta_desc' => 'Directly edit PDF text, fill and create AcroForms, add links, signatures, whiteout, and shapes. 100% private, free, and runs entirely in your browser with zero uploads.',
         ],
         'sign-annotate-pdf' => [
@@ -156,7 +156,7 @@ function get_tool_registry(): array
             'icon' => 'pen-tool',
             'phase' => 5,
             'status' => 'active',
-            'meta_title' => 'Sign & Annotate PDF Online - Free Digital Signatures | PDFToolKit',
+            'meta_title' => 'Sign & Annotate PDF Online - Free Digital Signatures | NoPayPDF',
             'meta_desc' => 'Sign documents, add annotations, text callouts, and highlights right in your browser. Private and secure.',
         ],
         'grayscale-pdf' => [
@@ -167,7 +167,7 @@ function get_tool_registry(): array
             'icon' => 'contrast',
             'phase' => 5,
             'status' => 'active',
-            'meta_title' => 'Convert PDF to Black and White / Grayscale Online | PDFToolKit',
+            'meta_title' => 'Convert PDF to Black and White / Grayscale Online | NoPayPDF',
             'meta_desc' => 'Transform colorful PDFs to monochrome black and white for efficient printing and smaller storage.',
         ],
         'crop-pdf' => [
@@ -178,7 +178,7 @@ function get_tool_registry(): array
             'icon' => 'crop',
             'phase' => 5,
             'status' => 'active',
-            'meta_title' => 'Crop PDF Margins Online - Free Visual Trimmer | PDFToolKit',
+            'meta_title' => 'Crop PDF Margins Online - Free Visual Trimmer | NoPayPDF',
             'meta_desc' => 'Trim unnecessary whitespace and adjust page margins on any PDF document in your browser.',
         ],
         'ocr-pdf' => [
@@ -189,7 +189,7 @@ function get_tool_registry(): array
             'icon' => 'scan-text',
             'phase' => 5,
             'status' => 'active',
-            'meta_title' => 'OCR PDF Online - Extract Text from Scanned PDFs | PDFToolKit',
+            'meta_title' => 'OCR PDF Online - Extract Text from Scanned PDFs | NoPayPDF',
             'meta_desc' => 'Convert scanned PDF pages into selectable, searchable text with client-side optical character recognition.',
         ],
     ];

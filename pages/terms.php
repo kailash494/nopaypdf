@@ -2,14 +2,14 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Terms of Service
+ * NoPayPDF - Terms of Service
  */
 
 require_once __DIR__ . '/../includes/config.php';
 
 $pageMeta = [
     'title' => 'Terms of Service | ' . SITE_NAME,
-    'description' => 'Review the terms of use, acceptable use policy, and disclaimers for using PDFToolKit.',
+    'description' => 'Review the terms of use, acceptable use policy, and disclaimers for using NoPayPDF.',
     'canonical' => SITE_URL . '/terms',
 ];
 

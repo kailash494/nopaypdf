@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - QPDF WebAssembly Client
+ * NoPayPDF - QPDF WebAssembly Client
  * Permissive (ISC / Apache 2.0) Client-Side PDF Operations:
  * AES-256 Encryption, Decryption, Restriction Removal & Lossless Stream Compression
  */

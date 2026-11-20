@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Global Footer Template
+ * NoPayPDF - Global Footer Template
  */
 
 require_once __DIR__ . '/config.php';
@@ -25,7 +25,7 @@ require_once __DIR__ . '/tool-registry.php';
                     <h3 class="text-lg font-bold text-slate-900">100% Client-Side & Zero Server Uploads</h3>
                     <p class="text-sm text-slate-600 mt-1">
                         Unlike traditional cloud PDF converters that transfer your sensitive files across the internet to remote servers,
-                        <strong>PDFToolKit</strong> executes all operations directly inside your web browser. Your private contracts, financial statements,
+                        <strong>NoPayPDF</strong> executes all operations directly inside your web browser. Your private contracts, financial statements,
                         and personal documents never leave your computer or mobile device.
                     </p>
                 </div>
@@ -48,13 +48,13 @@ require_once __DIR__ . '/tool-registry.php';
                         <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
                             <i data-lucide="file-check-2" class="w-4 h-4"></i>
                         </div>
-                        <span class="text-lg font-bold text-slate-900">PDF<span class="text-blue-600">ToolKit</span></span>
+                        <span class="text-lg font-bold text-slate-900">NoPay<span class="text-blue-600">PDF</span></span>
                     </div>
                     <p class="text-xs text-slate-500 leading-relaxed">
-                        Free, private, and unlimited online PDF utility suite. Fast client-side document processing for modern web browsers.
+                        100% Free, private, and unlimited online PDF utility suite. No subscriptions, no sign-ups, and zero server uploads.
                     </p>
                     <div class="text-[11px] text-slate-400">
-                        &copy; <?= date('Y') ?> PDFToolKit. All rights reserved.
+                        &copy; <?= date('Y') ?> NoPayPDF. All rights reserved.
                     </div>
                 </div>
 
@@ -85,7 +85,7 @@ require_once __DIR__ . '/tool-registry.php';
                 <div>
                     <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-900 mb-3">About & Trust</h4>
                     <ul class="space-y-2 text-xs">
-                        <li><a href="/about" class="hover:text-blue-600 transition-colors">About PDFToolKit</a></li>
+                        <li><a href="/about" class="hover:text-blue-600 transition-colors">About NoPayPDF</a></li>
                         <li><a href="/contact" class="hover:text-blue-600 transition-colors">Contact & Support</a></li>
                         <li><a href="/licenses" class="hover:text-blue-600 transition-colors">Open-Source Licenses</a></li>
                         <li><a href="/privacy-policy" class="hover:text-blue-600 transition-colors">Privacy Architecture</a></li>

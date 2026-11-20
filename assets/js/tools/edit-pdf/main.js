@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Full In-Browser PDF Editor Master Controller (main.js)
+ * NoPayPDF - Full In-Browser PDF Editor Master Controller (main.js)
  *
  * Coordinates dropzone, toolbar state, thumbnails, modals, keyboard shortcuts,
  * and export pipeline.

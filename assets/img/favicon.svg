@@ -9,6 +9,6 @@
   <!-- Folded corner document icon -->
   <path d="M30 22 h26 l18 18 v38 a4 4 0 0 1 -4 4 h-40 a4 4 0 0 1 -4 -4 z" fill="#ffffff" fill-opacity="0.95"/>
   <path d="M56 22 v18 h18 z" fill="#dbeafe"/>
-  <!-- Clean central 'P' letter -->
-  <text x="48" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="#2563eb" text-anchor="middle">P</text>
+  <!-- Clean central 'NP' monogram -->
+  <text x="48" y="64" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="900" fill="#2563eb" text-anchor="middle" letter-spacing="-1">NP</text>
 </svg>

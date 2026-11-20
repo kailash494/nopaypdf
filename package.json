@@ -1,7 +1,7 @@
 {
-  "name": "pdftoolkit",
+  "name": "nopaypdf",
   "version": "1.0.0",
-  "description": "Free, fast and 100% private in-browser PDF tools suite",
+  "description": "100% Free browser-based PDF tools with zero subscriptions, sign-ups, or server uploads",
   "private": true,
   "scripts": {
     "build:css": "tailwindcss -i assets/css/tailwind.input.css -o assets/css/tailwind.min.css --minify",

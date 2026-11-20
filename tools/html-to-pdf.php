@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - HTML & Plain Text to PDF Converter
+ * NoPayPDF - HTML & Plain Text to PDF Converter
  * 100% Client-Side Vector Text & Rich Document Generation
  */
 
@@ -34,7 +34,7 @@ $howToSteps = [
 $faqs = [
     [
         'q' => 'Is my HTML code or text uploaded to any server?',
-        'a' => 'No. PDFToolKit compiles HTML and text documents 100% locally inside your web browser. Your private notes, invoices, and sensitive code never leave your machine.',
+        'a' => 'No. NoPayPDF compiles HTML and text documents 100% locally inside your web browser. Your private notes, invoices, and sensitive code never leave your machine.',
     ],
     [
         'q' => 'What is the difference between Text Mode and HTML Mode?',

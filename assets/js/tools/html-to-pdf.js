@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - HTML & Plain Text to PDF Client-Side Controller
+ * NoPayPDF - HTML & Plain Text to PDF Client-Side Controller
  * 100% In-Browser Execution via jsPDF, html2canvas & DOMPurify
  */
 
@@ -114,7 +114,7 @@
 
     if (loadSampleTxtBtn) {
         loadSampleTxtBtn.addEventListener('click', () => {
-            plainTextInput.value = `PDFToolKit Document Report\n===========================\n\nThis document was generated directly inside your web browser using client-side vector typography. Notice that all text remains sharp, selectable, and searchable, regardless of screen zoom level.\n\nKey Advantages of Client-Side Processing:\n1. 100% Privacy: Your confidential words and documents never touch a third-party server.\n2. Instant Processing: Zero bandwidth lag or upload delay; document compilation finishes in milliseconds.\n3. Automatic Pagination: Long articles, notes, and records flow automatically across clean printable pages with customizable margins and line spacing.\n\nSecurity & Compliance Overview:\nBrowser-based execution provides strict data isolation by design. Because files are never transferred over public internet connections to external compute clusters, organizations maintain compliance with data residency mandates and corporate non-disclosure policies. Operations are performed in local device memory, guaranteeing that sensitive financial, personal, and legal records stay strictly confidential.\n\nThank you for choosing PDFToolKit!`;
+            plainTextInput.value = `NoPayPDF Document Report\n===========================\n\nThis document was generated directly inside your web browser using client-side vector typography. Notice that all text remains sharp, selectable, and searchable, regardless of screen zoom level.\n\nKey Advantages of Client-Side Processing:\n1. 100% Privacy: Your confidential words and documents never touch a third-party server.\n2. Instant Processing: Zero bandwidth lag or upload delay; document compilation finishes in milliseconds.\n3. Automatic Pagination: Long articles, notes, and records flow automatically across clean printable pages with customizable margins and line spacing.\n\nSecurity & Compliance Overview:\nBrowser-based execution provides strict data isolation by design. Because files are never transferred over public internet connections to external compute clusters, organizations maintain compliance with data residency mandates and corporate non-disclosure policies. Operations are performed in local device memory, guaranteeing that sensitive financial, personal, and legal records stay strictly confidential.\n\nThank you for choosing NoPayPDF!`;
             updateTextStats();
         });
     }
@@ -252,7 +252,7 @@
 <body>
   <div class="header">
     <div>
-      <div class="title">PDFToolKit Invoice</div>
+      <div class="title">NoPayPDF Invoice</div>
       <div class="invoice-id">Invoice #INV-2026-0042 &bull; 100% In-Browser</div>
     </div>
     <div>

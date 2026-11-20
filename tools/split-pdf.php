@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Split PDF Tool
+ * NoPayPDF - Split PDF Tool
  * 100% Client-Side PDF Extraction & Splitting
  */
 
@@ -46,7 +46,7 @@ $faqs = [
     ],
     [
         'q' => 'Can I split password-protected PDFs?',
-        'a' => 'PDFToolKit requires encrypted PDFs to be unlocked first before splitting pages. No sensitive passwords or documents are ever transmitted across the web.',
+        'a' => 'NoPayPDF requires encrypted PDFs to be unlocked first before splitting pages. No sensitive passwords or documents are ever transmitted across the web.',
     ],
 ];
 

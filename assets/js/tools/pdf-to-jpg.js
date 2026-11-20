@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - PDF to JPG / PNG Client-Side Controller
+ * NoPayPDF - PDF to JPG / PNG Client-Side Controller
  * 100% In-Browser Execution via PDF.js & JSZip
  */
 

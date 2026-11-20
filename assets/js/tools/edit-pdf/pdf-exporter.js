@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - PDF Exporter Module (window.PdfExporter)
+ * NoPayPDF - PDF Exporter Module (window.PdfExporter)
  *
  * Hybrid vector-preserving PDF export pipeline:
  * 1. Vector page assembly & fontkit TrueType subsetting

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Merge PDF Tool
+ * NoPayPDF - Merge PDF Tool
  * 100% Client-Side PDF Concatenation
  */
 
@@ -34,7 +34,7 @@ $howToSteps = [
 $faqs = [
     [
         'q' => 'Are my merged PDF files uploaded to a remote server?',
-        'a' => 'No. PDFToolKit merges documents 100% locally on your computer or phone using client-side JavaScript. Your confidential files never touch our servers.',
+        'a' => 'No. NoPayPDF merges documents 100% locally on your computer or phone using client-side JavaScript. Your confidential files never touch our servers.',
     ],
     [
         'q' => 'How many PDF documents can I merge at once?',
@@ -46,7 +46,7 @@ $faqs = [
     ],
     [
         'q' => 'Does merging reduce the visual quality of my PDFs?',
-        'a' => 'No. PDFToolKit preserves original vectors, fonts, images, and formatting exactly as they exist in the source files without compression artifacts.',
+        'a' => 'No. NoPayPDF preserves original vectors, fonts, images, and formatting exactly as they exist in the source files without compression artifacts.',
     ],
 ];
 

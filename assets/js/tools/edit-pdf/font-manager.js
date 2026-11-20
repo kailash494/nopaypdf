@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Font Manager Module (window.FontManager)
+ * NoPayPDF - Font Manager Module (window.FontManager)
  *
  * Real Embedded Font Extraction & 2-Tier Matching Architecture:
  * - Tier 1: Exact original embedded font bytes from PDF.js commonObjs, verified via window.fontkit
@@ -53,7 +53,7 @@
     // 2. Comprehensive 45+ Font Matcher Table
     // Normalizes proprietary and popular fonts to high-fidelity OFL/Google Fonts or metric replacements
     const FONT_MATCHER_MATRIX = [
-        // Metric-Compatible Replacements for Proprietary Office/Adobe Fonts
+        // Metric-Compatible Replacements for Proprietary Document Fonts
         { pattern: /arial|helvetica|helveticaneue|arimo|nimbus\s*sans/i, name: 'Liberation Sans', family: 'sans', google: null, local: 'sans' },
         { pattern: /times\s*new\s*roman|times|tinos|nimbus\s*roman/i, name: 'Liberation Serif', family: 'serif', google: null, local: 'serif' },
         { pattern: /courier\s*new|courier|cousine|nimbus\s*mono/i, name: 'Liberation Mono', family: 'mono', google: null, local: 'mono' },

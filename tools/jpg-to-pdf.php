@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - JPG / PNG / WebP to PDF Converter
+ * NoPayPDF - JPG / PNG / WebP to PDF Converter
  * 100% Client-Side Image to PDF Compilation
  */
 
@@ -34,7 +34,7 @@ $howToSteps = [
 $faqs = [
     [
         'q' => 'What image formats can I convert to PDF?',
-        'a' => 'PDFToolKit supports JPG/JPEG, PNG, and modern WebP images. You can even combine different image formats into a single PDF.',
+        'a' => 'NoPayPDF supports JPG/JPEG, PNG, and modern WebP images. You can even combine different image formats into a single PDF.',
     ],
     [
         'q' => 'Are my private photos uploaded to a server?',
@@ -46,7 +46,7 @@ $faqs = [
     ],
     [
         'q' => 'Will my smartphone photos be rotated correctly?',
-        'a' => 'Yes. PDFToolKit uses modern browser image decoding that automatically respects and applies camera EXIF orientation metadata, plus manual 90° rotation buttons.',
+        'a' => 'Yes. NoPayPDF uses modern browser image decoding that automatically respects and applies camera EXIF orientation metadata, plus manual 90° rotation buttons.',
     ],
     [
         'q' => 'Is there any limit on the number of images I can combine?',

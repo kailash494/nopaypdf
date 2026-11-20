@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - JPG / PNG / WebP to PDF Client-Side Controller
+ * NoPayPDF - JPG / PNG / WebP to PDF Client-Side Controller
  * 100% In-Browser Execution via pdf-lib
  */
 

@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/ad-slots.php';
 
 $pageMeta = [
     'title' => 'About Us - 100% In-Browser Privacy Architecture | ' . SITE_NAME,
-    'description' => 'Learn about PDFToolKit\'s mission, open-source technology stack, and privacy-first architecture where all PDF processing executes locally in your browser with zero server uploads.',
+    'description' => 'Learn about NoPayPDF\'s mission, open-source technology stack, and privacy-first architecture where all PDF processing executes locally in your browser with zero server uploads.',
     'canonical' => SITE_URL . '/about',
     'type' => 'website',
 ];
@@ -26,7 +26,7 @@ require_once __DIR__ . '/../includes/header.php';
         </nav>
 
         <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
-            About <span class="text-blue-600">PDFToolKit</span>
+            About <span class="text-blue-600">NoPayPDF</span>
         </h1>
         <p class="mt-4 text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
             Reinventing online document utilities with absolute privacy, zero-latency local processing, and open-source transparency.
@@ -50,13 +50,13 @@ require_once __DIR__ . '/../includes/header.php';
                 Every day, millions of individuals and businesses need to merge contracts, fill tax forms, compress invoices, or extract text from scans. Traditional online PDF services require uploading these confidential documents to remote cloud servers, exposing sensitive financial, legal, and personal information to third-party data breaches, compliance liabilities, and unauthorized tracking.
             </p>
             <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
-                <strong>PDFToolKit was founded on a simple principle:</strong> Your documents belong to you. By harnessing cutting-edge browser technologies like WebAssembly, HTML5 Canvas, and modern Web Workers, PDFToolKit performs every PDF operation directly inside your web browser. Your files never leave your computer or phone, eliminating security risks while delivering instantaneous results without upload delays.
+                <strong>NoPayPDF was founded on a simple principle:</strong> Your documents belong to you. By harnessing cutting-edge browser technologies like WebAssembly, HTML5 Canvas, and modern Web Workers, NoPayPDF performs every PDF operation directly inside your web browser. Your files never leave your computer or phone, eliminating security risks while delivering instantaneous results without upload delays.
             </p>
         </div>
 
         <!-- Architectural Comparison Grid -->
         <div class="space-y-4">
-            <h2 class="text-2xl font-bold text-slate-900">How PDFToolKit Compares</h2>
+            <h2 class="text-2xl font-bold text-slate-900">How NoPayPDF Compares</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Traditional Cloud Services -->
                 <div class="p-6 rounded-2xl bg-rose-50/60 border border-rose-200 space-y-3">
@@ -73,11 +73,11 @@ require_once __DIR__ . '/../includes/header.php';
                     </ul>
                 </div>
 
-                <!-- PDFToolKit Client-Side Model -->
+                <!-- NoPayPDF Client-Side Model -->
                 <div class="p-6 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-3">
                     <div class="flex items-center gap-2 text-emerald-700 font-bold text-sm">
                         <i data-lucide="shield-check" class="w-5 h-5"></i>
-                        <span>PDFToolKit Client-Side Architecture</span>
+                        <span>NoPayPDF Client-Side Architecture</span>
                     </div>
                     <ul class="text-xs sm:text-sm text-emerald-900/80 space-y-2 list-disc list-inside">
                         <li><strong>0 Bytes Uploaded:</strong> Files stay in your local device RAM.</li>
@@ -142,7 +142,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="space-y-4 pt-6 border-t border-slate-200">
             <h2 class="text-2xl font-bold text-slate-900">Open-Source & Transparent</h2>
             <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
-                PDFToolKit is built exclusively using permissively licensed (MIT, Apache 2.0, and ISC) open-source software. We believe in complete transparency and publish our full dependency list and copyright attributions on our <a href="/licenses" class="text-blue-600 hover:underline font-semibold">Open-Source Licenses page</a>.
+                NoPayPDF is built exclusively using permissively licensed (MIT, Apache 2.0, and ISC) open-source software. We believe in complete transparency and publish our full dependency list and copyright attributions on our <a href="/licenses" class="text-blue-600 hover:underline font-semibold">Open-Source Licenses page</a>.
             </p>
             <div class="flex flex-wrap gap-3 pt-2">
                 <a href="/privacy-policy" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors">

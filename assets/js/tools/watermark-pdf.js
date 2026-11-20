@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Add Watermark Controller
+ * NoPayPDF - Add Watermark Controller
  * Text & Image Stamping with Live Synchronized Canvas Preview & Accurate Rotation Math
  * 100% Client-Side Processing via pdf-lib & PDF.js
  */

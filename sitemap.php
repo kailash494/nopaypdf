@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Dynamic XML Sitemap Generator
+ * NoPayPDF - Dynamic XML Sitemap Generator
  */
 
 require_once __DIR__ . '/includes/config.php';
@@ -14,40 +14,45 @@ header('X-Robots-Tag: noindex, follow', true);
 $today = date('Y-m-d');
 $allTools = get_all_tools();
 
+// Canonical base URL for sitemap (ensures production domain even when queried via local router)
+$sitemapBase = (defined('SITE_URL') && !str_contains(SITE_URL, 'localhost') && !str_contains(SITE_URL, '127.0.0.1'))
+    ? SITE_URL
+    : 'https://nopaypdf.com';
+
 // Core static pages
 $urls = [
     [
-        'loc' => SITE_URL . '/',
+        'loc' => $sitemapBase . '/',
         'lastmod' => $today,
         'changefreq' => 'weekly',
         'priority' => '1.0',
     ],
     [
-        'loc' => SITE_URL . '/about',
+        'loc' => $sitemapBase . '/about',
         'lastmod' => $today,
         'changefreq' => 'monthly',
         'priority' => '0.7',
     ],
     [
-        'loc' => SITE_URL . '/contact',
+        'loc' => $sitemapBase . '/contact',
         'lastmod' => $today,
         'changefreq' => 'monthly',
         'priority' => '0.6',
     ],
     [
-        'loc' => SITE_URL . '/licenses',
+        'loc' => $sitemapBase . '/licenses',
         'lastmod' => $today,
         'changefreq' => 'monthly',
         'priority' => '0.5',
     ],
     [
-        'loc' => SITE_URL . '/privacy-policy',
+        'loc' => $sitemapBase . '/privacy-policy',
         'lastmod' => $today,
         'changefreq' => 'monthly',
         'priority' => '0.5',
     ],
     [
-        'loc' => SITE_URL . '/terms',
+        'loc' => $sitemapBase . '/terms',
         'lastmod' => $today,
         'changefreq' => 'monthly',
         'priority' => '0.5',
@@ -58,7 +63,7 @@ $urls = [
 foreach ($allTools as $slug => $tool) {
     if ($tool['status'] === 'active') {
         $urls[] = [
-            'loc' => SITE_URL . '/' . $slug,
+            'loc' => $sitemapBase . '/' . $slug,
             'lastmod' => $today,
             'changefreq' => 'weekly',
             'priority' => '0.8',

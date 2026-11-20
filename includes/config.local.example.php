@@ -2,16 +2,16 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Local Configuration Override Template
+ * NoPayPDF - Local Configuration Override Template
  * Copy this file to includes/config.local.php to customize local or production settings.
  * DO NOT commit includes/config.local.php to version control.
  */
 
-// Override Site URL (e.g., https://pdftoolkit.com or https://example.pages.dev)
-// define('SITE_URL', 'https://pdftoolkit.com');
+// Override Site URL (e.g., https://nopaypdf.com or https://example.pages.dev)
+// define('SITE_URL', 'https://nopaypdf.com');
 
 // Support / Inquiries Contact Email
-// define('CONTACT_EMAIL', 'support@pdftoolkit.com');
+// define('CONTACT_EMAIL', 'support@nopaypdf.com');
 
 // Ad Mode:
 // 'off'         -> Zero ad code or empty boxes rendered (Required when submitting domain for AdSense review)

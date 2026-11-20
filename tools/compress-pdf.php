@@ -36,7 +36,7 @@ $howToSteps = [
 $faqs = [
     [
         'q' => 'How does in-browser PDF compression work?',
-        'a' => 'PDFToolKit leverages WebAssembly (QPDF) to restructure object tables and compress streams without losing vector fidelity. For visual compression, it renders and re-encodes pages using client-side canvas technology. All operations execute strictly in your browser.',
+        'a' => 'NoPayPDF leverages WebAssembly (QPDF) to restructure object tables and compress streams without losing vector fidelity. For visual compression, it renders and re-encodes pages using client-side canvas technology. All operations execute strictly in your browser.',
     ],
     [
         'q' => 'Will my PDF text remain selectable and searchable?',

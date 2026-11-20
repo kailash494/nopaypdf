@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Shared Client-Side PDF Rendering & ZIP Suite (window.PDFRender)
+ * NoPayPDF - Shared Client-Side PDF Rendering & ZIP Suite (window.PDFRender)
  *
  * Utilizes PDF.js (v3.11.174) for non-blocking canvas thumbnail rendering,
  * and JSZip (v3.10.1) for client-side archive packaging.

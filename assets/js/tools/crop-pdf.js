@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Crop PDF Controller
+ * NoPayPDF - Crop PDF Controller
  * Interactive visual crop box overlay with precise margin inputs and non-destructive vector cropping.
  * Permissive MIT/Apache 2.0 implementation.
  */

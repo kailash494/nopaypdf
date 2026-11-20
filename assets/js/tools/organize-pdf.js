@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Organize PDF Pages Client-Side Controller
+ * NoPayPDF - Organize PDF Pages Client-Side Controller
  * Reorder, Rotate, Duplicate & Delete Pages Visually
  */
 

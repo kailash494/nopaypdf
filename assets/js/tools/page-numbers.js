@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Page Numbers & Header/Footer Controller
+ * NoPayPDF - Page Numbers & Header/Footer Controller
  * Live Preview, Template Placeholders, WinAnsi Safety & 100% In-Browser Stamping via pdf-lib
  */
 

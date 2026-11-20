@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Compress PDF Controller
+ * NoPayPDF - Compress PDF Controller
  * Lossless QPDF WebAssembly + Multi-Preset Visual Image Re-encoding
  * 100% Client-Side Processing
  */

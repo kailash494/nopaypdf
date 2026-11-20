@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/ad-slots.php';
 
 $pageMeta = [
     'title' => 'Contact Us & Support | ' . SITE_NAME,
-    'description' => 'Get in touch with the PDFToolKit team for support, feature requests, and bug reports. Completely free and private PDF tools running directly in your browser.',
+    'description' => 'Get in touch with the NoPayPDF team for support, feature requests, and bug reports. Completely free and private PDF tools running directly in your browser.',
     'canonical' => SITE_URL . '/contact',
     'type' => 'website',
 ];
@@ -43,7 +43,7 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="space-y-1">
                 <span class="font-bold block">Important Privacy Notice regarding PDF Files:</span>
                 <p class="text-amber-900/90 leading-relaxed">
-                    Because PDFToolKit operates 100% inside your web browser, our support team <strong>does not have access to your documents</strong>, nor do we ever ask for them. Please <strong>do not attach or send confidential or personal PDF files</strong> when emailing us. To report an issue with a specific document, describe the error message and file properties (such as file size, page count, or PDF version) instead.
+                    Because NoPayPDF operates 100% inside your web browser, our support team <strong>does not have access to your documents</strong>, nor do we ever ask for them. Please <strong>do not attach or send confidential or personal PDF files</strong> when emailing us. To report an issue with a specific document, describe the error message and file properties (such as file size, page count, or PDF version) instead.
                 </p>
             </div>
         </div>
@@ -148,7 +148,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <div class="pt-4 border-t border-slate-100">
                     <a
-                        href="mailto:<?= htmlspecialchars(CONTACT_EMAIL, ENT_QUOTES, 'UTF-8') ?>?subject=PDFToolKit%20Bug%20Report"
+                        href="mailto:<?= htmlspecialchars(CONTACT_EMAIL, ENT_QUOTES, 'UTF-8') ?>?subject=NoPayPDF%20Bug%20Report"
                         class="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
                     >
                         <i data-lucide="mail" class="w-4 h-4"></i>

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Development Server Router
+ * NoPayPDF - Development Server Router
  * Usage: php -S localhost:8000 router.php
  */
 

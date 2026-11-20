@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Ad Container Slots & Layout Stability (CLS Prevention)
+ * NoPayPDF - Ad Container Slots & Layout Stability (CLS Prevention)
  *
  * Configurable via AD_MODE ('off' | 'placeholder' | 'adsense'):
  * - 'off': Outputs zero HTML, preventing empty grey boxes during Google AdSense site reviews.

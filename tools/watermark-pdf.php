@@ -36,7 +36,7 @@ $howToSteps = [
 $faqs = [
     [
         'q' => 'Can I add an image logo as a watermark?',
-        'a' => 'Yes. PDFToolKit supports both custom text watermarks and transparent PNG or JPG image logos with configurable scaling, rotation, and opacity.',
+        'a' => 'Yes. NoPayPDF supports both custom text watermarks and transparent PNG or JPG image logos with configurable scaling, rotation, and opacity.',
     ],
     [
         'q' => 'Can I stamp only specific pages of my PDF?',

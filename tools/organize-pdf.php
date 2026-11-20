@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Organize PDF Pages Tool
+ * NoPayPDF - Organize PDF Pages Tool
  * Reorder, Rotate, Duplicate & Delete Pages Visually
  */
 
@@ -38,11 +38,11 @@ $faqs = [
     ],
     [
         'q' => 'Are my rotated and reorganized pages uploaded anywhere?',
-        'a' => 'No. PDFToolKit operates entirely within your web browser. Your private pages and text never leave your machine.',
+        'a' => 'No. NoPayPDF operates entirely within your web browser. Your private pages and text never leave your machine.',
     ],
     [
         'q' => 'What happens if I accidentally delete a page?',
-        'a' => 'PDFToolKit includes an "Undo Last Action" feature so you can easily step back and restore deleted pages or previous orientations.',
+        'a' => 'NoPayPDF includes an "Undo Last Action" feature so you can easily step back and restore deleted pages or previous orientations.',
     ],
     [
         'q' => 'Will rotating a page affect its resolution or text quality?',

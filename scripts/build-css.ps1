@@ -1,4 +1,4 @@
-# PDFToolKit - Tailwind CSS v4 Production Build Script
+# NoPayPDF - Tailwind CSS v4 Production Build Script
 # Usage: .\scripts\build-css.ps1
 
 Write-Host "Compiling production minified Tailwind CSS..." -ForegroundColor Cyan

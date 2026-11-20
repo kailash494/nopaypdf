@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/ad-slots.php';
 
 $pageMeta = [
     'title' => 'Open-Source Licenses & Third-Party Credits | ' . SITE_NAME,
-    'description' => 'Legal copyright notices, licenses, and attributions for the permissively licensed open-source libraries that power PDFToolKit client-side tools.',
+    'description' => 'Legal copyright notices, licenses, and attributions for the permissively licensed open-source libraries that power NoPayPDF client-side tools.',
     'canonical' => SITE_URL . '/licenses',
     'type' => 'website',
 ];
@@ -128,7 +128,7 @@ $libraries = [
             Open-Source Licenses & Credits
         </h1>
         <p class="mt-4 text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            PDFToolKit is built on the shoulders of open-source giants. We proudly attribute all third-party libraries under their respective permissive licenses.
+            NoPayPDF is built on the shoulders of open-source giants. We proudly attribute all third-party libraries under their respective permissive licenses.
         </p>
 
         <!-- Permissive Compliance Badge -->

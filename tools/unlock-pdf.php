@@ -35,12 +35,12 @@ $howToSteps = [
 
 $faqs = [
     [
-        'q' => 'Can PDFToolKit crack or bypass an unknown password?',
-        'a' => 'No. Modern PDFs utilize robust 128-bit or 256-bit AES encryption which cannot be brute-forced or cracked in a web browser. You must enter the correct authorized password to decrypt and remove the lock.',
+        'q' => 'Can NoPayPDF open or recover an unknown password?',
+        'a' => 'No. Modern PDFs utilize robust 128-bit or 256-bit AES encryption which cannot be opened without the authorized password. You must enter the correct password to decrypt the document and remove the lock.',
     ],
     [
         'q' => 'What if the PDF only has printing or editing restrictions?',
-        'a' => 'If a document only has owner restrictions (preventing printing, copying, or form filling) but no open password, PDFToolKit detects this automatically and allows you to strip all restrictions with a single click.',
+        'a' => 'If a document only has owner restrictions (preventing printing, copying, or form filling) but no open password, NoPayPDF detects this automatically and allows you to strip all restrictions with a single click.',
     ],
     [
         'q' => 'Is my password or document transmitted to any server?',

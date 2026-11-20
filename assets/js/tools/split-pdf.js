@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Split PDF Client-Side Controller
+ * NoPayPDF - Split PDF Client-Side Controller
  * 100% In-Browser Execution via pdf-lib, PDF.js & JSZip
  */
 

@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Canvas Stage Module (window.CanvasStage)
+ * NoPayPDF - Canvas Stage Module (window.CanvasStage)
  *
  * Orchestrates the 3-Layer Synchronized Page Stack:
  * Layer 1: PDF.js Base Canvas (High-DPI)

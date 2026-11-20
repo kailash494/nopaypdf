@@ -1,6 +1,6 @@
-# PDFToolKit - Production Deployment Runbook
+# NoPayPDF - Production Deployment Runbook
 
-PDFToolKit is designed with a **dual deployment architecture**. Because 100% of PDF processing runs directly in user browser memory, you can deploy it either as a **$0/mo static website** on Cloudflare Pages (or GitHub Pages) or as a **classic PHP application** on shared Apache cPanel hosting.
+NoPayPDF is designed with a **dual deployment architecture**. Because 100% of PDF processing runs directly in user browser memory, you can deploy it either as a **$0/mo static website** on Cloudflare Pages (or GitHub Pages) or as a **classic PHP application** on shared Apache cPanel hosting.
 
 ---
 
@@ -44,7 +44,7 @@ This generates a fully self-contained static release inside the **`dist/`** dire
 #### Method 1: Git Integration (Continuous Deployment)
 1. Push your repository to GitHub or GitLab.
 2. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/) and navigate to **Workers & Pages** &rarr; **Create application** &rarr; **Pages** &rarr; **Connect to Git**.
-3. Select your `PDFToolKit` repository.
+3. Select your `NoPayPDF` (or `PDFToolKit`) repository.
 4. Configure Build Settings:
    - **Framework preset:** `None`
    - **Build command:** `npx @tailwindcss/cli -i assets/css/tailwind.input.css -o assets/css/tailwind.min.css --minify && php scripts/build-static.php --base-url=https://yourdomain.com --ad-mode=off`
@@ -54,7 +54,7 @@ This generates a fully self-contained static release inside the **`dist/`** dire
 #### Method 2: Direct Upload via Wrangler CLI
 ```bash
 npm install -g wrangler
-wrangler pages deploy dist --project-name=pdftoolkit
+wrangler pages deploy dist --project-name=nopaypdf
 ```
 
 ### Step 3: Custom Domain & SSL

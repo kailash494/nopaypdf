@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - 404 Not Found Handler
+ * NoPayPDF - 404 Not Found Handler
  */
 
 http_response_code(404);

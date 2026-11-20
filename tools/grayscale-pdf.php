@@ -48,7 +48,7 @@ $faqs = [
     ],
     [
         'q' => 'Are my files uploaded to a server for processing?',
-        'a' => 'No. PDFToolKit transforms all pixels and rebuilds the PDF completely inside your web browser. No files are ever uploaded or transmitted.',
+        'a' => 'No. NoPayPDF transforms all pixels and rebuilds the PDF completely inside your web browser. No files are ever uploaded or transmitted.',
     ],
 ];
 

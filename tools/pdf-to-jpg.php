@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - PDF to JPG / PNG Converter
+ * NoPayPDF - PDF to JPG / PNG Converter
  * 100% Client-Side High-DPI Document Rasterization
  */
 
@@ -34,7 +34,7 @@ $howToSteps = [
 $faqs = [
     [
         'q' => 'Are my PDF documents uploaded to your servers during conversion?',
-        'a' => 'No. PDFToolKit renders every page directly inside your browser using client-side canvas technology. Your files and converted images never leave your computer.',
+        'a' => 'No. NoPayPDF renders every page directly inside your browser using client-side canvas technology. Your files and converted images never leave your computer.',
     ],
     [
         'q' => 'What is the difference between JPG and PNG export?',
@@ -50,7 +50,7 @@ $faqs = [
     ],
     [
         'q' => 'Will my images have black backgrounds?',
-        'a' => 'No. PDFToolKit automatically paints an opaque white canvas backdrop before JPEG conversion, ensuring pages with transparent backgrounds render with clean white paper.',
+        'a' => 'No. NoPayPDF automatically paints an opaque white canvas backdrop before JPEG conversion, ensuring pages with transparent backgrounds render with clean white paper.',
     ],
 ];
 

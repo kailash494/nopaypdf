@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Shared Client-Side JavaScript Core (window.PDFCore)
+ * NoPayPDF - Shared Client-Side JavaScript Core (window.PDFCore)
  *
  * Provides reusable utilities for dropzones, file queue state management,
  * validation, progress indicators, safe blob downloads, and error handling.

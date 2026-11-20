@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Sign & Annotate PDF Controller
+ * NoPayPDF - Sign & Annotate PDF Controller
  * Dual-canvas editor combining PDF.js locked background with Fabric.js interactive overlay.
  * Permissive MIT/Apache 2.0 implementation.
  */

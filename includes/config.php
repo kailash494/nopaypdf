@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Core Configuration
- * 100% Client-Side PDF Tools
+ * NoPayPDF - Core Configuration
+ * 100% Free Browser-Based PDF Tools — No Subscriptions, No Sign-Up, No Uploads
  */
 
 // Load host/local override configuration if present (gitignored)
@@ -12,15 +12,19 @@ if (file_exists(__DIR__ . '/config.local.php')) {
 }
 
 if (!defined('SITE_NAME')) {
-    define('SITE_NAME', 'PDFToolKit');
+    define('SITE_NAME', 'NoPayPDF');
+}
+
+if (!defined('SITE_DOMAIN')) {
+    define('SITE_DOMAIN', 'nopaypdf.com');
 }
 
 if (!defined('SITE_TAGLINE')) {
-    define('SITE_TAGLINE', 'Free, Fast & Secure In-Browser PDF Tools');
+    define('SITE_TAGLINE', '100% Free Browser-Based PDF Tools — No Subscriptions, No Sign-Up, No Uploads');
 }
 
 if (!defined('SITE_DESCRIPTION')) {
-    define('SITE_DESCRIPTION', 'Free, private, and unlimited online PDF tools that run entirely in your web browser. Merge, split, compress, convert, and edit PDFs with zero server uploads.');
+    define('SITE_DESCRIPTION', '100% free, private, and unlimited online PDF tools that run entirely in your web browser. No subscriptions, no sign-up, no server uploads. Merge, split, compress, edit, convert, and sign PDFs locally.');
 }
 
 if (!defined('APP_VERSION')) {
@@ -54,7 +58,7 @@ if (!defined('ADSENSE_SLOTS')) {
 
 if (!defined('CONTACT_EMAIL')) {
     $envEmail = getenv('CONTACT_EMAIL');
-    define('CONTACT_EMAIL', $envEmail !== false ? $envEmail : 'support@pdftoolkit.local');
+    define('CONTACT_EMAIL', $envEmail !== false ? $envEmail : 'support@nopaypdf.com');
 }
 
 // Base URL detection

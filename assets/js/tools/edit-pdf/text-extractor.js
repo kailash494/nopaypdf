@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - Text Extractor Module (window.TextExtractor)
+ * NoPayPDF - Text Extractor Module (window.TextExtractor)
  *
  * Exact operator-level fill color extraction from page.getOperatorList(),
  * real embedded font integration from PDF.js commonObjs,

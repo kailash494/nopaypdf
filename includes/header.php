@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * PDFToolKit - Global Header Template
+ * NoPayPDF - Global Header Template
  */
 
 require_once __DIR__ . '/config.php';
@@ -67,9 +67,9 @@ $pageMeta = $pageMeta ?? [];
                         </div>
                         <div class="flex flex-col">
                             <span class="text-xl font-bold tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
-                                PDF<span class="text-blue-600">ToolKit</span>
+                                NoPay<span class="text-blue-600">PDF</span>
                             </span>
-                            <span class="text-[10px] text-slate-500 font-medium -mt-1 tracking-wide">Client-Side PDF Suite</span>
+                            <span class="text-[10px] text-slate-500 font-medium -mt-1 tracking-wide">100% Free Browser PDF Suite</span>
                         </div>
                     </a>
                 </div>

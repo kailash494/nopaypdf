@@ -1,5 +1,5 @@
 /**
- * PDFToolKit - OCR PDF Controller
+ * NoPayPDF - OCR PDF Controller
  * Client-side optical character recognition via Tesseract.js (v5.1.1) WebAssembly engine.
  * Generates searchable PDFs with invisible text layers and downloadable plain text (.txt).
  * Permissive MIT/Apache 2.0 implementation.

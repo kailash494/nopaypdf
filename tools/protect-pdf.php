@@ -35,11 +35,11 @@ $howToSteps = [
 
 $faqs = [
     [
-        'q' => 'What encryption standard does PDFToolKit use?',
-        'a' => 'PDFToolKit uses industry-standard 256-bit AES (Advanced Encryption Standard) encryption powered by QPDF WebAssembly. It is recognized globally as the gold standard for secure PDF document protection.',
+        'q' => 'What encryption standard does NoPayPDF use?',
+        'a' => 'NoPayPDF uses industry-standard 256-bit AES (Advanced Encryption Standard) encryption powered by QPDF WebAssembly. It is recognized globally as the gold standard for secure PDF document protection.',
     ],
     [
-        'q' => 'Can anyone (including PDFToolKit) see my password?',
+        'q' => 'Can anyone (including NoPayPDF) see my password?',
         'a' => 'Never. All encryption runs strictly client-side inside your web browser. Neither your document nor your entered password is ever sent across the network or stored on any server.',
     ],
     [
@@ -48,7 +48,7 @@ $faqs = [
     ],
     [
         'q' => 'What happens if I forget the password I set?',
-        'a' => 'Because AES-256 encryption is mathematically unbreakable without the key and PDFToolKit stores zero information on any server, there is no backdoor or password recovery mechanism. Be sure to remember or safely store your password.',
+        'a' => 'Because AES-256 encryption is mathematically unbreakable without the key and NoPayPDF stores zero information on any server, there is no backdoor or password recovery mechanism. Be sure to remember or safely store your password.',
     ],
 ];
 
