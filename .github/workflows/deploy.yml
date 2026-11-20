@@ -27,9 +27,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: npm ci
 
       - name: Compile Tailwind CSS
-        run: npx @tailwindcss/cli -i assets/css/tailwind.input.css -o assets/css/tailwind.min.css --minify
+        run: npm run build:css
 
       - name: Export Static Site (dist/)
         run: php scripts/build-static.php --base-url=https://nopaypdf.com --ad-mode=off
