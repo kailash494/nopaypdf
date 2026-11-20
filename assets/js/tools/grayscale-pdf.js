@@ -111,7 +111,7 @@
 
                 // Update UI Header
                 docFilename.textContent = file.name;
-                docMeta.textContent = `${totalPages} page${totalPages === 1 ? '' : 's'} \u2022 ${PDFCore.formatBytes(file.size)}`;
+                docMeta.textContent = `${totalPages} page${totalPages === 1 ? '' : 's'} • ${PDFCore.formatBytes(file.size)}`;
 
                 // Switch Panels
                 uploadPanel.classList.add('hidden');

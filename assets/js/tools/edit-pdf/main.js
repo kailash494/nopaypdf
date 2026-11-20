@@ -191,7 +191,7 @@
 
             // Update UI headers
             if (docTitleEl) docTitleEl.textContent = fileName;
-            if (docMetaEl) docMetaEl.textContent = `${currentPdfProxy.numPages} pages \u2022 100% Client-Side`;
+            if (docMetaEl) docMetaEl.textContent = `${currentPdfProxy.numPages} pages • 100% Client-Side`;
             if (exportFilenameInput) {
                 const baseName = fileName.replace(/\.[^/.]+$/, '');
                 exportFilenameInput.value = `${baseName}-edited.pdf`;

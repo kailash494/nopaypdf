@@ -4,7 +4,7 @@
  * Exact operator-level fill color extraction from page.getOperatorList(),
  * mathematical vector background detection for headers/table rows,
  * pure white (#FFFFFF) vector page defaults (zero pixel sampling on white pages),
- * constituent rawRuns storage for Sejda-style content-stream removal,
+ * constituent rawRuns storage for surgical content-stream removal,
  * and high-DPI halo pixel sampling fallback for image backgrounds.
  *
  * 100% Client-Side. Permissive MIT / Apache 2.0 compatible.

@@ -138,7 +138,7 @@
                 marginsPt.left = 0;
 
                 docFilename.textContent = file.name;
-                docMeta.textContent = `${totalPages} page${totalPages === 1 ? '' : 's'} \u2022 ${PDFCore.formatBytes(file.size)}`;
+                docMeta.textContent = `${totalPages} page${totalPages === 1 ? '' : 's'} • ${PDFCore.formatBytes(file.size)}`;
                 cropTotalPageNum.textContent = String(totalPages);
                 cropCurrentPageNum.textContent = '1';
 

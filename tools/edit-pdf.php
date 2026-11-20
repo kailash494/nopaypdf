@@ -118,7 +118,7 @@ require_once __DIR__ . '/../includes/header.php';
                             Drop your PDF here, or <span class="text-blue-600 underline">browse device</span>
                         </p>
                         <p class="text-xs sm:text-sm text-slate-500 mt-1">
-                            Direct in-browser editing \u2022 Zero uploads \u2022 Full privacy
+                            Direct in-browser editing &bull; Zero uploads &bull; Full privacy
                         </p>
                     </div>
                     <div class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors">

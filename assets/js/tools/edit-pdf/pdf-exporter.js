@@ -113,7 +113,7 @@
             const hasEdits = blocks.some(b => b.modified || b.deleted);
             if (!hasEdits) return;
 
-            // 1. Surgical Sejda-Style Content Stream Removal
+            // 1. Surgical Content Stream Removal
             let removedBlockIds = new Set();
             if (window.ContentStreamEditor && typeof window.ContentStreamEditor.removeEditedTextRuns === 'function') {
                 try {
