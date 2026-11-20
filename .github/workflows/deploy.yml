@@ -38,6 +38,9 @@ jobs:
       - name: Export Static Site (dist/)
         run: php scripts/build-static.php --base-url=https://nopaypdf.com --ad-mode=off
 
+      - name: Verify Build-Time SEO & Consistency
+        run: php scripts/verify-seo.php
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v4
         with:

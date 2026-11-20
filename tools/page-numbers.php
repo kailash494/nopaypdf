@@ -55,7 +55,7 @@ $faqs = [
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/page-numbers',
+    'canonical' => SITE_URL . '/page-numbers/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

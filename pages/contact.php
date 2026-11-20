@@ -8,7 +8,7 @@ require_once __DIR__ . '/../includes/ad-slots.php';
 $pageMeta = [
     'title' => 'Contact Us & Support | ' . SITE_NAME,
     'description' => 'Get in touch with the NoPayPDF team for support, feature requests, and bug reports. Completely free and private PDF tools running directly in your browser.',
-    'canonical' => SITE_URL . '/contact',
+    'canonical' => SITE_URL . '/contact/',
     'type' => 'website',
 ];
 

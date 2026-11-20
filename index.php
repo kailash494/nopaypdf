@@ -38,6 +38,7 @@ $faqs = [
 $pageMeta = [
     'title' => 'NoPayPDF - 100% Free & Private Online PDF Tools (No Uploads)',
     'description' => 'Merge, split, compress, convert, and edit PDF documents directly in your web browser. 100% private with zero file uploads and unlimited free access.',
+    'canonical' => SITE_URL . '/',
     'is_homepage' => true,
     'faqs' => $faqs,
 ];
@@ -127,7 +128,7 @@ require_once __DIR__ . '/includes/header.php';
             </p>
         </div>
         <a
-            href="/edit-pdf"
+            href="/edit-pdf/"
             class="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2 shrink-0 group"
         >
             <span>Open PDF Editor</span>
@@ -152,7 +153,7 @@ require_once __DIR__ . '/includes/header.php';
     <div id="tools-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         <?php foreach ($allTools as $slug => $tool): 
             $isActive = ($tool['status'] === 'active');
-            $cardUrl = $isActive ? '/' . htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') : '#';
+            $cardUrl = $isActive ? '/' . htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') . '/' : '#';
         ?>
             <div
                 class="tool-card group bg-white rounded-2xl border border-slate-200/90 p-6 flex flex-col justify-between hover:border-blue-300 hover:shadow-md transition-all relative overflow-hidden"

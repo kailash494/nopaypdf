@@ -30,7 +30,7 @@ require_once __DIR__ . '/tool-registry.php';
                     </p>
                 </div>
                 <div class="flex-shrink-0 w-full sm:w-auto">
-                    <a href="/privacy-policy" class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors">
+                    <a href="/privacy-policy/" class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors">
                         Read Privacy Architecture &rarr;
                     </a>
                 </div>
@@ -62,22 +62,24 @@ require_once __DIR__ . '/tool-registry.php';
                 <div>
                     <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-900 mb-3">Organize & Convert</h4>
                     <ul class="space-y-2 text-xs">
-                        <li><a href="/#tools-section" data-cat="organize" class="cat-footer-link hover:text-blue-600 transition-colors">Merge PDF</a></li>
-                        <li><a href="/#tools-section" data-cat="organize" class="cat-footer-link hover:text-blue-600 transition-colors">Split PDF</a></li>
-                        <li><a href="/#tools-section" data-cat="organize" class="cat-footer-link hover:text-blue-600 transition-colors">Organize Pages</a></li>
-                        <li><a href="/#tools-section" data-cat="convert" class="cat-footer-link hover:text-blue-600 transition-colors">PDF to JPG</a></li>
-                        <li><a href="/#tools-section" data-cat="convert" class="cat-footer-link hover:text-blue-600 transition-colors">JPG to PDF</a></li>
+                        <li><a href="/merge-pdf/" class="hover:text-blue-600 transition-colors">Merge PDF</a></li>
+                        <li><a href="/split-pdf/" class="hover:text-blue-600 transition-colors">Split PDF</a></li>
+                        <li><a href="/organize-pdf/" class="hover:text-blue-600 transition-colors">Organize Pages</a></li>
+                        <li><a href="/word-to-pdf/" class="hover:text-blue-600 transition-colors">Word to PDF</a></li>
+                        <li><a href="/pdf-to-jpg/" class="hover:text-blue-600 transition-colors">PDF to JPG</a></li>
+                        <li><a href="/jpg-to-pdf/" class="hover:text-blue-600 transition-colors">JPG to PDF</a></li>
                     </ul>
                 </div>
 
                 <div>
                     <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-900 mb-3">Security & Optimization</h4>
                     <ul class="space-y-2 text-xs">
-                        <li><a href="/#tools-section" data-cat="optimize & security" class="cat-footer-link hover:text-blue-600 transition-colors">Compress PDF</a></li>
-                        <li><a href="/#tools-section" data-cat="optimize & security" class="cat-footer-link hover:text-blue-600 transition-colors">Password Protect PDF</a></li>
-                        <li><a href="/#tools-section" data-cat="optimize & security" class="cat-footer-link hover:text-blue-600 transition-colors">Unlock PDF</a></li>
-                        <li><a href="/#tools-section" data-cat="optimize & security" class="cat-footer-link hover:text-blue-600 transition-colors">Add Watermark</a></li>
-                        <li><a href="/#tools-section" data-cat="optimize & security" class="cat-footer-link hover:text-blue-600 transition-colors">Add Page Numbers</a></li>
+                        <li><a href="/compress-pdf/" class="hover:text-blue-600 transition-colors">Compress PDF</a></li>
+                        <li><a href="/edit-pdf/" class="hover:text-blue-600 transition-colors">Edit PDF</a></li>
+                        <li><a href="/ocr-pdf/" class="hover:text-blue-600 transition-colors">OCR PDF</a></li>
+                        <li><a href="/protect-pdf/" class="hover:text-blue-600 transition-colors">Password Protect PDF</a></li>
+                        <li><a href="/unlock-pdf/" class="hover:text-blue-600 transition-colors">Unlock PDF</a></li>
+                        <li><a href="/watermark-pdf/" class="hover:text-blue-600 transition-colors">Add Watermark</a></li>
                     </ul>
                 </div>
 
@@ -85,13 +87,13 @@ require_once __DIR__ . '/tool-registry.php';
                 <div>
                     <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-900 mb-3">About & Trust</h4>
                     <ul class="space-y-2 text-xs">
-                        <li><a href="/about" class="hover:text-blue-600 transition-colors">About NoPayPDF</a></li>
-                        <li><a href="/contact" class="hover:text-blue-600 transition-colors">Contact & Support</a></li>
-                        <li><a href="/licenses" class="hover:text-blue-600 transition-colors">Open-Source Licenses</a></li>
-                        <li><a href="/privacy-policy" class="hover:text-blue-600 transition-colors">Privacy Architecture</a></li>
-                        <li><a href="/terms" class="hover:text-blue-600 transition-colors">Terms of Service</a></li>
+                        <li><a href="/about/" class="hover:text-blue-600 transition-colors">About NoPayPDF</a></li>
+                        <li><a href="/contact/" class="hover:text-blue-600 transition-colors">Contact & Support</a></li>
+                        <li><a href="/licenses/" class="hover:text-blue-600 transition-colors">Open-Source Licenses</a></li>
+                        <li><a href="/privacy-policy/" class="hover:text-blue-600 transition-colors">Privacy Architecture</a></li>
+                        <li><a href="/terms/" class="hover:text-blue-600 transition-colors">Terms of Service</a></li>
                         <li>
-                            <button type="button" id="footer-cookie-settings-btn" class="hover:text-blue-600 transition-colors text-left">
+                            <button type="button" id="footer-cookie-settings-btn" class="hover:text-blue-600 transition-colors text-left cursor-pointer">
                                 Cookie Preferences
                             </button>
                         </li>
@@ -102,7 +104,7 @@ require_once __DIR__ . '/tool-registry.php';
         </div>
     </footer>
 
-    <!-- GDPR / AdSense Cookie Consent Banner -->
+    <!-- GDPR / AdSense Cookie Consent Banner (Mobile Optimized & Accessible Tap Targets) -->
     <div id="cookie-consent-banner" class="fixed bottom-0 inset-x-0 z-50 p-4 sm:p-5 bg-slate-900/95 backdrop-blur-md text-white border-t border-slate-800 shadow-2xl hidden items-center justify-between" role="dialog" aria-live="polite" aria-label="Cookie consent banner">
         <div class="max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-start sm:items-center gap-3">
@@ -112,17 +114,17 @@ require_once __DIR__ . '/tool-registry.php';
                 <p class="text-xs text-slate-300 leading-normal">
                     We use cookies and browser storage to support site functionality and deliver policy-compliant, non-invasive advertisements.
                     Your PDF files are <strong>never stored or tracked</strong>. Read our
-                    <a href="/privacy-policy" class="underline text-white hover:text-blue-300">Privacy Policy</a> for details.
+                    <a href="/privacy-policy/" class="underline text-white hover:text-blue-300">Privacy Policy</a> for details.
                 </p>
             </div>
-            <div class="flex items-center gap-2.5 flex-shrink-0 w-full sm:w-auto justify-end">
-                <button type="button" id="cookie-accept-essential" class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors">
+            <div class="flex flex-col sm:flex-row items-center gap-2.5 flex-shrink-0 w-full sm:w-auto justify-end">
+                <button type="button" id="cookie-accept-essential" class="w-full sm:w-auto px-4 py-2.5 min-h-[44px] flex items-center justify-center rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer">
                     Essential Only
                 </button>
-                <button type="button" id="cookie-accept-all" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-sm transition-colors">
+                <button type="button" id="cookie-accept-all" class="w-full sm:w-auto px-5 py-2.5 min-h-[44px] flex items-center justify-center rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-sm transition-colors cursor-pointer">
                     Accept All
                 </button>
-                <button type="button" id="cookie-banner-close" class="p-1.5 text-slate-400 hover:text-white" aria-label="Dismiss banner">
+                <button type="button" id="cookie-banner-close" class="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-white cursor-pointer" aria-label="Dismiss banner">
                     <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>

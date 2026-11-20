@@ -8,7 +8,7 @@ require_once __DIR__ . '/../includes/ad-slots.php';
 $pageMeta = [
     'title' => 'Open-Source Licenses & Third-Party Credits | ' . SITE_NAME,
     'description' => 'Legal copyright notices, licenses, and attributions for the permissively licensed open-source libraries that power NoPayPDF client-side tools.',
-    'canonical' => SITE_URL . '/licenses',
+    'canonical' => SITE_URL . '/licenses/',
     'type' => 'website',
 ];
 

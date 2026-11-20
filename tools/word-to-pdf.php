@@ -38,26 +38,34 @@ $faqs = [
     ],
     [
         'q' => 'Which Word file formats are supported?',
-        'a' => 'Modern Microsoft Word (.docx) and template (.dotx) files are natively supported. For legacy Word 97-2003 binary files (.doc), simply save as .docx in Word, Google Docs, or LibreOffice before converting.',
+        'a' => 'Modern Microsoft Word (.docx) and template (.dotx) files are natively supported. For legacy Word 97-2003 binary files (.doc), simply save as .docx in Word, Google Docs, or LibreOffice before converting. If you are starting from web content instead of a document file, check out our <a href="/html-to-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">HTML to PDF</a> tool.',
+    ],
+    [
+        'q' => 'Can I edit the PDF text after converting from Word?',
+        'a' => 'Yes. Once your PDF is generated, you can open it in our in-browser <a href="/edit-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Edit PDF</a> tool to modify existing text, fill form fields, whiteout mistakes, or add electronic signatures.',
     ],
     [
         'q' => 'Are tables, images, and text formatting preserved?',
-        'a' => 'Yes. Our converter parses paragraphs, headings, bulleted and numbered lists, bold and italic text styles, tables, and embedded images.',
+        'a' => 'Yes. Our converter parses paragraphs, headings, bulleted and numbered lists, bold and italic text styles, tables, and embedded images locally.',
+    ],
+    [
+        'q' => 'What should I do if the generated PDF is too large to email?',
+        'a' => 'You can optimize and shrink your document immediately with our <a href="/compress-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Compress PDF</a> tool, which reduces file weight while keeping typography and images crisp.',
+    ],
+    [
+        'q' => 'How can I password protect the converted PDF?',
+        'a' => 'To secure sensitive contracts or financial paperwork, you can apply 256-bit AES encryption with our client-side <a href="/protect-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Protect PDF</a> tool with zero server uploads.',
     ],
     [
         'q' => 'Is there any file size or document page limit?',
         'a' => 'No artificial caps or paywalls exist. Processing speed and capacity depend on your device hardware because everything compiles directly in your browser.',
-    ],
-    [
-        'q' => 'Can I use this Word to PDF converter on Mac, Windows, Linux, and mobile?',
-        'a' => 'Yes. NoPayPDF works on all modern web browsers including Google Chrome, Mozilla Firefox, Microsoft Edge, and Apple Safari with zero plugins or installation required.',
     ],
 ];
 
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/word-to-pdf',
+    'canonical' => SITE_URL . '/word-to-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

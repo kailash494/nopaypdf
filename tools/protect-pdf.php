@@ -39,6 +39,18 @@ $faqs = [
         'a' => 'NoPayPDF uses industry-standard 256-bit AES (Advanced Encryption Standard) encryption powered by QPDF WebAssembly. It is recognized globally as the gold standard for secure PDF document protection.',
     ],
     [
+        'q' => 'How can I remove the password later if I no longer need protection?',
+        'a' => 'If you have the valid password and want to permanently remove viewing and printing restrictions, you can decrypt the document with our in-browser <a href="/unlock-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Unlock PDF</a> tool.',
+    ],
+    [
+        'q' => 'Can I stamp a visual confidentiality watermark in addition to encryption?',
+        'a' => 'Yes. For complete security, you can stamp custom text notices or logos across every page with our <a href="/watermark-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Watermark PDF</a> tool before applying your password.',
+    ],
+    [
+        'q' => 'Should I compress my PDF before encrypting it for email?',
+        'a' => 'Yes. Encrypted PDF streams cannot be altered by third-party mail filters. We recommend running our <a href="/compress-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Compress PDF</a> tool first to ensure smooth delivery across inbox size limits.',
+    ],
+    [
         'q' => 'Can anyone (including NoPayPDF) see my password?',
         'a' => 'Never. All encryption runs strictly client-side inside your web browser. Neither your document nor your entered password is ever sent across the network or stored on any server.',
     ],
@@ -46,16 +58,12 @@ $faqs = [
         'q' => 'What is the difference between an Open Password and an Owner Password?',
         'a' => 'An Open Password (User Password) is required to view and open the PDF. An Owner Password (Permissions Password) controls restrictions like copying text, modifying annotations, or printing in high resolution.',
     ],
-    [
-        'q' => 'What happens if I forget the password I set?',
-        'a' => 'Because AES-256 encryption is mathematically unbreakable without the key and NoPayPDF stores zero information on any server, there is no backdoor or password recovery mechanism. Be sure to remember or safely store your password.',
-    ],
 ];
 
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/protect-pdf',
+    'canonical' => SITE_URL . '/protect-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

@@ -8,7 +8,7 @@ require_once __DIR__ . '/../includes/ad-slots.php';
 $pageMeta = [
     'title' => 'About Us - 100% In-Browser Privacy Architecture | ' . SITE_NAME,
     'description' => 'Learn about NoPayPDF\'s mission, open-source technology stack, and privacy-first architecture where all PDF processing executes locally in your browser with zero server uploads.',
-    'canonical' => SITE_URL . '/about',
+    'canonical' => SITE_URL . '/about/',
     'type' => 'website',
 ];
 

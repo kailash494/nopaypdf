@@ -37,6 +37,18 @@ $faqs = [
         'a' => 'No. NoPayPDF renders every page directly inside your browser using client-side canvas technology. Your files and converted images never leave your computer.',
     ],
     [
+        'q' => 'How can I convert images back into a single PDF document?',
+        'a' => 'If you have multiple JPG, PNG, or WebP pictures you want to compile into a neat document, use our matching <a href="/jpg-to-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">JPG to PDF</a> tool to arrange pages and customize margins.',
+    ],
+    [
+        'q' => 'Can I extract readable text from scanned PDF pages instead of just images?',
+        'a' => 'Yes. If you need machine-readable text rather than pictures, use our <a href="/ocr-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">OCR PDF</a> tool to perform optical character recognition directly in your browser.',
+    ],
+    [
+        'q' => 'Can I edit the PDF before exporting it as images?',
+        'a' => 'Absolutely. You can modify text, annotate, or fix mistakes using our in-browser <a href="/edit-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Edit PDF</a> tool before exporting to JPG or PNG.',
+    ],
+    [
         'q' => 'What is the difference between JPG and PNG export?',
         'a' => 'JPG produces significantly smaller file sizes with adjustable quality, making it ideal for sharing and web use. PNG is lossless and preserves vector clarity and transparency.',
     ],
@@ -44,20 +56,12 @@ $faqs = [
         'q' => 'Why choose 150 DPI or 300 DPI resolution?',
         'a' => 'Standard 72 DPI is best for fast web viewing. High 150 DPI provides crisp text on high-resolution Retina displays, and Print 300 DPI produces ultra-sharp images suitable for professional document printing.',
     ],
-    [
-        'q' => 'Can I convert only specific pages of my PDF?',
-        'a' => 'Yes. You can click on the visual thumbnails to pick individual pages or type custom page ranges like 1-3, 5, 8-10.',
-    ],
-    [
-        'q' => 'Will my images have black backgrounds?',
-        'a' => 'No. NoPayPDF automatically paints an opaque white canvas backdrop before JPEG conversion, ensuring pages with transparent backgrounds render with clean white paper.',
-    ],
 ];
 
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/pdf-to-jpg',
+    'canonical' => SITE_URL . '/pdf-to-jpg/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

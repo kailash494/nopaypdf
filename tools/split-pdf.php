@@ -37,23 +37,31 @@ $faqs = [
         'a' => 'No. All splitting, page rendering, and ZIP packaging happen locally in your browser memory. Your files never leave your device.',
     ],
     [
-        'q' => 'What split modes are available?',
-        'a' => 'You can select individual pages on visual thumbnails, define custom comma-separated page ranges (e.g. 1-3, 5, 8-10), or automatically split every single page into separate files.',
+        'q' => 'Can I recombine the extracted pages with other files?',
+        'a' => 'Yes! After extracting specific pages, you can easily combine them with other documents using our free <a href="/merge-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Merge PDF</a> tool.',
     ],
     [
-        'q' => 'How will I receive the split files?',
-        'a' => 'You can choose between receiving a single merged PDF of your selected pages, or downloading a ZIP archive containing each page or range as a separate PDF.',
+        'q' => 'What if I just need to reorder or rotate pages rather than extract them?',
+        'a' => 'If you want to keep all pages but rearrange their sequence or fix upside-down scans, our visual <a href="/organize-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Organize PDF</a> tool provides an intuitive drag-and-drop grid.',
     ],
     [
         'q' => 'Can I split password-protected PDFs?',
-        'a' => 'NoPayPDF requires encrypted PDFs to be unlocked first before splitting pages. No sensitive passwords or documents are ever transmitted across the web.',
+        'a' => 'Encrypted documents must have their security removed before extracting pages. You can quickly decrypt your authorized document using our private <a href="/unlock-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Unlock PDF</a> tool, then split the resulting file.',
+    ],
+    [
+        'q' => 'Can I convert my extracted pages into JPG images?',
+        'a' => 'Yes. If you need image formats for presentations or social media, export your pages and convert them with our <a href="/pdf-to-jpg/" class="text-brand-600 hover:text-brand-700 underline font-medium">PDF to JPG</a> tool.',
+    ],
+    [
+        'q' => 'What split modes are available?',
+        'a' => 'You can select individual pages on visual thumbnails, define custom comma-separated page ranges (e.g. 1-3, 5, 8-10), or automatically split every single page into separate files.',
     ],
 ];
 
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/split-pdf',
+    'canonical' => SITE_URL . '/split-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

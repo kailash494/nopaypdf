@@ -37,27 +37,31 @@ $faqs = [
         'a' => 'NoPayPDF supports JPG/JPEG, PNG, and modern WebP images. You can even combine different image formats into a single PDF.',
     ],
     [
+        'q' => 'Can I compress the PDF if my high-resolution photos make it too large?',
+        'a' => 'Yes! Multi-page photo PDFs can be quite large. You can shrink file size without noticeable loss of quality using our <a href="/compress-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Compress PDF</a> tool.',
+    ],
+    [
+        'q' => 'How can I convert PDF pages back into JPG images?',
+        'a' => 'If you have an existing PDF and want to export its pages as high-resolution images, use our matching <a href="/pdf-to-jpg/" class="text-brand-600 hover:text-brand-700 underline font-medium">PDF to JPG</a> tool.',
+    ],
+    [
+        'q' => 'Can I add page numbers or headers to the converted document?',
+        'a' => 'Yes. Once your images are compiled into a PDF, you can apply uniform numbering or headers using our <a href="/page-numbers/" class="text-brand-600 hover:text-brand-700 underline font-medium">Add Page Numbers</a> tool.',
+    ],
+    [
+        'q' => 'Can I password protect my image-based PDF document?',
+        'a' => 'To keep sensitive personal IDs or receipts confidential, apply AES-256 encryption with our <a href="/protect-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Protect PDF</a> tool right in your browser.',
+    ],
+    [
         'q' => 'Are my private photos uploaded to a server?',
         'a' => 'No. All image decoding, orientation correction, and PDF compilation take place directly inside your web browser. Your photos never leave your device.',
-    ],
-    [
-        'q' => 'What does the "Fit to Image" page size setting do?',
-        'a' => 'With "Fit to Image" selected, each PDF page is dynamically sized to exactly match the dimensions and aspect ratio of that specific image without margins or borders.',
-    ],
-    [
-        'q' => 'Will my smartphone photos be rotated correctly?',
-        'a' => 'Yes. NoPayPDF uses modern browser image decoding that automatically respects and applies camera EXIF orientation metadata, plus manual 90° rotation buttons.',
-    ],
-    [
-        'q' => 'Is there any limit on the number of images I can combine?',
-        'a' => 'No artificial limits exist. You can convert dozens of photos at once depending on your device’s memory capacity.',
     ],
 ];
 
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/jpg-to-pdf',
+    'canonical' => SITE_URL . '/jpg-to-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

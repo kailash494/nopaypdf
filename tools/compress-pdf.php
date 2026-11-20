@@ -39,23 +39,31 @@ $faqs = [
         'a' => 'NoPayPDF leverages WebAssembly (QPDF) to restructure object tables and compress streams without losing vector fidelity. For visual compression, it renders and re-encodes pages using client-side canvas technology. All operations execute strictly in your browser.',
     ],
     [
+        'q' => 'Can I password protect the compressed PDF?',
+        'a' => 'Yes. Once your PDF is optimized for email or web upload, you can encrypt it with robust 256-bit AES security using our client-side <a href="/protect-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Protect PDF</a> tool.',
+    ],
+    [
+        'q' => 'Can I edit document text after compressing?',
+        'a' => 'Yes! If you used the Lossless preset, text vectors remain fully intact. You can open the file in our <a href="/edit-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Edit PDF</a> tool to modify sentences, add annotations, or fill out forms.',
+    ],
+    [
         'q' => 'Will my PDF text remain selectable and searchable?',
         'a' => 'If you choose the "Lossless Structure" preset, all text, vectors, bookmarks, and links remain 100% intact, selectable, and searchable. Visual presets (Balanced, Strong, Extreme) optimize page images and flatten pages into compact graphics for maximum file reduction.',
     ],
     [
-        'q' => 'Is my confidential data safe?',
-        'a' => 'Yes, 100%. Your documents never touch our servers or any third-party cloud. Compression takes place in your computer or phone browser memory, ensuring total privacy for sensitive legal, financial, or personal documents.',
+        'q' => 'How can I save even more space on print documents?',
+        'a' => 'If your document has colorful charts or ink-heavy graphics destined for printing, convert it to monochrome with our <a href="/grayscale-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Grayscale PDF</a> tool to save ink and reduce file size.',
     ],
     [
-        'q' => 'Why did the compressed file size not change much on Lossless mode?',
-        'a' => 'Modern PDFs that primarily contain clean text and have already been optimized by professional software have very little redundant metadata or stream overhead to compress losslessly. To shrink such documents further, switch to the "Balanced" preset.',
+        'q' => 'Is my confidential data safe?',
+        'a' => 'Yes, 100%. Your documents never touch our servers or any third-party cloud. Compression takes place in your computer or phone browser memory, ensuring total privacy for sensitive legal, financial, or personal documents.',
     ],
 ];
 
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/compress-pdf',
+    'canonical' => SITE_URL . '/compress-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

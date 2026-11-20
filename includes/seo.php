@@ -25,19 +25,22 @@ function render_seo_head(array $meta = [], array $faqsFallback = []): void
     $title = $meta['title'] ?? (SITE_NAME . ' - ' . SITE_TAGLINE);
     $description = $meta['description'] ?? SITE_DESCRIPTION;
     $canonical = $meta['canonical'] ?? (SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/'));
-    // Strip query string for canonical
-    $canonicalUrl = strtok($canonical, '?');
+    // Strip query string and ensure canonical URL has a trailing slash for Cloudflare Pages directory style
+    $rawCanonical = strtok($canonical, '?');
+    $canonicalUrl = rtrim($rawCanonical, '/') . '/';
     
     $type = $meta['type'] ?? 'website';
     $ogImage = $meta['image'] ?? (SITE_URL . '/assets/img/og-cover.svg');
     $isTool = isset($meta['tool']) && is_array($meta['tool']);
-    $isHomepage = ($meta['is_homepage'] ?? false) || ($_SERVER['REQUEST_URI'] ?? '/') === '/';
+    $isHomepage = ($meta['is_homepage'] ?? false) || ($_SERVER['REQUEST_URI'] ?? '/') === '/' || $canonicalUrl === (rtrim(SITE_URL, '/') . '/');
 
+    $isNoIndex = ($meta['noindex'] ?? false) || str_ends_with($canonicalUrl, '/404/');
+    $robotsContent = $isNoIndex ? 'noindex, follow' : 'index, follow';
     ?>
     <title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title>
     <meta name="description" content="<?= htmlspecialchars($description, ENT_QUOTES, 'UTF-8') ?>">
     <link rel="canonical" href="<?= htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="<?= $robotsContent ?>">
     <meta name="theme-color" content="#2563eb">
 
     <!-- Favicon & PWA Web App Manifest -->
@@ -107,7 +110,7 @@ function render_seo_head(array $meta = [], array $faqsFallback = []): void
                 'name' => $faq['q'],
                 'acceptedAnswer' => [
                     '@type' => 'Answer',
-                    'text' => $faq['a']
+                    'text' => strip_tags($faq['a'])
                 ]
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }

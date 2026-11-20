@@ -53,7 +53,7 @@ $faqs = [
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/organize-pdf',
+    'canonical' => SITE_URL . '/organize-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

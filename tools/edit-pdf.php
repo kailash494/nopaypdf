@@ -39,12 +39,24 @@ $faqs = [
         'a' => 'Yes. NoPayPDF is 100% client-side. The editor extracts existing text coordinates and lines directly in your browser. Clicking on any line allows you to modify text, update numbers, fix typos, or change styling with zero server uploads.',
     ],
     [
+        'q' => 'Can I edit scanned PDFs that only contain images of paper pages?',
+        'a' => 'If your document consists of scanned paper pages or non-selectable images, run it through our in-browser <a href="/ocr-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">OCR PDF</a> tool first to recognize and extract selectable text before editing.',
+    ],
+    [
+        'q' => 'What if I need to start from a Microsoft Word file instead of a PDF?',
+        'a' => 'You can convert any .docx file into a clean PDF using our local <a href="/word-to-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Word to PDF</a> converter, then open it in this editor to customize annotations and fillable fields.',
+    ],
+    [
         'q' => 'What fonts does the editor use for replacing text?',
         'a' => 'NoPayPDF uses official metric-compatible SIL Open Font License 1.1 Liberation Fonts (Liberation Sans, Liberation Serif, and Liberation Mono). They are metric equivalents to standard document typefaces, ensuring matching character widths and line layout.',
     ],
     [
         'q' => 'Are created AcroForm fields compatible with standard PDF readers and web browsers?',
         'a' => 'Yes. All text fields, textareas, checkboxes, radio buttons, and dropdowns created in the editor are standard ISO 32000 compliant native PDF AcroForm dictionaries that work in all standard PDF viewers and web browsers.',
+    ],
+    [
+        'q' => 'Can I merge multiple edited PDF files together into one document?',
+        'a' => 'Yes. Once you export your edited files, you can seamlessly combine them using our free <a href="/merge-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Merge PDF</a> tool, or rearrange individual pages with our <a href="/organize-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Organize PDF</a> tool.',
     ],
     [
         'q' => 'How does the "Flatten Edited Pages" irreversible redaction work?',
@@ -55,15 +67,15 @@ $faqs = [
         'a' => 'Yes. Our hybrid vector-preserving pipeline copies unmodified pages and vectors directly from your original document, preserving 100% of the original vector curves, embedded imagery, and selectable text.',
     ],
     [
-        'q' => 'Can I add clickable links and jump to specific pages?',
-        'a' => 'Yes. The Links tool lets you draw clickable hotspot rectangles and configure either external web links (HTTPS URLs) or internal page jumps directly into the PDF annotation tree.',
+        'q' => 'Can I draw signatures and annotations without full text editing?',
+        'a' => 'Yes, if you only need quick digital signatures, pen drawings, or note highlights on a contract, you can also use our dedicated <a href="/sign-annotate-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Sign & Annotate</a> tool.',
     ],
 ];
 
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/edit-pdf',
+    'canonical' => SITE_URL . '/edit-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

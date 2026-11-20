@@ -39,6 +39,18 @@ $faqs = [
         'a' => 'No. Modern PDFs utilize robust 128-bit or 256-bit AES encryption which cannot be opened without the authorized password. You must enter the correct password to decrypt the document and remove the lock.',
     ],
     [
+        'q' => 'Can I edit the document or add signatures once it is unlocked?',
+        'a' => 'Yes. Once restriction flags and passwords are removed, you can open your document in our <a href="/edit-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Edit PDF</a> tool to update text, fill forms, or add digital signatures.',
+    ],
+    [
+        'q' => 'Can I set a new password on the document after unlocking?',
+        'a' => 'Yes. If you unlocked the document to remove an outdated passcode, you can set fresh credentials and owner permissions using our client-side <a href="/protect-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Protect PDF</a> tool.',
+    ],
+    [
+        'q' => 'Can I split or merge the unlocked PDF with other files?',
+        'a' => 'Yes! With security restrictions lifted, you can extract individual pages using <a href="/split-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Split PDF</a> or combine multiple reports using <a href="/merge-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Merge PDF</a>.',
+    ],
+    [
         'q' => 'What if the PDF only has printing or editing restrictions?',
         'a' => 'If a document only has owner restrictions (preventing printing, copying, or form filling) but no open password, NoPayPDF detects this automatically and allows you to strip all restrictions with a single click.',
     ],
@@ -46,16 +58,12 @@ $faqs = [
         'q' => 'Is my password or document transmitted to any server?',
         'a' => 'Never. Decryption is performed entirely in your browser using QPDF WebAssembly. Neither your file bytes nor your entered password are sent across the Internet.',
     ],
-    [
-        'q' => 'Can I re-protect the unlocked PDF later?',
-        'a' => 'Yes. Once unlocked, you can edit, print, or share the document freely, or use our Protect PDF tool to set a new password anytime.',
-    ],
 ];
 
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/unlock-pdf',
+    'canonical' => SITE_URL . '/unlock-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

@@ -19,7 +19,7 @@ function get_tool_registry(): array
             'phase' => 2,
             'status' => 'active',
             'meta_title' => 'Merge PDF Files Online - Free & 100% Private | NoPayPDF',
-            'meta_desc' => 'Combine PDF files in your preferred order directly in your browser. Fast, free, unlimited, and 100% private with no server uploads.',
+            'meta_desc' => 'Combine multiple PDF files into one organized document in your browser. Reorder pages freely with zero file uploads, subscriptions, or limits.',
         ],
         'split-pdf' => [
             'slug' => 'split-pdf',
@@ -30,7 +30,7 @@ function get_tool_registry(): array
             'phase' => 2,
             'status' => 'active',
             'meta_title' => 'Split PDF Online - Extract Pages Privately | NoPayPDF',
-            'meta_desc' => 'Separate PDF pages or extract custom page ranges quickly. Safe, private, and runs completely inside your browser.',
+            'meta_desc' => 'Separate PDF pages or extract custom page ranges into individual documents. Fast, secure, and runs completely inside your browser with zero file uploads.',
         ],
         'organize-pdf' => [
             'slug' => 'organize-pdf',
@@ -40,8 +40,8 @@ function get_tool_registry(): array
             'icon' => 'layout-grid',
             'phase' => 2,
             'status' => 'active',
-            'meta_title' => 'Organize & Reorder PDF Pages Online | NoPayPDF',
-            'meta_desc' => 'Drag and drop to rearrange, rotate, or remove PDF pages. Fast visual page organizer running 100% in your browser.',
+            'meta_title' => 'Organize PDF Pages Online - Reorder & Rotate | NoPayPDF',
+            'meta_desc' => 'Visually reorder, rotate, duplicate, or delete PDF pages with an instant drag-and-drop grid. Fast, private document organizer running 100% in your browser.',
         ],
 
         // Phase 3: Convert
@@ -53,8 +53,8 @@ function get_tool_registry(): array
             'icon' => 'image',
             'phase' => 3,
             'status' => 'active',
-            'meta_title' => 'Convert PDF to JPG Online - High Resolution Images | NoPayPDF',
-            'meta_desc' => 'Transform PDF pages into crisp JPG images locally on your device. Zero upload required, preserving complete privacy.',
+            'meta_title' => 'Convert PDF to JPG Online - High-Resolution Images | NoPayPDF',
+            'meta_desc' => 'Convert PDF pages into high-resolution JPG or PNG images directly on your device. Choose custom DPI and extract all pages or selected ranges with zero uploads.',
         ],
         'jpg-to-pdf' => [
             'slug' => 'jpg-to-pdf',
@@ -64,8 +64,8 @@ function get_tool_registry(): array
             'icon' => 'file-image',
             'phase' => 3,
             'status' => 'active',
-            'meta_title' => 'Convert JPG & Images to PDF Online | NoPayPDF',
-            'meta_desc' => 'Easily turn images into clean PDF documents with custom orientation and margins. Instant local conversion in your browser.',
+            'meta_title' => 'Convert JPG to PDF Online - Images to PDF Free | NoPayPDF',
+            'meta_desc' => 'Turn JPG, PNG, and WebP images into clean, polished PDF documents. Customize page orientation, margins, and paper sizes locally with zero file uploads.',
         ],
         'html-to-pdf' => [
             'slug' => 'html-to-pdf',
@@ -75,8 +75,8 @@ function get_tool_registry(): array
             'icon' => 'code-xml',
             'phase' => 3,
             'status' => 'active',
-            'meta_title' => 'Convert HTML to PDF Online - Free & Private | NoPayPDF',
-            'meta_desc' => 'Render HTML content and formatted text into downloadable PDF documents directly on your device.',
+            'meta_title' => 'Convert HTML to PDF Online - Free & 100% Private | NoPayPDF',
+            'meta_desc' => 'Render HTML code snippets, articles, and formatted web pages into downloadable PDF documents directly on your device. 100% private with zero file uploads.',
         ],
         'word-to-pdf' => [
             'slug' => 'word-to-pdf',
@@ -87,7 +87,7 @@ function get_tool_registry(): array
             'phase' => 3,
             'status' => 'active',
             'meta_title' => 'Convert Word to PDF Online - Free DOCX to PDF | NoPayPDF',
-            'meta_desc' => 'Convert Microsoft Word (.docx) documents to PDF directly in your browser. 100% free, private, and secure with zero file uploads or data tracking.',
+            'meta_desc' => 'Convert Microsoft Word (.docx) documents to PDF directly in your browser with formatting, tables, and images preserved. 100% free with zero file uploads.',
         ],
 
         // Phase 4: Optimize & Security
@@ -100,7 +100,7 @@ function get_tool_registry(): array
             'phase' => 4,
             'status' => 'active',
             'meta_title' => 'Compress PDF Online - Reduce File Size Privately | NoPayPDF',
-            'meta_desc' => 'Optimize and shrink large PDF files quickly without losing quality. Complete in-browser compression keeps your data safe.',
+            'meta_desc' => 'Shrink and optimize large PDF files quickly without losing document clarity. Choose lossless or visual compression directly in your browser with zero uploads.',
         ],
         'protect-pdf' => [
             'slug' => 'protect-pdf',
@@ -111,7 +111,7 @@ function get_tool_registry(): array
             'phase' => 4,
             'status' => 'active',
             'meta_title' => 'Password Protect PDF Online - Encrypt Documents | NoPayPDF',
-            'meta_desc' => 'Add strong encryption and passwords to your PDF files securely in your web browser. No files are ever sent across the web.',
+            'meta_desc' => 'Encrypt your PDF documents with secure 256-bit AES password protection. Set user and owner permissions entirely in your web browser with zero file uploads.',
         ],
         'unlock-pdf' => [
             'slug' => 'unlock-pdf',
@@ -121,8 +121,8 @@ function get_tool_registry(): array
             'icon' => 'unlock',
             'phase' => 4,
             'status' => 'active',
-            'meta_title' => 'Unlock Password-Protected PDF Online | NoPayPDF',
-            'meta_desc' => 'Decrypt and remove password locks from PDFs you own directly on your machine without uploading sensitive files.',
+            'meta_title' => 'Unlock PDF Online - Remove Password Security | NoPayPDF',
+            'meta_desc' => 'Remove passwords and printing or editing restrictions from your authorized PDF files. Fast, secure in-browser decryption with zero file uploads or tracking.',
         ],
         'watermark-pdf' => [
             'slug' => 'watermark-pdf',
@@ -133,7 +133,7 @@ function get_tool_registry(): array
             'phase' => 4,
             'status' => 'active',
             'meta_title' => 'Add Watermark to PDF Online - Text & Image Stamps | NoPayPDF',
-            'meta_desc' => 'Stamp confidential marks, copyright notices, or custom logos on PDF documents locally in your browser.',
+            'meta_desc' => 'Stamp confidential marks, copyright notices, or custom logos across every page of your PDF documents. Runs entirely inside your browser with zero uploads.',
         ],
         'page-numbers' => [
             'slug' => 'page-numbers',
@@ -143,8 +143,8 @@ function get_tool_registry(): array
             'icon' => 'hash',
             'phase' => 4,
             'status' => 'active',
-            'meta_title' => 'Add Page Numbers to PDF Online | NoPayPDF',
-            'meta_desc' => 'Customize page numbering format, font, and position on your PDF documents with ease and complete privacy.',
+            'meta_title' => 'Add Page Numbers to PDF Online - Custom Headers | NoPayPDF',
+            'meta_desc' => 'Insert customizable page numbers, Bates stamping, headers, and footers into your PDF documents. Position freely and format fonts locally with zero uploads.',
         ],
 
         // Phase 5: Edit & OCR
@@ -156,8 +156,8 @@ function get_tool_registry(): array
             'icon' => 'file-pen',
             'phase' => 5,
             'status' => 'active',
-            'meta_title' => 'Edit PDF Online - Free Full-Featured In-Browser PDF Editor | NoPayPDF',
-            'meta_desc' => 'Directly edit PDF text, fill and create AcroForms, add links, signatures, whiteout, and shapes. 100% private, free, and runs entirely in your browser with zero uploads.',
+            'meta_title' => 'Edit PDF Online - Free In-Browser PDF Editor | NoPayPDF',
+            'meta_desc' => 'Directly edit existing PDF text, fill and create forms, add signatures, and whiteout content. 100% free, private, and runs in your browser with zero file uploads.',
         ],
         'sign-annotate-pdf' => [
             'slug' => 'sign-annotate-pdf',
@@ -167,8 +167,8 @@ function get_tool_registry(): array
             'icon' => 'pen-tool',
             'phase' => 5,
             'status' => 'active',
-            'meta_title' => 'Sign & Annotate PDF Online - Free Digital Signatures | NoPayPDF',
-            'meta_desc' => 'Sign documents, add annotations, text callouts, and highlights right in your browser. Private and secure.',
+            'meta_title' => 'Sign and Annotate PDF Online - Draw Signatures | NoPayPDF',
+            'meta_desc' => 'Draw digital signatures, add notes, highlight text, and annotate PDF documents directly on your device. Fast, secure, and 100% private with zero file uploads.',
         ],
         'grayscale-pdf' => [
             'slug' => 'grayscale-pdf',
@@ -178,8 +178,8 @@ function get_tool_registry(): array
             'icon' => 'contrast',
             'phase' => 5,
             'status' => 'active',
-            'meta_title' => 'Convert PDF to Black and White / Grayscale Online | NoPayPDF',
-            'meta_desc' => 'Transform colorful PDFs to monochrome black and white for efficient printing and smaller storage.',
+            'meta_title' => 'Convert PDF to Black and White Online - Grayscale | NoPayPDF',
+            'meta_desc' => 'Convert colorful PDF documents into crisp monochrome black and white for smaller file size and print economy. Fast client-side conversion with zero file uploads.',
         ],
         'crop-pdf' => [
             'slug' => 'crop-pdf',
@@ -189,8 +189,8 @@ function get_tool_registry(): array
             'icon' => 'crop',
             'phase' => 5,
             'status' => 'active',
-            'meta_title' => 'Crop PDF Margins Online - Free Visual Trimmer | NoPayPDF',
-            'meta_desc' => 'Trim unnecessary whitespace and adjust page margins on any PDF document in your browser.',
+            'meta_title' => 'Crop PDF Pages Online - Visual Margin Trimmer | NoPayPDF',
+            'meta_desc' => 'Trim unwanted margins, remove header whitespace, and resize PDF page boundaries visually in your browser. Fast, accurate, and 100% private with zero uploads.',
         ],
         'ocr-pdf' => [
             'slug' => 'ocr-pdf',
@@ -201,7 +201,7 @@ function get_tool_registry(): array
             'phase' => 5,
             'status' => 'active',
             'meta_title' => 'OCR PDF Online - Extract Text from Scanned PDFs | NoPayPDF',
-            'meta_desc' => 'Convert scanned PDF pages into selectable, searchable text with client-side optical character recognition.',
+            'meta_desc' => 'Extract searchable text and copy data from scanned PDF documents and images directly in your browser. 100% private OCR with zero file uploads or limits.',
         ],
     ];
 

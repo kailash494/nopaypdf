@@ -39,8 +39,16 @@ $faqs = [
         'a' => 'OCR converts scanned image documents into machine-encoded, selectable, and searchable text, enabling copy-pasting, word searching, and indexing.',
     ],
     [
+        'q' => 'Can I edit the text directly once OCR is finished?',
+        'a' => 'Yes. Once you export your searchable PDF, you can open it directly in our <a href="/edit-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Edit PDF</a> tool to modify text lines, replace words, add form fields, or whiteout unwanted content.',
+    ],
+    [
         'q' => 'How does the Searchable PDF output work?',
         'a' => 'NoPayPDF overlays an invisible, high-precision vector text layer directly on top of your scanned document images, allowing you to highlight, search (Ctrl+F), and copy text while preserving the original visual scan.',
+    ],
+    [
+        'q' => 'What if I have camera photos or JPG/PNG scans instead of a PDF?',
+        'a' => 'You can first combine your image scans into a standardized document using our <a href="/jpg-to-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">JPG to PDF</a> converter, or conversely convert PDF pages into pictures using <a href="/pdf-to-jpg/" class="text-brand-600 hover:text-brand-700 underline font-medium">PDF to JPG</a>.',
     ],
     [
         'q' => 'What languages are supported?',
@@ -51,15 +59,15 @@ $faqs = [
         'a' => 'No. All image rasterization, WebAssembly neural network inference, and PDF layer generation execute 100% inside your web browser. Your private documents never leave your machine.',
     ],
     [
-        'q' => 'Can I run OCR on long documents?',
-        'a' => 'Yes. For documents exceeding 15–20 pages, we recommend processing in batches or selecting a Custom Page Range for optimal browser performance and speed.',
+        'q' => 'Can I run OCR on large, multi-page book scans?',
+        'a' => 'Yes. For documents exceeding 20 pages, we recommend using our <a href="/split-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Split PDF</a> tool to separate them into smaller chapters, perform fast OCR in parallel, and recombine them with <a href="/merge-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Merge PDF</a>.',
     ],
 ];
 
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/ocr-pdf',
+    'canonical' => SITE_URL . '/ocr-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

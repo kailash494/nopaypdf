@@ -12,7 +12,8 @@ require_once __DIR__ . '/../includes/config.php';
 $pageMeta = [
     'title' => 'Page Not Found (404) | ' . SITE_NAME,
     'description' => 'The requested PDF tool or page could not be found. Explore our complete directory of free, client-side PDF utilities.',
-    'canonical' => SITE_URL . '/404',
+    'canonical' => SITE_URL . '/404/',
+    'noindex' => true,
 ];
 
 require_once __DIR__ . '/../includes/header.php';

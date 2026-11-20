@@ -55,7 +55,7 @@ $faqs = [
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/watermark-pdf',
+    'canonical' => SITE_URL . '/watermark-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

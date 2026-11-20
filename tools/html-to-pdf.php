@@ -57,7 +57,7 @@ $faqs = [
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/html-to-pdf',
+    'canonical' => SITE_URL . '/html-to-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];

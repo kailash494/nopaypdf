@@ -28,31 +28,31 @@ $urls = [
         'priority' => '1.0',
     ],
     [
-        'loc' => $sitemapBase . '/about',
+        'loc' => $sitemapBase . '/about/',
         'lastmod' => $today,
         'changefreq' => 'monthly',
         'priority' => '0.7',
     ],
     [
-        'loc' => $sitemapBase . '/contact',
+        'loc' => $sitemapBase . '/contact/',
         'lastmod' => $today,
         'changefreq' => 'monthly',
         'priority' => '0.6',
     ],
     [
-        'loc' => $sitemapBase . '/licenses',
+        'loc' => $sitemapBase . '/licenses/',
         'lastmod' => $today,
         'changefreq' => 'monthly',
         'priority' => '0.5',
     ],
     [
-        'loc' => $sitemapBase . '/privacy-policy',
+        'loc' => $sitemapBase . '/privacy-policy/',
         'lastmod' => $today,
         'changefreq' => 'monthly',
         'priority' => '0.5',
     ],
     [
-        'loc' => $sitemapBase . '/terms',
+        'loc' => $sitemapBase . '/terms/',
         'lastmod' => $today,
         'changefreq' => 'monthly',
         'priority' => '0.5',
@@ -63,7 +63,7 @@ $urls = [
 foreach ($allTools as $slug => $tool) {
     if ($tool['status'] === 'active') {
         $urls[] = [
-            'loc' => $sitemapBase . '/' . $slug,
+            'loc' => $sitemapBase . '/' . $slug . '/',
             'lastmod' => $today,
             'changefreq' => 'weekly',
             'priority' => '0.8',

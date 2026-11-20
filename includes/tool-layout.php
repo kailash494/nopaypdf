@@ -47,9 +47,53 @@ function render_tool_hero(array $tool): void
     <?php
 }
 
+function get_related_tools(string $slug): array
+{
+    static $map = [
+        'edit-pdf' => ['word-to-pdf', 'compress-pdf', 'sign-annotate-pdf', 'ocr-pdf'],
+        'word-to-pdf' => ['edit-pdf', 'compress-pdf', 'protect-pdf', 'html-to-pdf'],
+        'merge-pdf' => ['split-pdf', 'organize-pdf', 'compress-pdf', 'page-numbers'],
+        'split-pdf' => ['merge-pdf', 'organize-pdf', 'crop-pdf', 'compress-pdf'],
+        'organize-pdf' => ['merge-pdf', 'split-pdf', 'crop-pdf', 'page-numbers'],
+        'compress-pdf' => ['merge-pdf', 'edit-pdf', 'word-to-pdf', 'pdf-to-jpg'],
+        'pdf-to-jpg' => ['jpg-to-pdf', 'ocr-pdf', 'compress-pdf', 'split-pdf'],
+        'jpg-to-pdf' => ['pdf-to-jpg', 'merge-pdf', 'compress-pdf', 'organize-pdf'],
+        'html-to-pdf' => ['word-to-pdf', 'edit-pdf', 'compress-pdf', 'merge-pdf'],
+        'protect-pdf' => ['unlock-pdf', 'watermark-pdf', 'compress-pdf', 'edit-pdf'],
+        'unlock-pdf' => ['protect-pdf', 'edit-pdf', 'compress-pdf', 'split-pdf'],
+        'watermark-pdf' => ['page-numbers', 'protect-pdf', 'edit-pdf', 'compress-pdf'],
+        'page-numbers' => ['watermark-pdf', 'merge-pdf', 'split-pdf', 'edit-pdf'],
+        'sign-annotate-pdf' => ['edit-pdf', 'protect-pdf', 'compress-pdf', 'watermark-pdf'],
+        'grayscale-pdf' => ['compress-pdf', 'crop-pdf', 'pdf-to-jpg', 'edit-pdf'],
+        'crop-pdf' => ['grayscale-pdf', 'split-pdf', 'organize-pdf', 'compress-pdf'],
+        'ocr-pdf' => ['edit-pdf', 'pdf-to-jpg', 'compress-pdf', 'word-to-pdf'],
+    ];
+
+    $allTools = get_all_tools();
+    $relatedSlugs = $map[$slug] ?? [];
+    $result = [];
+
+    foreach ($relatedSlugs as $relSlug) {
+        if (isset($allTools[$relSlug]) && $allTools[$relSlug]['status'] === 'active') {
+            $result[$relSlug] = $allTools[$relSlug];
+        }
+    }
+
+    if (count($result) < 4) {
+        foreach ($allTools as $otherSlug => $tool) {
+            if ($otherSlug !== $slug && !isset($result[$otherSlug]) && $tool['status'] === 'active') {
+                $result[$otherSlug] = $tool;
+                if (count($result) >= 4) break;
+            }
+        }
+    }
+
+    return $result;
+}
+
 function render_tool_seo_sections(array $howToSteps, array $faqs, string $currentSlug): void
 {
-    $allTools = get_all_tools();
+    $relatedTools = get_related_tools($currentSlug);
     ?>
     <!-- Step-by-Step Guide Section -->
     <section class="py-14 bg-white border-t border-slate-200">
@@ -92,7 +136,7 @@ function render_tool_seo_sections(array $howToSteps, array $faqs, string $curren
                             </span>
                         </summary>
                         <p class="text-xs sm:text-sm text-slate-600 mt-3 pt-3 border-t border-slate-100 leading-relaxed cursor-text">
-                            <?= htmlspecialchars($faq['a'], ENT_QUOTES, 'UTF-8') ?>
+                            <?= strip_tags($faq['a'], '<a><strong><em><code>') ?>
                         </p>
                     </details>
                 <?php endforeach; ?>
@@ -101,13 +145,13 @@ function render_tool_seo_sections(array $howToSteps, array $faqs, string $curren
     </section>
     <?php endif; ?>
 
-    <!-- More PDF Tools Internal Linking Strip -->
+    <!-- Related Workflow Tools Internal Linking Strip -->
     <section class="py-14 bg-white border-t border-slate-200">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between mb-8">
                 <div>
-                    <h2 class="text-xl font-bold text-slate-900">Explore More PDF Tools</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">All running securely inside your browser.</p>
+                    <h2 class="text-xl font-bold text-slate-900">Related Workflow Tools</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Seamlessly continue your document workflow with these companion tools:</p>
                 </div>
                 <a href="/#tools-section" class="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
                     <span>View All Tools</span>
@@ -116,15 +160,8 @@ function render_tool_seo_sections(array $howToSteps, array $faqs, string $curren
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <?php 
-                $count = 0;
-                foreach ($allTools as $slug => $otherTool):
-                    if ($slug === $currentSlug || $count >= 4) continue;
-                    $isActive = ($otherTool['status'] === 'active');
-                    $linkUrl = $isActive ? '/' . htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') : '/#tools-section';
-                    $count++;
-                ?>
-                    <a href="<?= $linkUrl ?>" class="group p-4 rounded-xl border border-slate-200/90 hover:border-blue-300 hover:shadow-xs transition-all flex items-start gap-3 bg-white">
+                <?php foreach ($relatedTools as $slug => $otherTool): ?>
+                    <a href="/<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>/" class="group p-4 rounded-xl border border-slate-200/90 hover:border-blue-300 hover:shadow-xs transition-all flex items-start gap-3 bg-white">
                         <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                             <i data-lucide="<?= htmlspecialchars($otherTool['icon'], ENT_QUOTES, 'UTF-8') ?>" class="w-4 h-4"></i>
                         </div>

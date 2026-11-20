@@ -13,7 +13,7 @@ require_once __DIR__ . '/tool-registry.php';
 $pageMeta = $pageMeta ?? [];
 ?>
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-50 text-slate-800 antialiased">
+<html lang="en" class="h-full bg-slate-50 text-slate-800 antialiased overflow-x-hidden">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -34,8 +34,8 @@ $pageMeta = $pageMeta ?? [];
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=<?= htmlspecialchars(ADSENSE_PUBLISHER_ID, ENT_QUOTES, 'UTF-8') ?>" crossorigin="anonymous"></script>
     <?php endif; ?>
 
-    <!-- Lucide Icons (ISC License) -->
-    <script src="https://unpkg.com/lucide@1.48.0/dist/umd/lucide.min.js"></script>
+    <!-- Lucide Icons (ISC License) - Loaded with defer to eliminate render blocking -->
+    <script src="https://unpkg.com/lucide@1.48.0/dist/umd/lucide.min.js" defer></script>
 
     <style>
         /* Modern system font stack */
@@ -44,7 +44,7 @@ $pageMeta = $pageMeta ?? [];
         }
     </style>
 </head>
-<body class="min-h-full flex flex-col bg-slate-50 text-slate-800">
+<body class="min-h-full flex flex-col bg-slate-50 text-slate-800 overflow-x-hidden">
     <!-- Accessible Skip to Main Content Link -->
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-xl focus:shadow-md">
         Skip to main content
@@ -86,7 +86,7 @@ $pageMeta = $pageMeta ?? [];
 
                 <!-- Header Actions & Privacy Pill -->
                 <div class="hidden sm:flex items-center gap-3">
-                    <a href="/edit-pdf" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all shadow-xs">
+                    <a href="/edit-pdf/" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all shadow-xs">
                         <i data-lucide="file-pen" class="w-3.5 h-3.5 text-blue-600"></i>
                         <span>Edit PDF</span>
                         <span class="text-[9px] uppercase tracking-wider font-extrabold bg-blue-600 text-white px-1.5 py-0.5 rounded-md">New</span>
@@ -97,9 +97,9 @@ $pageMeta = $pageMeta ?? [];
                     </div>
                 </div>
 
-                <!-- Mobile menu button -->
+                <!-- Mobile menu button (Accessible min 44x44px touch target) -->
                 <div class="flex md:hidden">
-                    <button type="button" id="mobile-menu-btn" class="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none" aria-label="Toggle navigation menu">
+                    <button type="button" id="mobile-menu-btn" class="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none" aria-label="Toggle navigation menu">
                         <i data-lucide="menu" class="w-6 h-6"></i>
                     </button>
                 </div>
@@ -108,7 +108,7 @@ $pageMeta = $pageMeta ?? [];
 
         <!-- Mobile Navigation Drawer -->
         <div id="mobile-menu" class="hidden md:hidden border-b border-slate-200 bg-white px-4 pt-2 pb-4 space-y-1">
-            <a href="/edit-pdf" class="flex items-center justify-between px-3 py-2 rounded-md text-base font-bold text-blue-600 bg-blue-50/70">
+            <a href="/edit-pdf/" class="flex items-center justify-between px-3 py-2 rounded-md text-base font-bold text-blue-600 bg-blue-50/70">
                 <span class="flex items-center gap-2">
                     <i data-lucide="file-pen" class="w-4 h-4"></i>
                     <span>Full PDF Editor</span>

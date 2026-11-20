@@ -37,12 +37,20 @@ $faqs = [
         'a' => 'No. NoPayPDF merges documents 100% locally on your computer or phone using client-side JavaScript. Your confidential files never touch our servers.',
     ],
     [
-        'q' => 'How many PDF documents can I merge at once?',
-        'a' => 'You can merge dozens of PDF files simultaneously. Because processing runs in your browser, limits depend solely on your computer’s available memory.',
+        'q' => 'Can I compress the merged PDF if the resulting file is too large?',
+        'a' => 'Yes. Combining multiple reports or presentations can result in a large file. You can easily optimize and shrink it for email or web upload using our in-browser <a href="/compress-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Compress PDF</a> tool.',
     ],
     [
-        'q' => 'Can I change the order of the files before merging?',
-        'a' => 'Yes. You can drag and drop file cards or click the up/down arrows to position your files in any order you prefer.',
+        'q' => 'How can I add uniform page numbers across all merged pages?',
+        'a' => 'After combining your documents, open your new file in our <a href="/page-numbers/" class="text-brand-600 hover:text-brand-700 underline font-medium">Add Page Numbers</a> tool to insert customized consecutive page numbers, headers, or footers with precise positioning.',
+    ],
+    [
+        'q' => 'Can I reorder or delete individual pages instead of entire files?',
+        'a' => 'Yes. For granular page-level control, use our visual <a href="/organize-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Organize PDF</a> tool to drag, drop, rotate, or delete specific pages before or after merging.',
+    ],
+    [
+        'q' => 'Can I separate a merged document back into individual files?',
+        'a' => 'If you ever need to divide a compiled document back into chapters or standalone pages, use our private <a href="/split-pdf/" class="text-brand-600 hover:text-brand-700 underline font-medium">Split PDF</a> tool.',
     ],
     [
         'q' => 'Does merging reduce the visual quality of my PDFs?',
@@ -53,7 +61,7 @@ $faqs = [
 $pageMeta = [
     'title' => $tool['meta_title'],
     'description' => $tool['meta_desc'],
-    'canonical' => SITE_URL . '/merge-pdf',
+    'canonical' => SITE_URL . '/merge-pdf/',
     'tool' => $tool,
     'faqs' => $faqs,
 ];
