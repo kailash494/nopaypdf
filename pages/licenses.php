@@ -12,7 +12,6 @@ $pageMeta = [
     'type' => 'website',
 ];
 
-render_seo_head($pageMeta);
 require_once __DIR__ . '/../includes/header.php';
 
 $libraries = [
@@ -111,6 +110,14 @@ $libraries = [
         'author' => 'Devon Govett, Andrew Dillon',
         'purpose' => 'Advanced font engine for subsetting and embedding custom TrueType/OpenType fonts in PDF documents via pdf-lib.',
         'url' => 'https://github.com/Hopding/fontkit',
+    ],
+    [
+        'name' => 'Mammoth.js',
+        'version' => '1.8.0',
+        'license' => 'BSD-2-Clause License',
+        'author' => 'Michael Williamson',
+        'purpose' => 'Client-side Microsoft Word (.docx) document parser and HTML converter for the Word to PDF tool.',
+        'url' => 'https://github.com/mwilliamson/mammoth.js',
     ],
 ];
 ?>

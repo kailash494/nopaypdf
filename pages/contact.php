@@ -12,7 +12,6 @@ $pageMeta = [
     'type' => 'website',
 ];
 
-render_seo_head($pageMeta);
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
@@ -55,22 +54,59 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="space-y-2">
                     <h2 class="text-xl font-bold text-slate-900">Get in Touch</h2>
                     <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                        For general inquiries, feature requests, or partnerships, reach out directly via email. We aim to respond within 24–48 business hours.
+                        For general inquiries, feature requests, or bug reports, reach out directly via email. We aim to respond within 24–48 business hours.
                     </p>
                 </div>
 
                 <!-- Direct Email Card -->
-                <div class="p-6 rounded-2xl border border-slate-200 bg-slate-50 space-y-3">
-                    <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                        <i data-lucide="mail" class="w-5 h-5"></i>
+                <div class="p-6 rounded-2xl border border-slate-200 bg-slate-50 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                            <i data-lucide="mail" class="w-5 h-5"></i>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-[11px] font-semibold text-blue-700">Direct Support</span>
                     </div>
+
                     <div>
                         <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Official Support Email</span>
-                        <a href="mailto:<?= htmlspecialchars(CONTACT_EMAIL, ENT_QUOTES, 'UTF-8') ?>" class="text-base font-bold text-blue-600 hover:text-blue-700 transition-colors">
+                        <!--email_off-->
+                        <a href="mailto:<?= htmlspecialchars(CONTACT_EMAIL, ENT_QUOTES, 'UTF-8') ?>" class="text-base sm:text-lg font-bold text-blue-600 hover:text-blue-700 transition-colors break-all">
                             <?= htmlspecialchars(CONTACT_EMAIL, ENT_QUOTES, 'UTF-8') ?>
                         </a>
+                        <!--/email_off-->
                     </div>
-                    <p class="text-[11px] text-slate-500">
+
+                    <!-- Quick Copy Button -->
+                    <div class="pt-1">
+                        <button
+                            type="button"
+                            id="copy-email-btn"
+                            class="w-full py-2.5 px-3 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                        >
+                            <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-500" id="copy-icon"></i>
+                            <span id="copy-btn-text">Copy Email Address</span>
+                        </button>
+                    </div>
+
+                    <!-- Pre-filled Inquiry Subject Links -->
+                    <div class="pt-3 border-t border-slate-200/80 space-y-2">
+                        <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Quick Subject Shortcuts</span>
+                        <div class="flex flex-wrap gap-2 text-xs">
+                            <!--email_off-->
+                            <a href="mailto:<?= htmlspecialchars(CONTACT_EMAIL, ENT_QUOTES, 'UTF-8') ?>?subject=NoPayPDF%20General%20Inquiry" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-400 text-slate-700 font-medium transition-colors">
+                                General Inquiry
+                            </a>
+                            <a href="mailto:<?= htmlspecialchars(CONTACT_EMAIL, ENT_QUOTES, 'UTF-8') ?>?subject=NoPayPDF%20Feature%20Request" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-400 text-slate-700 font-medium transition-colors">
+                                Feature Request
+                            </a>
+                            <a href="mailto:<?= htmlspecialchars(CONTACT_EMAIL, ENT_QUOTES, 'UTF-8') ?>?subject=NoPayPDF%20Bug%20Report" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-400 text-slate-700 font-medium transition-colors">
+                                Bug Report
+                            </a>
+                            <!--/email_off-->
+                        </div>
+                    </div>
+
+                    <p class="text-[11px] text-slate-500 pt-1">
                         Available Monday through Friday for technical support and website inquiries.
                     </p>
                 </div>
@@ -117,7 +153,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <div class="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">1</div>
                         <div>
                             <strong class="text-slate-900 block font-semibold">Tool Name:</strong>
-                            <span>Which tool were you using (e.g. Merge PDF, OCR PDF, Crop PDF)?</span>
+                            <span>Which tool were you using (e.g. Edit PDF, Merge PDF, Word to PDF)?</span>
                         </div>
                     </div>
 
@@ -147,6 +183,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
 
                 <div class="pt-4 border-t border-slate-100">
+                    <!--email_off-->
                     <a
                         href="mailto:<?= htmlspecialchars(CONTACT_EMAIL, ENT_QUOTES, 'UTF-8') ?>?subject=NoPayPDF%20Bug%20Report"
                         class="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
@@ -154,6 +191,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <i data-lucide="mail" class="w-4 h-4"></i>
                         <span>Email Bug Report</span>
                     </a>
+                    <!--/email_off-->
                 </div>
             </div>
 
@@ -161,5 +199,55 @@ require_once __DIR__ . '/../includes/header.php';
 
     </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var copyBtn = document.getElementById('copy-email-btn');
+    var copyText = document.getElementById('copy-btn-text');
+    var copyIcon = document.getElementById('copy-icon');
+    var email = '<?= addslashes(CONTACT_EMAIL) ?>';
+
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(email).then(function () {
+                    showCopied();
+                }).catch(function () {
+                    fallbackCopy();
+                });
+            } else {
+                fallbackCopy();
+            }
+        });
+    }
+
+    function fallbackCopy() {
+        var textarea = document.createElement('textarea');
+        textarea.value = email;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            showCopied();
+        } catch (e) {
+            prompt('Copy email address:', email);
+        }
+        document.body.removeChild(textarea);
+    }
+
+    function showCopied() {
+        if (!copyText) return;
+        var originalText = copyText.textContent;
+        copyText.textContent = 'Copied to Clipboard!';
+        if (copyBtn) copyBtn.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-300');
+        setTimeout(function () {
+            copyText.textContent = originalText;
+            if (copyBtn) copyBtn.classList.remove('bg-emerald-50', 'text-emerald-700', 'border-emerald-300');
+        }, 2200);
+    }
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

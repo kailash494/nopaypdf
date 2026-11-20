@@ -56,7 +56,14 @@ $faqs = [
     ],
 ];
 
-render_seo_head($tool, $faqs);
+$pageMeta = [
+    'title' => $tool['meta_title'],
+    'description' => $tool['meta_desc'],
+    'canonical' => SITE_URL . '/ocr-pdf',
+    'tool' => $tool,
+    'faqs' => $faqs,
+];
+
 require_once __DIR__ . '/../includes/header.php';
 ?>
 

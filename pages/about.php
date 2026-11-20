@@ -12,7 +12,6 @@ $pageMeta = [
     'type' => 'website',
 ];
 
-render_seo_head($pageMeta);
 require_once __DIR__ . '/../includes/header.php';
 ?>
 

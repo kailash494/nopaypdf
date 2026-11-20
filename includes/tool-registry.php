@@ -78,6 +78,17 @@ function get_tool_registry(): array
             'meta_title' => 'Convert HTML to PDF Online - Free & Private | NoPayPDF',
             'meta_desc' => 'Render HTML content and formatted text into downloadable PDF documents directly on your device.',
         ],
+        'word-to-pdf' => [
+            'slug' => 'word-to-pdf',
+            'name' => 'Word to PDF',
+            'short_desc' => 'Convert Word documents (.docx) to PDF with preserved formatting locally.',
+            'category' => 'Convert',
+            'icon' => 'file-text',
+            'phase' => 3,
+            'status' => 'active',
+            'meta_title' => 'Convert Word to PDF Online - Free DOCX to PDF | NoPayPDF',
+            'meta_desc' => 'Convert Microsoft Word (.docx) documents to PDF directly in your browser. 100% free, private, and secure with zero file uploads or data tracking.',
+        ],
 
         // Phase 4: Optimize & Security
         'compress-pdf' => [
