@@ -143,15 +143,9 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
                             <i data-lucide="<?= htmlspecialchars($tool['icon'], ENT_QUOTES, 'UTF-8') ?>" class="w-6 h-6"></i>
                         </div>
-                        <?php if ($isActive): ?>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                Active
-                            </span>
-                        <?php else: ?>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
-                                Coming Soon
-                            </span>
-                        <?php endif; ?>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Active
+                        </span>
                     </div>
 
                     <!-- Tool Name -->

@@ -1,0 +1,14 @@
+{
+  "name": "pdftoolkit",
+  "version": "1.0.0",
+  "description": "Free, fast and 100% private in-browser PDF tools suite",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i assets/css/tailwind.input.css -o assets/css/tailwind.min.css --minify",
+    "watch:css": "tailwindcss -i assets/css/tailwind.input.css -o assets/css/tailwind.min.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.5",
+    "tailwindcss": "^4.3.5"
+  }
+}

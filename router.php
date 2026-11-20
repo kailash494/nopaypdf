@@ -6,17 +6,35 @@ declare(strict_types=1);
  * Usage: php -S localhost:8000 router.php
  */
 
+// Global Security & CSP Headers (WASM & Web Worker friendly)
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://pagead2.googlesyndication.com https://fundingchoicesmessages.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; worker-src 'self' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src 'self' data: blob: https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://pagead2.googlesyndication.com; frame-src 'self' https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://fundingchoicesmessages.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self';");
+
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
 $uri = rawurldecode($uri);
 
 // Serve existing static assets under /assets/ or static files directly
 $localFilePath = __DIR__ . $uri;
 if ($uri !== '/' && file_exists($localFilePath) && !is_dir($localFilePath)) {
+    $ext = pathinfo($localFilePath, PATHINFO_EXTENSION);
     // Ensure WebAssembly binary files are served with the required application/wasm MIME type
-    if (pathinfo($localFilePath, PATHINFO_EXTENSION) === 'wasm') {
+    if ($ext === 'wasm') {
         header('Content-Type: application/wasm');
         header('Content-Length: ' . (string)filesize($localFilePath));
         header('Cache-Control: public, max-age=31536000, immutable');
+        readfile($localFilePath);
+        return true;
+    }
+    if ($ext === 'svg') {
+        header('Content-Type: image/svg+xml');
+        readfile($localFilePath);
+        return true;
+    }
+    if ($ext === 'webmanifest') {
+        header('Content-Type: application/manifest+json');
         readfile($localFilePath);
         return true;
     }
@@ -33,6 +51,18 @@ if ($path === '' || $path === '/index.php') {
 
 // Static clean SEO pages
 switch ($path) {
+    case '/about':
+        require __DIR__ . '/pages/about.php';
+        return true;
+
+    case '/contact':
+        require __DIR__ . '/pages/contact.php';
+        return true;
+
+    case '/licenses':
+        require __DIR__ . '/pages/licenses.php';
+        return true;
+
     case '/privacy-policy':
         require __DIR__ . '/pages/privacy-policy.php';
         return true;
@@ -45,10 +75,29 @@ switch ($path) {
         require __DIR__ . '/sitemap.php';
         return true;
 
+    case '/ads.txt':
+        if (file_exists(__DIR__ . '/ads.txt')) {
+            header('Content-Type: text/plain; charset=utf-8');
+            readfile(__DIR__ . '/ads.txt');
+            return true;
+        }
+        break;
+
+    case '/site.webmanifest':
+        if (file_exists(__DIR__ . '/site.webmanifest')) {
+            header('Content-Type: application/manifest+json; charset=utf-8');
+            readfile(__DIR__ . '/site.webmanifest');
+            return true;
+        }
+        break;
+
     case '/favicon.ico':
-        header('Content-Type: image/svg+xml');
-        echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#2563eb"/><text y="68" x="50" font-size="60" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold">P</text></svg>';
-        return true;
+        if (file_exists(__DIR__ . '/assets/img/favicon.svg')) {
+            header('Content-Type: image/svg+xml');
+            readfile(__DIR__ . '/assets/img/favicon.svg');
+            return true;
+        }
+        break;
 
     case '/robots.txt':
         if (file_exists(__DIR__ . '/robots.txt')) {

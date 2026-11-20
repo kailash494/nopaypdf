@@ -20,14 +20,18 @@ $pageMeta = $pageMeta ?? [];
     
     <?php render_seo_head($pageMeta); ?>
 
-    <!-- SVG Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%232563eb%22/><text y=%2268%22 x=%2250%22 font-size=%2260%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22sans-serif%22 font-weight=%22bold%22>P</text></svg>">
+    <!-- Preconnect hints for fast CDN asset retrieval -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 
-    <!-- Tailwind CSS v4 Play CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    
-    <!-- Custom Application Styles -->
-    <link rel="stylesheet" href="/assets/css/app.css?v=<?= APP_VERSION ?>">
+    <!-- Production Minified Tailwind CSS v4 -->
+    <link rel="stylesheet" href="/assets/css/tailwind.min.css?v=<?= APP_VERSION ?>">
+
+    <!-- Google AdSense (Loaded asynchronously only when AD_MODE is 'adsense') -->
+    <?php if (defined('AD_MODE') && AD_MODE === 'adsense' && defined('ADSENSE_PUBLISHER_ID') && !empty(ADSENSE_PUBLISHER_ID)): ?>
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=<?= htmlspecialchars(ADSENSE_PUBLISHER_ID, ENT_QUOTES, 'UTF-8') ?>" crossorigin="anonymous"></script>
+    <?php endif; ?>
 
     <!-- Lucide Icons (ISC License) -->
     <script src="https://unpkg.com/lucide@1.48.0/dist/umd/lucide.min.js"></script>
@@ -40,6 +44,11 @@ $pageMeta = $pageMeta ?? [];
     </style>
 </head>
 <body class="min-h-full flex flex-col bg-slate-50 text-slate-800">
+    <!-- Accessible Skip to Main Content Link -->
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-xl focus:shadow-md">
+        Skip to main content
+    </a>
+
     <!-- Top Announcement / Privacy Bar -->
     <div class="bg-blue-600 text-white text-xs font-medium py-1.5 px-4 text-center select-none flex items-center justify-center gap-2">
         <i data-lucide="shield-check" class="w-3.5 h-3.5 inline"></i>
@@ -109,4 +118,4 @@ $pageMeta = $pageMeta ?? [];
     <?php render_ad_slot('top-banner'); ?>
 
     <!-- Main Content Area -->
-    <main class="flex-grow">
+    <main id="main-content" class="flex-grow">

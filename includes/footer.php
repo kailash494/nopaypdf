@@ -81,11 +81,14 @@ require_once __DIR__ . '/tool-registry.php';
                     </ul>
                 </div>
 
-                <!-- Legal & Compliance Links -->
+                <!-- Company & Trust Links -->
                 <div>
-                    <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-900 mb-3">Legal & Settings</h4>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-900 mb-3">About & Trust</h4>
                     <ul class="space-y-2 text-xs">
-                        <li><a href="/privacy-policy" class="hover:text-blue-600 transition-colors">Privacy Policy</a></li>
+                        <li><a href="/about" class="hover:text-blue-600 transition-colors">About PDFToolKit</a></li>
+                        <li><a href="/contact" class="hover:text-blue-600 transition-colors">Contact & Support</a></li>
+                        <li><a href="/licenses" class="hover:text-blue-600 transition-colors">Open-Source Licenses</a></li>
+                        <li><a href="/privacy-policy" class="hover:text-blue-600 transition-colors">Privacy Architecture</a></li>
                         <li><a href="/terms" class="hover:text-blue-600 transition-colors">Terms of Service</a></li>
                         <li>
                             <button type="button" id="footer-cookie-settings-btn" class="hover:text-blue-600 transition-colors text-left">

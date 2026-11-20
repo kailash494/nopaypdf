@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+@source "../../index.php";
+@source "../../pages/**/*.php";
+@source "../../tools/**/*.php";
+@source "../../includes/**/*.php";
+@source "../../assets/js/**/*.js";
+
+/* ====================================================================
+   PDFToolKit - Custom Component & UI Utility Styles
+   ==================================================================== */
+
+/* Drag-and-drop active visual states */
+.dropzone-active {
+    border-color: #2563eb !important;
+    background-color: #eff6ff !important;
+    transform: scale(1.005);
+}
+
+.dropzone-container {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ad container stability for CLS prevention */
+.ad-slot-container {
+    contain: layout paint;
+}
+
+/* Smooth progress animations */
+.progress-fill-bar {
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Tool card hover transitions */
+.tool-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.tool-card:hover {
+    transform: translateY(-2px);
+}
+
+/* Focus visibility for accessibility */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+/* Modal and banner transitions */
+.fade-in {
+    animation: fadeIn 0.25s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Thumbnail Grid & Page Card Styling */
+.page-thumbnail-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+}
+
+.page-thumbnail-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+}
+
+.page-thumbnail-card.selected {
+    border-color: #2563eb !important;
+    background-color: #eff6ff !important;
+    box-shadow: 0 0 0 2px #2563eb;
+}
+
+.page-thumbnail-canvas {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    max-height: 220px;
+    object-fit: contain;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dragging visual states */
+.page-thumbnail-card.dragging, .file-queue-item.dragging, .image-queue-card.dragging {
+    opacity: 0.4;
+    transform: scale(0.97);
+}
+
+.page-thumbnail-card.drag-over-card, .file-queue-item.drag-over-item, .image-queue-card.drag-over-item {
+    border-color: #2563eb !important;
+    border-style: dashed;
+    background-color: #eff6ff;
+}
+
+/* Image queue card styling */
+.image-queue-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+}
+
+.image-queue-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+}
+
+.image-queue-thumb {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    object-fit: contain;
+}
+
+/* Dual Canvas Stacking for Sign & Annotate Editor */
+#canvas-container-outer {
+    position: relative;
+    user-select: none;
+}
+
+#canvas-container-outer canvas {
+    user-select: none;
+}
+
+/* Visual Crop Overlay handles */
+.crop-handle {
+    touch-action: none;
+}

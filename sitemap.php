@@ -23,6 +23,24 @@ $urls = [
         'priority' => '1.0',
     ],
     [
+        'loc' => SITE_URL . '/about',
+        'lastmod' => $today,
+        'changefreq' => 'monthly',
+        'priority' => '0.7',
+    ],
+    [
+        'loc' => SITE_URL . '/contact',
+        'lastmod' => $today,
+        'changefreq' => 'monthly',
+        'priority' => '0.6',
+    ],
+    [
+        'loc' => SITE_URL . '/licenses',
+        'lastmod' => $today,
+        'changefreq' => 'monthly',
+        'priority' => '0.5',
+    ],
+    [
         'loc' => SITE_URL . '/privacy-policy',
         'lastmod' => $today,
         'changefreq' => 'monthly',

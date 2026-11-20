@@ -29,7 +29,7 @@ function render_seo_head(array $meta = [], array $faqsFallback = []): void
     $canonicalUrl = strtok($canonical, '?');
     
     $type = $meta['type'] ?? 'website';
-    $ogImage = $meta['image'] ?? (SITE_URL . '/assets/img/og-preview.png');
+    $ogImage = $meta['image'] ?? (SITE_URL . '/assets/img/og-cover.svg');
     $isTool = isset($meta['tool']) && is_array($meta['tool']);
     $isHomepage = ($meta['is_homepage'] ?? false) || ($_SERVER['REQUEST_URI'] ?? '/') === '/';
 
@@ -38,6 +38,11 @@ function render_seo_head(array $meta = [], array $faqsFallback = []): void
     <meta name="description" content="<?= htmlspecialchars($description, ENT_QUOTES, 'UTF-8') ?>">
     <link rel="canonical" href="<?= htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#2563eb">
+
+    <!-- Favicon & PWA Web App Manifest -->
+    <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+    <link rel="manifest" href="/site.webmanifest">
 
     <!-- Open Graph Metadata -->
     <meta property="og:site_name" content="<?= htmlspecialchars(SITE_NAME, ENT_QUOTES, 'UTF-8') ?>">
