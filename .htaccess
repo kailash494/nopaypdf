@@ -27,8 +27,8 @@ Options -Indexes
     </FilesMatch>
 </IfModule>
 
-# Block Direct Access to includes/ and scripts/
-RewriteRule ^(includes|scripts|dist)/ - [F,L,NC]
+# Block Direct Access to includes/, scripts/, dist/, and seo-reports/
+RewriteRule ^(includes|scripts|dist|seo-reports)/ - [F,L,NC]
 
 # Security Headers (WASM & Web Worker friendly)
 <IfModule mod_headers.c>

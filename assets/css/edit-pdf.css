@@ -213,6 +213,7 @@
     line-height: 1;
     overflow: visible;
     user-select: none;
+    isolation: isolate;
 }
 
 .text-hitbox:hover {
@@ -227,6 +228,21 @@
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
     z-index: 50;
     overflow: visible;
+}
+
+/* Outward bleeding cover mask for modified and active editing blocks */
+.text-hitbox.modified::before,
+.text-hitbox.editing::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background-color: inherit;
+    border-radius: 1px;
+    z-index: -1;
+    pointer-events: none;
 }
 
 .text-hitbox.modified {

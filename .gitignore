@@ -21,3 +21,7 @@ yarn-error.log*
 *.tmp
 .edge-real-ui-profile/
 scripts/.edge-real-ui-profile/
+
+# Search Console Analytics & Weekly SEO Reports
+seo-reports/
+

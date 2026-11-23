@@ -55,16 +55,48 @@
         ];
     }
 
+    function hexToRgb(hex) {
+        if (!hex || typeof hex !== 'string' || hex[0] !== '#') return { r: 0, g: 0, b: 0 };
+        const h = hex.length === 4
+            ? '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3]
+            : hex;
+        return {
+            r: parseInt(h.slice(1, 3), 16) || 0,
+            g: parseInt(h.slice(3, 5), 16) || 0,
+            b: parseInt(h.slice(5, 7), 16) || 0,
+        };
+    }
+
+    function snapToPalette(r, g, b, palette = []) {
+        if (!palette || palette.length === 0) {
+            if (r <= 25 && g <= 25 && b <= 25) return '#000000';
+            return rgbToHex(r, g, b);
+        }
+        let bestHex = null;
+        let bestDist = Infinity;
+        for (const hex of palette) {
+            const pRgb = hexToRgb(hex);
+            const dist = Math.hypot(r - pRgb.r, g - pRgb.g, b - pRgb.b);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestHex = hex;
+            }
+        }
+        return bestHex || rgbToHex(r, g, b);
+    }
+
     const TextExtractor = {
         /**
-         * Extract operator-level fill colors and vector background geometry from page.getOperatorList().
+         * Extract operator-level fill colors, text matrices, and vector background geometry from page.getOperatorList().
          * @param {Object} page PDFPageProxy
-         * @returns {Promise<{ textColors: Array<string>, vectorRects: Array, imageRects: Array }>}
+         * @returns {Promise<{ textOps: Array, textColors: Array, vectorRects: Array, imageRects: Array, palette: Array<string> }>}
          */
         async extractPageGraphics(page) {
+            const textOps = [];
             const textColors = [];
             const vectorRects = [];
             const imageRects = [];
+            const paletteSet = new Set(['#000000']);
 
             try {
                 const opList = await page.getOperatorList();
@@ -72,6 +104,9 @@
 
                 const graphicsStack = [];
                 let ctm = [1, 0, 0, 1, 0, 0];
+                let tm = [1, 0, 0, 1, 0, 0];
+                let tlm = [1, 0, 0, 1, 0, 0];
+                let leading = 12;
                 let currentColor = '#000000';
 
                 let pendingPaths = []; // [{ minX, minY, maxX, maxY, width, height }]
@@ -81,19 +116,47 @@
                     const args = opList.argsArray[i];
 
                     if (fn === OPS.save) {
-                        graphicsStack.push({ ctm: ctm.slice(), color: currentColor });
+                        graphicsStack.push({
+                            ctm: ctm.slice(),
+                            color: currentColor,
+                            leading,
+                        });
                     } else if (fn === OPS.restore) {
                         const state = graphicsStack.pop();
                         if (state) {
                             ctm = state.ctm;
                             currentColor = state.color;
+                            leading = state.leading !== undefined ? state.leading : leading;
                         }
                     } else if (fn === OPS.transform && args && args.length >= 6) {
                         ctm = multMatrix(args.slice(0, 6), ctm);
+                    } else if (fn === OPS.beginText) {
+                        tm = [1, 0, 0, 1, 0, 0];
+                        tlm = [1, 0, 0, 1, 0, 0];
+                    } else if (fn === OPS.endText) {
+                        tm = [1, 0, 0, 1, 0, 0];
+                        tlm = [1, 0, 0, 1, 0, 0];
+                    } else if (fn === OPS.setTextMatrix && args && args.length >= 6) {
+                        tm = args.slice(0, 6);
+                        tlm = tm.slice();
+                    } else if (fn === OPS.moveText && args && args.length >= 2) {
+                        tlm = multMatrix([1, 0, 0, 1, args[0], args[1]], tlm);
+                        tm = tlm.slice();
+                    } else if (fn === OPS.setLeadingMoveText && args && args.length >= 2) {
+                        leading = -args[1];
+                        tlm = multMatrix([1, 0, 0, 1, args[0], args[1]], tlm);
+                        tm = tlm.slice();
+                    } else if (fn === OPS.nextLine) {
+                        tlm = multMatrix([1, 0, 0, 1, 0, -leading], tlm);
+                        tm = tlm.slice();
+                    } else if (fn === OPS.setLeading && args && args.length >= 1) {
+                        leading = args[0] || 12;
                     } else if (fn === OPS.setFillRGBColor && args && args.length >= 3) {
                         currentColor = rgbToHex(args[0], args[1], args[2]);
+                        if (currentColor.toLowerCase() !== '#ffffff') paletteSet.add(currentColor.toLowerCase());
                     } else if (fn === OPS.setFillGray && args && args.length >= 1) {
                         currentColor = rgbToHex(args[0], args[0], args[0]);
+                        if (currentColor.toLowerCase() !== '#ffffff') paletteSet.add(currentColor.toLowerCase());
                     } else if (fn === OPS.setFillCMYKColor && args && args.length >= 4) {
                         const c = args[0] > 1 ? args[0] / 255 : args[0];
                         const m = args[1] > 1 ? args[1] / 255 : args[1];
@@ -103,6 +166,7 @@
                         const g = 255 * (1 - m) * (1 - k);
                         const b = 255 * (1 - y) * (1 - k);
                         currentColor = rgbToHex(r, g, b);
+                        if (currentColor.toLowerCase() !== '#ffffff') paletteSet.add(currentColor.toLowerCase());
                     } else if ((fn === OPS.setFillColor || fn === OPS.setFillColorN) && args && args.length >= 1) {
                         if (args.length === 1) {
                             currentColor = rgbToHex(args[0], args[0], args[0]);
@@ -118,13 +182,24 @@
                             const b = 255 * (1 - y) * (1 - k);
                             currentColor = rgbToHex(r, g, b);
                         }
+                        if (currentColor.toLowerCase() !== '#ffffff') paletteSet.add(currentColor.toLowerCase());
                     } else if (fn === OPS.showText || fn === OPS.showSpacedText || fn === OPS.nextLineShowText || fn === OPS.nextLineSetSpacingShowText) {
+                        if (fn === OPS.nextLineShowText || fn === OPS.nextLineSetSpacingShowText) {
+                            tlm = multMatrix([1, 0, 0, 1, 0, -leading], tlm);
+                            tm = tlm.slice();
+                        }
+
+                        const trm = multMatrix(tm, ctm);
+                        const userX = trm[4];
+                        const userY = trm[5];
+
                         let opStr = '';
-                        if (args && args[0]) {
-                            if (typeof args[0] === 'string') {
-                                opStr = args[0];
-                            } else if (Array.isArray(args[0])) {
-                                for (const item of args[0]) {
+                        const textArg = (fn === OPS.nextLineSetSpacingShowText && args && args.length >= 3) ? args[2] : (args ? args[0] : null);
+                        if (textArg) {
+                            if (typeof textArg === 'string') {
+                                opStr = textArg;
+                            } else if (Array.isArray(textArg)) {
+                                for (const item of textArg) {
                                     if (typeof item === 'string') opStr += item;
                                     else if (item && typeof item === 'object') {
                                         if (typeof item.unicode === 'string') opStr += item.unicode;
@@ -133,6 +208,15 @@
                                 }
                             }
                         }
+
+                        const opObj = {
+                            x: userX,
+                            y: userY,
+                            text: opStr,
+                            color: currentColor,
+                            colorHex: currentColor,
+                        };
+                        textOps.push(opObj);
                         textColors.push({ color: currentColor, str: opStr });
                     } else if (fn === OPS.rectangle && args && args.length >= 4) {
                         const x = args[0];
@@ -221,7 +305,13 @@
                 console.warn('Operator list graphics extraction warning:', err);
             }
 
-            return { textColors, vectorRects, imageRects };
+            return {
+                textOps,
+                textColors,
+                vectorRects,
+                imageRects,
+                palette: Array.from(paletteSet),
+            };
         },
 
         /**
@@ -232,11 +322,13 @@
          * @returns {Promise<{ blocks: Array, rawText: string, charCount: number }>}
          */
         async extractPageText(page, pageIndex = 0, embeddedFontsMap = null) {
-            // Extract operator colors, vector rectangles, and image bounding boxes
+            // Extract operator colors, text operators with 2D coordinates, vector rects, image bounds, and page palette
             const graphics = await this.extractPageGraphics(page);
-            const opColors = graphics.textColors;
-            const vectorRects = graphics.vectorRects;
-            const imageRects = graphics.imageRects;
+            const textOps = graphics.textOps || [];
+            const opColors = graphics.textColors || [];
+            const vectorRects = graphics.vectorRects || [];
+            const imageRects = graphics.imageRects || [];
+            const pagePalette = graphics.palette || [];
 
             const textContent = await page.getTextContent({ includeMarkedContent: false });
             const items = textContent.items || [];
@@ -318,19 +410,46 @@
                         matched: { name: 'Liberation Sans', family: 'sans' },
                     };
 
-                // Exact operator fill color
+                // Exact operator fill color matched by strict 2D spatial proximity
                 let colorHex = '#1e293b';
-                if (opColors.length > 0) {
-                    const exactMatch = opColors.find((op, idx) => {
-                        return idx >= Math.max(0, textItemIdx - 3) &&
-                               idx <= Math.min(opColors.length - 1, textItemIdx + 3) &&
-                               op.str && (op.str === str || op.str.includes(str) || str.includes(op.str));
+                if (textOps.length > 0) {
+                    const itemX = tx[4];
+                    const itemY = tx[5];
+                    const itemW = item.width || (str.length * fontSizePt * 0.5);
+
+                    // 1. Strict 2D candidates: vertical distance <= 3.5pt, horizontal distance <= max(15pt, itemW)
+                    const candidates = textOps.filter(op => {
+                        const dy = Math.abs(op.y - itemY);
+                        const dx = Math.abs(op.x - itemX);
+                        return dy <= 3.5 && dx <= Math.max(15.0, itemW);
                     });
-                    if (exactMatch) {
-                        colorHex = exactMatch.color;
-                    } else if (textItemIdx < opColors.length) {
-                        const entry = opColors[textItemIdx];
-                        colorHex = (typeof entry === 'object' && entry !== null) ? entry.color : (entry || '#1e293b');
+
+                    if (candidates.length > 0) {
+                        // Prioritize text match first
+                        const textMatch = candidates.find(op =>
+                            op.text && str && (op.text === str || op.text.includes(str) || str.includes(op.text))
+                        );
+                        if (textMatch) {
+                            colorHex = textMatch.colorHex;
+                        } else {
+                            // Nearest by Euclidean distance
+                            candidates.sort((a, b) => {
+                                const distA = Math.hypot(a.x - itemX, a.y - itemY);
+                                const distB = Math.hypot(b.x - itemX, b.y - itemY);
+                                return distA - distB;
+                            });
+                            colorHex = candidates[0].colorHex;
+                        }
+                    } else {
+                        // Relaxed vertical match on same baseline (dy <= 3.5pt) where dx is smallest
+                        const rowCandidates = textOps.filter(op => Math.abs(op.y - itemY) <= 3.5);
+                        if (rowCandidates.length > 0) {
+                            rowCandidates.sort((a, b) => Math.abs(a.x - itemX) - Math.abs(b.x - itemX));
+                            colorHex = rowCandidates[0].colorHex;
+                        } else if (textItemIdx < opColors.length) {
+                            const entry = opColors[textItemIdx];
+                            colorHex = (typeof entry === 'object' && entry !== null) ? entry.color : (entry || '#1e293b');
+                        }
                     }
                 }
                 textItemIdx++;
@@ -364,6 +483,7 @@
                     matched: fontTraits.matched,
                     colorHex,
                     exactPdfColorHex: colorHex,
+                    pagePalette,
                 });
             }
 
@@ -406,7 +526,11 @@
                 const maxGap = run.fontSizePt * 0.55;
                 const validGap = (gap >= -1.0) && (gap <= maxGap);
 
-                if (sameFont && sameSize && sameColor && sameBaseline && validGap) {
+                // 6. Whitespace width constraint: whitespace runs cannot be wider than 1.2 * fontSize (column gutter / tab spacing)
+                const isWhitespace = !run.str.trim();
+                const validWhitespace = !isWhitespace || (run.pdfWidth <= run.fontSizePt * 1.2);
+
+                if (sameFont && sameSize && sameColor && sameBaseline && validGap && validWhitespace) {
                     const separator = gap > (run.fontSizePt * 0.15) ? ' ' : '';
                     currentBlock.originalText += separator + run.str;
                     currentBlock.currentText = currentBlock.originalText;
@@ -432,8 +556,12 @@
                 lineBlocks.push(currentBlock);
             }
 
+            // Filter out empty / pure-whitespace blocks (e.g. column gutters)
+            const validBlocks = lineBlocks.filter(b => b && b.originalText && b.originalText.trim().length > 0);
+
             // All blocks initialize with clean white background defaults (never guess from operator-list vectors)
-            for (const b of lineBlocks) {
+            for (const b of validBlocks) {
+                b.pagePalette = pagePalette;
                 b.bgHex = '#ffffff';
                 b.autoBgHex = '#ffffff';
                 b.vectorBgHex = '#ffffff';
@@ -441,7 +569,7 @@
             }
 
             return {
-                blocks: lineBlocks,
+                blocks: validBlocks,
                 rawText: fullText.trim(),
                 charCount: totalChars,
             };
@@ -472,6 +600,7 @@
                 matched: run.matched,
                 colorHex: run.colorHex || '#1e293b',
                 exactPdfColorHex: run.exactPdfColorHex || run.colorHex || '#1e293b',
+                pagePalette: run.pagePalette || [],
                 bgHex: '#ffffff',
                 autoBgHex: '#ffffff',
                 vectorBgHex: '#ffffff',
@@ -675,67 +804,90 @@
                 b.hasVectorBg = (finalBgHex.toLowerCase() !== '#ffffff');
 
                 // 2. Sample Foreground Glyph Ink Color inside bounding box
-                // If authoritative vector PDF graphics color is already known, NEVER overwrite with fuzzy canvas pixel averages
+                const bgR = normColor(parseInt(finalBgHex.slice(1, 3), 16) || 255);
+                const bgG = normColor(parseInt(finalBgHex.slice(3, 5), 16) || 255);
+                const bgB = normColor(parseInt(finalBgHex.slice(5, 7), 16) || 255);
+
+                const cX = Math.max(0, boxX);
+                const cY = Math.max(0, boxY);
+                const cW = Math.min(canvasWidth - cX, boxW);
+                const cH = Math.min(canvasHeight - cY, boxH);
+
+                let canvasCoreInk = null; // { r, g, b, lum }
+
+                if (cW > 2 && cH > 2) {
+                    try {
+                        const boxImg = ctx.getImageData(cX, cY, cW, cH);
+                        const bData = boxImg.data;
+                        const inkPixels = [];
+
+                        for (let i = 0; i < bData.length; i += 4) {
+                            let r = bData[i];
+                            let g = bData[i + 1];
+                            let b_col = bData[i + 2];
+                            const a = bData[i + 3];
+
+                            if (a === 0) continue;
+                            if (a < 255) {
+                                const alpha = a / 255;
+                                r = Math.round(r * alpha + 255 * (1 - alpha));
+                                g = Math.round(g * alpha + 255 * (1 - alpha));
+                                b_col = Math.round(b_col * alpha + 255 * (1 - alpha));
+                            }
+
+                            const dist = Math.hypot(r - bgR, g - bgG, b_col - bgB);
+                            if (dist > 35) {
+                                inkPixels.push({ r, g, b: b_col, dist });
+                            }
+                        }
+
+                        if (inkPixels.length >= 3) {
+                            inkPixels.sort((p1, p2) => p2.dist - p1.dist);
+                            // Take the top 15% most contrasting pixels (the center of glyph strokes, ignoring anti-aliased edges)
+                            const endIdx = Math.max(3, Math.floor(inkPixels.length * 0.15));
+                            const coreInk = inkPixels.slice(0, endIdx);
+
+                            if (coreInk.length > 0) {
+                                const inkR = Math.round(coreInk.reduce((sum, p) => sum + p.r, 0) / coreInk.length);
+                                const inkG = Math.round(coreInk.reduce((sum, p) => sum + p.g, 0) / coreInk.length);
+                                const inkB = Math.round(coreInk.reduce((sum, p) => sum + p.b, 0) / coreInk.length);
+                                const inkLum = 0.2126 * inkR + 0.7152 * inkG + 0.0722 * inkB;
+                                canvasCoreInk = { r: inkR, g: inkG, b: inkB, lum: inkLum };
+                            }
+                        }
+                    } catch (err) {}
+                }
+
                 const hasAuthoritativeColor = Boolean(b.exactPdfColorHex && b.exactPdfColorHex !== '#1e293b');
-                if (hasAuthoritativeColor && !b.hasImageBg) {
-                    b.colorHex = b.exactPdfColorHex;
-                } else {
-                    const bgR = normColor(parseInt(finalBgHex.slice(1, 3), 16) || 255);
-                    const bgG = normColor(parseInt(finalBgHex.slice(3, 5), 16) || 255);
-                    const bgB = normColor(parseInt(finalBgHex.slice(5, 7), 16) || 255);
+                let opRgb = null;
+                let opLum = null;
+                if (hasAuthoritativeColor) {
+                    opRgb = hexToRgb(b.exactPdfColorHex);
+                    opLum = 0.2126 * opRgb.r + 0.7152 * opRgb.g + 0.0722 * opRgb.b;
+                }
 
-                    const cX = Math.max(0, boxX);
-                    const cY = Math.max(0, boxY);
-                    const cW = Math.min(canvasWidth - cX, boxW);
-                    const cH = Math.min(canvasHeight - cY, boxH);
-
-                    if (cW > 2 && cH > 2) {
-                        try {
-                            const boxImg = ctx.getImageData(cX, cY, cW, cH);
-                            const bData = boxImg.data;
-                            const inkPixels = [];
-
-                            for (let i = 0; i < bData.length; i += 4) {
-                                let r = bData[i];
-                                let g = bData[i + 1];
-                                let b_col = bData[i + 2];
-                                const a = bData[i + 3];
-
-                                if (a === 0) continue;
-                                if (a < 255) {
-                                    const alpha = a / 255;
-                                    r = Math.round(r * alpha + 255 * (1 - alpha));
-                                    g = Math.round(g * alpha + 255 * (1 - alpha));
-                                    b_col = Math.round(b_col * alpha + 255 * (1 - alpha));
-                                }
-
-                                const dist = Math.hypot(r - bgR, g - bgG, b_col - bgB);
-                                if (dist > 35) {
-                                    inkPixels.push({ r, g, b: b_col, dist });
-                                }
-                            }
-
-                            if (inkPixels.length >= 3) {
-                                inkPixels.sort((p1, p2) => p2.dist - p1.dist);
-                                // Take the top 20% most contrasting pixels (the center of glyph strokes, ignoring anti-aliased edges)
-                                const startIdx = 0;
-                                const endIdx = Math.max(3, Math.floor(inkPixels.length * 0.20));
-                                const coreInk = inkPixels.slice(startIdx, endIdx);
-
-                                if (coreInk.length > 0) {
-                                    const inkR = Math.round(coreInk.reduce((sum, p) => sum + p.r, 0) / coreInk.length);
-                                    const inkG = Math.round(coreInk.reduce((sum, p) => sum + p.g, 0) / coreInk.length);
-                                    const inkB = Math.round(coreInk.reduce((sum, p) => sum + p.b, 0) / coreInk.length);
-
-                                    if (inkR <= 22 && inkG <= 22 && inkB <= 22) {
-                                        b.colorHex = '#000000';
-                                    } else {
-                                        b.colorHex = rgbToHex(inkR, inkG, inkB);
-                                    }
-                                }
-                            }
-                        } catch (err) {}
+                // Check for hard luminance mismatch between operator color and actual canvas ink
+                let isMismatch = false;
+                if (hasAuthoritativeColor && canvasCoreInk && !b.hasImageBg) {
+                    if (opLum < 30 && canvasCoreInk.lum > 70) {
+                        // Operator claims jet black, but actual rendered canvas ink is grey!
+                        isMismatch = true;
+                    } else if (opLum > 70 && canvasCoreInk.lum < 30) {
+                        // Operator claims grey, but actual rendered canvas ink is jet black!
+                        isMismatch = true;
                     }
+                }
+
+                if (hasAuthoritativeColor && !isMismatch && !b.hasImageBg) {
+                    b.colorHex = b.exactPdfColorHex;
+                } else if (canvasCoreInk) {
+                    // Snap sampled core ink to the nearest color in pagePalette
+                    const palette = b.pagePalette || [];
+                    const snappedHex = snapToPalette(canvasCoreInk.r, canvasCoreInk.g, canvasCoreInk.b, palette);
+                    b.colorHex = snappedHex;
+                    b.exactPdfColorHex = snappedHex;
+                } else if (hasAuthoritativeColor) {
+                    b.colorHex = b.exactPdfColorHex;
                 }
             }
         },
