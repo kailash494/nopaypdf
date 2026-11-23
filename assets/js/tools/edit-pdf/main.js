@@ -470,7 +470,7 @@
         bgAutoBtn?.addEventListener('click', () => {
             if (window.CanvasStage.selectedBlock) {
                 const b = window.CanvasStage.selectedBlock;
-                b.bgHex = b.autoBgHex || (b.hasVectorBg ? (b.vectorBgHex || '#ffffff') : '#ffffff');
+                b.bgHex = b.autoBgHex || '#ffffff';
                 if (bgColorInput) bgColorInput.value = (b.bgHex && b.bgHex.startsWith('#')) ? b.bgHex : '#ffffff';
                 b.modified = true;
                 renderCurrentPage();

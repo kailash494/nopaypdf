@@ -201,10 +201,10 @@ $headersContent = <<<'HEADERS'
   Cache-Control: public, max-age=31536000, immutable
 
 /*.css
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=0, must-revalidate
 
 /*.js
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=0, must-revalidate
 
 /*.svg
   Content-Type: image/svg+xml

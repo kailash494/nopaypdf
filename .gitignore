@@ -19,3 +19,5 @@ yarn-error.log*
 
 # Temporary files
 *.tmp
+.edge-real-ui-profile/
+scripts/.edge-real-ui-profile/

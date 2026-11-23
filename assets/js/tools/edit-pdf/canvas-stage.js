@@ -156,13 +156,13 @@
                     viewport,
                 }).promise;
 
-                // Auto-sample colors if not already sampled (only for blocks with raster image backgrounds)
+                // Auto-sample authoritative background & text colors from clean rendered baseCanvas using official viewport
                 if (window.TextExtractor && pageState.textBlocks.length > 0 && !pageState.textBlocks[0].sampled) {
                     pageState.textBlocks.forEach(b => {
                         b.pageWidthPt = pageState.widthPt || 612;
                         b.sampled = true;
                     });
-                    window.TextExtractor.sampleBlockColors(this.baseCanvas, pageState.textBlocks, this.currentScale, pageState.heightPt || 792);
+                    window.TextExtractor.sampleBlockColors(this.baseCanvas, pageState.textBlocks, viewport);
                 }
             } catch (err) {
                 console.error('Base canvas render error:', err);
@@ -192,6 +192,15 @@
 
                 const topPx = baselineY - (fontSizePx * ascentRatio);
                 const leftPx = block.pdfX * scale;
+
+                // Determine font family: Tier 1 uses exact PDF.js loadedName
+                const hasCoverage = window.FontManager.checkEmbeddedCoverage(block.embeddedBytes, block.currentText);
+                block.tier = hasCoverage ? 1 : 2;
+
+                const cssFontFamily = block.tier === 1 && block.loadedName
+                    ? `"${block.loadedName}", "${block.matched?.name || 'Liberation Sans'}", sans-serif`
+                    : `"${block.matched?.name || 'Liberation Sans'}", sans-serif`;
+
                 let currentPdfW = block.pdfWidth;
                 if (block.modified && block.currentText && measureCtx) {
                     measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${fontSizePx}px ${cssFontFamily}`;
@@ -212,14 +221,6 @@
                 el.style.width = `${widthPx}px`;
                 el.style.height = `${heightPx}px`;
                 el.style.fontSize = `${fontSizePx}px`;
-
-                // Determine font family: Tier 1 uses exact PDF.js loadedName
-                const hasCoverage = window.FontManager.checkEmbeddedCoverage(block.embeddedBytes, block.currentText);
-                block.tier = hasCoverage ? 1 : 2;
-
-                const cssFontFamily = block.tier === 1 && block.loadedName
-                    ? `"${block.loadedName}", "${block.matched?.name || 'Liberation Sans'}", sans-serif`
-                    : `"${block.matched?.name || 'Liberation Sans'}", sans-serif`;
 
                 el.style.fontFamily = cssFontFamily;
                 el.style.fontWeight = block.bold ? '700' : '400';
@@ -246,7 +247,7 @@
                     el.classList.add('modified');
                     const effectiveBg = (block.bgHex && block.bgHex !== 'transparent')
                         ? block.bgHex
-                        : (block.hasVectorBg ? (block.vectorBgHex || '#ffffff') : '#ffffff');
+                        : (block.autoBgHex || '#ffffff');
                     el.style.backgroundColor = effectiveBg;
                     el.textContent = block.currentText;
                 } else {
@@ -313,7 +314,7 @@
             el.innerHTML = '';
             const effectiveBg = (block.bgHex && block.bgHex !== 'transparent')
                 ? block.bgHex
-                : (block.hasVectorBg ? (block.vectorBgHex || '#ffffff') : '#ffffff');
+                : (block.autoBgHex || '#ffffff');
             el.style.backgroundColor = effectiveBg;
 
             const input = document.createElement('input');

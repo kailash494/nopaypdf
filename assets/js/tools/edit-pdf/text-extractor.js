@@ -392,52 +392,12 @@
                 lineBlocks.push(currentBlock);
             }
 
-            // Assign True Mathematical Vector Background Colors
+            // All blocks initialize with clean white background defaults (never guess from operator-list vectors)
             for (const b of lineBlocks) {
-                const centerX = b.pdfX + (b.pdfWidth / 2);
-                const centerY = b.baselinePdfY + (b.fontSizePt * 0.3);
-
-                let matchedVectorColor = null;
-
-                // Walk vectorRects in reverse order (topmost first)
-                for (let r = vectorRects.length - 1; r >= 0; r--) {
-                    const vr = vectorRects[r];
-                    // Skip full-page background rects (> 85% of page width & height)
-                    if (vr.width >= pageWidthPt * 0.85 && vr.height >= pageHeightPt * 0.85) {
-                        continue;
-                    }
-                    // Skip thin borders (< 4pt)
-                    if (vr.width < 4 || vr.height < 4) {
-                        continue;
-                    }
-
-                    if (centerX >= (vr.minX - 1) && centerX <= (vr.maxX + 1) &&
-                        centerY >= (vr.minY - 1) && centerY <= (vr.maxY + 1)) {
-                        matchedVectorColor = vr.colorHex;
-                        break;
-                    }
-                }
-
-                if (matchedVectorColor) {
-                    b.bgHex = matchedVectorColor;
-                    b.vectorBgHex = matchedVectorColor;
-                    b.hasVectorBg = true;
-                } else {
-                    // Check if an image sits underneath
-                    let hasImage = false;
-                    for (const ir of imageRects) {
-                        if (centerX >= (ir.minX - 1) && centerX <= (ir.maxX + 1) &&
-                            centerY >= (ir.minY - 1) && centerY <= (ir.maxY + 1)) {
-                            hasImage = true;
-                            break;
-                        }
-                    }
-
-                    b.hasImageBg = hasImage;
-                    // Standard vector page: Pure #FFFFFF default
-                    b.bgHex = '#ffffff';
-                    b.vectorBgHex = '#ffffff';
-                }
+                b.bgHex = '#ffffff';
+                b.autoBgHex = '#ffffff';
+                b.vectorBgHex = '#ffffff';
+                b.hasVectorBg = false;
             }
 
             return {
@@ -498,10 +458,10 @@
          * Runs for ALL text blocks on the page (both vector pages and raster image scans).
          * @param {HTMLCanvasElement} canvas Rendered PDF.js baseCanvas
          * @param {Array} blocks Array of textBlock objects on this page
-         * @param {number} scale Current viewport render scale
+         * @param {Object|number} viewportOrScale PDFPage viewport object, or numeric scale fallback
          * @param {number} pageHeightPt Page height in PDF points (default 792)
          */
-        sampleBlockColors(canvas, blocks = [], scale = 1.0, pageHeightPt = 792) {
+        sampleBlockColors(canvas, blocks = [], viewportOrScale = 1.0, pageHeightPt = 792) {
             if (!canvas || blocks.length === 0) return;
             const ctx = canvas.getContext('2d', { willReadFrequently: true }) || canvas.getContext('2d');
             if (!ctx) return;
@@ -509,26 +469,54 @@
             const canvasWidth = canvas.width;
             const canvasHeight = canvas.height;
 
-            // Compute true backing-store ratio (accounting for high-DPI scaling)
+            const isViewportObj = viewportOrScale && typeof viewportOrScale === 'object' && typeof viewportOrScale.convertToViewportRectangle === 'function';
+            const scale = typeof viewportOrScale === 'number' ? viewportOrScale : (viewportOrScale?.scale || 1.0);
+
+            // Compute fallback scales if viewport object is not provided
             const expectedWidth = (blocks[0]?.pageWidthPt || 612) * scale;
             const backingRatio = expectedWidth > 0 ? (canvasWidth / expectedWidth) : 1.0;
             const totalScale = scale * backingRatio;
+
+            const scaleX = isViewportObj && viewportOrScale.width > 0 ? (canvasWidth / viewportOrScale.width) : backingRatio * scale;
+            const scaleY = isViewportObj && viewportOrScale.height > 0 ? (canvasHeight / viewportOrScale.height) : backingRatio * scale;
 
             for (const b of blocks) {
                 const ascentRatio = b.ascentRatio || 0.85;
                 const descentRatio = Math.abs(b.descentRatio !== undefined ? b.descentRatio : -0.20);
                 const baselinePdfY = b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY;
-                const baselineCanvasY = (pageHeightPt - baselinePdfY) * totalScale;
-                const fontSizePx = b.fontSizePt * totalScale;
+                const ascentPt = b.fontSizePt * ascentRatio;
+                const descentPt = b.fontSizePt * descentRatio;
 
-                // Exact bounding box of text glyphs in backing-store canvas pixels
-                const boxX = Math.round(b.pdfX * totalScale);
-                const boxY = Math.round(baselineCanvasY - (fontSizePx * ascentRatio));
-                const boxW = Math.max(4, Math.round(b.pdfWidth * totalScale));
-                const boxH = Math.max(4, Math.round(fontSizePx * (ascentRatio + descentRatio)));
+                let boxX, boxY, boxW, boxH;
+
+                if (isViewportObj) {
+                    const x1 = b.pdfX;
+                    const y1 = baselinePdfY - descentPt;
+                    const x2 = b.pdfX + b.pdfWidth;
+                    const y2 = baselinePdfY + ascentPt;
+
+                    const vRect = viewportOrScale.convertToViewportRectangle([x1, y1, x2, y2]);
+                    const vx1 = Math.min(vRect[0], vRect[2]);
+                    const vy1 = Math.min(vRect[1], vRect[3]);
+                    const vx2 = Math.max(vRect[0], vRect[2]);
+                    const vy2 = Math.max(vRect[1], vRect[3]);
+
+                    boxX = Math.round(vx1 * scaleX);
+                    boxY = Math.round(vy1 * scaleY);
+                    boxW = Math.max(4, Math.round((vx2 - vx1) * scaleX));
+                    boxH = Math.max(4, Math.round((vy2 - vy1) * scaleY));
+                } else {
+                    const baselineCanvasY = (pageHeightPt - baselinePdfY) * totalScale;
+                    const fontSizePx = b.fontSizePt * totalScale;
+
+                    boxX = Math.round(b.pdfX * totalScale);
+                    boxY = Math.round(baselineCanvasY - (fontSizePx * ascentRatio));
+                    boxW = Math.max(4, Math.round(b.pdfWidth * totalScale));
+                    boxH = Math.max(4, Math.round(fontSizePx * (ascentRatio + descentRatio)));
+                }
 
                 // 1. Sample Background from Perimeter Ring (1-3px outside text box)
-                const ringOffset = Math.max(1, Math.min(4, Math.round(2 * backingRatio)));
+                const ringOffset = Math.max(1, Math.min(4, Math.round(2 * (scaleX || 1))));
                 const pLeft = Math.max(0, boxX - ringOffset);
                 const pRight = Math.min(canvasWidth - 1, boxX + boxW + ringOffset);
                 const pTop = Math.max(0, boxY - ringOffset);
@@ -537,13 +525,15 @@
                 const ringWidth = pRight - pLeft + 1;
                 const ringHeight = pBottom - pTop + 1;
 
+                // Default every block to clean white background
+                let finalBgHex = '#ffffff';
+
                 if (ringWidth > 0 && ringHeight > 0) {
                     try {
                         const ringImg = ctx.getImageData(pLeft, pTop, ringWidth, ringHeight);
                         const rData = ringImg.data;
                         const bgSamples = [];
 
-                        // Helper to extract pixel at (rx, ry) within ringImg
                         const samplePx = (rx, ry) => {
                             if (rx < 0 || rx >= ringWidth || ry < 0 || ry >= ringHeight) return;
                             const idx = (ry * ringWidth + rx) * 4;
@@ -556,7 +546,6 @@
                             if (a === 0) {
                                 bgSamples.push([255, 255, 255]);
                             } else if (a < 255) {
-                                // Composite over white
                                 const alpha = a / 255;
                                 r = Math.round(r * alpha + 255 * (1 - alpha));
                                 g = Math.round(g * alpha + 255 * (1 - alpha));
@@ -579,56 +568,72 @@
                         }
 
                         if (bgSamples.length > 0) {
-                            // Find mode color using 6-bit quantization buckets
-                            const colorCounts = new Map();
-                            for (const c of bgSamples) {
-                                const key = `${c[0] >> 2}_${c[1] >> 2}_${c[2] >> 2}`;
-                                if (!colorCounts.has(key)) {
-                                    colorCounts.set(key, { count: 0, rSum: 0, gSum: 0, bSum: 0 });
-                                }
-                                const item = colorCounts.get(key);
-                                item.count++;
-                                item.rSum += c[0];
-                                item.gSum += c[1];
-                                item.bSum += c[2];
-                            }
+                            // Strict Majority Rule:
+                            // Check how many pixels are non-white (not near-white)
+                            const isNearWhite = (c) => {
+                                return c[0] >= 245 && c[1] >= 245 && c[2] >= 245 &&
+                                       Math.abs(c[0] - c[1]) <= 8 &&
+                                       Math.abs(c[0] - c[2]) <= 8 &&
+                                       Math.abs(c[1] - c[2]) <= 8;
+                            };
 
-                            let bestCluster = null;
-                            for (const item of colorCounts.values()) {
-                                if (!bestCluster || item.count > bestCluster.count) {
-                                    bestCluster = item;
-                                }
-                            }
+                            const nonWhiteSamples = bgSamples.filter(c => !isNearWhite(c));
+                            const nonWhiteRatio = nonWhiteSamples.length / bgSamples.length;
 
-                            if (bestCluster && bestCluster.count > 0) {
-                                const avgR = Math.round(bestCluster.rSum / bestCluster.count);
-                                const avgG = Math.round(bestCluster.gSum / bestCluster.count);
-                                const avgB = Math.round(bestCluster.bSum / bestCluster.count);
-
-                                let finalBgHex;
-                                // Snap near-white neutral grays strictly to #FFFFFF
-                                const maxCh = Math.max(avgR, avgG, avgB);
-                                const minCh = Math.min(avgR, avgG, avgB);
-                                if (avgR >= 245 && avgG >= 245 && avgB >= 245 && (maxCh - minCh) <= 8) {
-                                    finalBgHex = '#ffffff';
-                                } else {
-                                    finalBgHex = rgbToHex(avgR, avgG, avgB);
+                            // Unless >= 75% of perimeter pixels are non-white, force white!
+                            if (nonWhiteRatio >= 0.75) {
+                                // Find mode/median cluster among non-white pixels
+                                const colorCounts = new Map();
+                                for (const c of nonWhiteSamples) {
+                                    // 5-bit color buckets (~8 levels per channel)
+                                    const key = `${c[0] >> 3}_${c[1] >> 3}_${c[2] >> 3}`;
+                                    if (!colorCounts.has(key)) {
+                                        colorCounts.set(key, { count: 0, rSum: 0, gSum: 0, bSum: 0, samples: [] });
+                                    }
+                                    const item = colorCounts.get(key);
+                                    item.count++;
+                                    item.rSum += c[0];
+                                    item.gSum += c[1];
+                                    item.bSum += c[2];
+                                    item.samples.push(c);
                                 }
 
-                                b.bgHex = finalBgHex;
-                                b.autoBgHex = finalBgHex;
-                                b.hasVectorBg = (finalBgHex.toLowerCase() !== '#ffffff');
+                                let bestCluster = null;
+                                for (const item of colorCounts.values()) {
+                                    if (!bestCluster || item.count > bestCluster.count) {
+                                        bestCluster = item;
+                                    }
+                                }
+
+                                if (bestCluster) {
+                                    const avgR = Math.round(bestCluster.rSum / bestCluster.count);
+                                    const avgG = Math.round(bestCluster.gSum / bestCluster.count);
+                                    const avgB = Math.round(bestCluster.bSum / bestCluster.count);
+
+                                    // Check that >= 75% of ALL sampled perimeter pixels agree with this uniform color (within RGB tolerance 18)
+                                    const agreeingSamples = bgSamples.filter(c =>
+                                        Math.abs(c[0] - avgR) <= 18 &&
+                                        Math.abs(c[1] - avgG) <= 18 &&
+                                        Math.abs(c[2] - avgB) <= 18
+                                    );
+
+                                    if (agreeingSamples.length / bgSamples.length >= 0.75) {
+                                        finalBgHex = rgbToHex(avgR, avgG, avgB);
+                                    }
+                                }
                             }
                         }
-                    } catch (err) {
-                        // Keep initial fallback #ffffff
-                    }
+                    } catch (err) {}
                 }
 
+                b.bgHex = finalBgHex;
+                b.autoBgHex = finalBgHex;
+                b.hasVectorBg = (finalBgHex.toLowerCase() !== '#ffffff');
+
                 // 2. Sample Foreground Glyph Ink Color inside bounding box
-                const bgR = normColor(parseInt((b.bgHex || '#ffffff').slice(1, 3), 16) || 255);
-                const bgG = normColor(parseInt((b.bgHex || '#ffffff').slice(3, 5), 16) || 255);
-                const bgB = normColor(parseInt((b.bgHex || '#ffffff').slice(5, 7), 16) || 255);
+                const bgR = normColor(parseInt(finalBgHex.slice(1, 3), 16) || 255);
+                const bgG = normColor(parseInt(finalBgHex.slice(3, 5), 16) || 255);
+                const bgB = normColor(parseInt(finalBgHex.slice(5, 7), 16) || 255);
 
                 const cX = Math.max(0, boxX);
                 const cY = Math.max(0, boxY);
@@ -647,7 +652,7 @@
                             let b_col = bData[i + 2];
                             const a = bData[i + 3];
 
-                            if (a === 0) continue; // transparent pixel matches background
+                            if (a === 0) continue;
                             if (a < 255) {
                                 const alpha = a / 255;
                                 r = Math.round(r * alpha + 255 * (1 - alpha));
@@ -655,20 +660,17 @@
                                 b_col = Math.round(b_col * alpha + 255 * (1 - alpha));
                             }
 
-                            // Calculate color distance from detected background
                             const dist = Math.hypot(r - bgR, g - bgG, b_col - bgB);
-                            if (dist > 35) { // Meaningful contrast from background (ink pixel)
+                            if (dist > 35) {
                                 inkPixels.push({ r, g, b: b_col, dist });
                             }
                         }
 
                         if (inkPixels.length >= 3) {
-                            // Sort by contrast distance descending (core ink pixels have highest contrast)
                             inkPixels.sort((p1, p2) => p2.dist - p1.dist);
-
-                            // Take core 35% to 75% most contrasting pixels (avoids edge anti-aliasing blending)
-                            const startIdx = Math.floor(inkPixels.length * 0.1);
-                            const endIdx = Math.max(startIdx + 1, Math.floor(inkPixels.length * 0.65));
+                            // Take the top 20% most contrasting pixels (the center of glyph strokes, ignoring anti-aliased edges)
+                            const startIdx = 0;
+                            const endIdx = Math.max(3, Math.floor(inkPixels.length * 0.20));
                             const coreInk = inkPixels.slice(startIdx, endIdx);
 
                             if (coreInk.length > 0) {
@@ -676,8 +678,7 @@
                                 const inkG = Math.round(coreInk.reduce((sum, p) => sum + p.g, 0) / coreInk.length);
                                 const inkB = Math.round(coreInk.reduce((sum, p) => sum + p.b, 0) / coreInk.length);
 
-                                // If near black, snap to #000000
-                                if (inkR <= 18 && inkG <= 18 && inkB <= 18) {
+                                if (inkR <= 22 && inkG <= 22 && inkB <= 22) {
                                     b.colorHex = '#000000';
                                 } else {
                                     b.colorHex = rgbToHex(inkR, inkG, inkB);
