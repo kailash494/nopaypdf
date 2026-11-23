@@ -277,7 +277,7 @@ require_once __DIR__ . '/../includes/header.php';
             <span id="sub-font-tier-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hidden"></span>
 
             <!-- Font Size -->
-            <input type="number" id="sub-font-size" value="12" min="6" max="96" class="w-14 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium text-center">
+            <input type="number" id="sub-font-size" value="12" min="6" max="96" step="0.5" class="w-14 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium text-center">
 
             <!-- Bold / Italic -->
             <button type="button" id="sub-bold-btn" class="px-2.5 py-1 rounded-md border border-slate-200 font-extrabold hover:bg-slate-100">B</button>

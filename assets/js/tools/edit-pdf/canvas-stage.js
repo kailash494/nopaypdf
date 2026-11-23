@@ -192,7 +192,16 @@
 
                 const topPx = baselineY - (fontSizePx * ascentRatio);
                 const leftPx = block.pdfX * scale;
-                const widthPx = Math.max(8, block.pdfWidth * scale);
+                let currentPdfW = block.pdfWidth;
+                if (block.modified && block.currentText && measureCtx) {
+                    measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${fontSizePx}px ${cssFontFamily}`;
+                    const measuredW = measureCtx.measureText(block.currentText).width;
+                    if (measuredW > 0) {
+                        currentPdfW = Math.max(block.origPdfWidth || block.pdfWidth, measuredW / scale);
+                        block.pdfWidth = currentPdfW;
+                    }
+                }
+                const widthPx = Math.max(8, currentPdfW * scale);
                 const heightPx = Math.max(10, fontSizePx * (ascentRatio + Math.abs(descentRatio)));
 
                 const el = document.createElement('div');
@@ -358,7 +367,7 @@
             input.focus();
             input.select();
 
-            // Real-time subset coverage check on typing
+            // Real-time subset coverage check and dynamic width expansion on typing
             input.addEventListener('input', () => {
                 const val = input.value;
                 const covered = window.FontManager.checkEmbeddedCoverage(block.embeddedBytes, val);
@@ -374,6 +383,16 @@
                     input.style.fontFamily = `"${block.matched?.name || 'Liberation Sans'}", sans-serif`;
                     window.FontManager.loadWebFont(block.matched);
                 }
+
+                // Dynamically expand element width if typed text exceeds original width
+                const measureCtx = this.getMeasureContext();
+                if (measureCtx) {
+                    measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${block.fontSizePt * this.currentScale}px ${input.style.fontFamily}`;
+                    const measuredW = measureCtx.measureText(val).width;
+                    const origW = Math.max(8, (block.origPdfWidth || block.pdfWidth) * this.currentScale);
+                    const newW = Math.max(origW, measuredW + 8);
+                    el.style.width = `${newW}px`;
+                }
             });
 
             const finishEdit = () => {
@@ -381,6 +400,14 @@
                 if (newVal !== block.currentText) {
                     block.currentText = newVal;
                     block.modified = true;
+                    const measureCtx = this.getMeasureContext();
+                    if (measureCtx) {
+                        measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${block.fontSizePt * this.currentScale}px ${el.style.fontFamily}`;
+                        const measuredW = measureCtx.measureText(newVal).width;
+                        if (measuredW > 0) {
+                            block.pdfWidth = Math.max(block.origPdfWidth || block.pdfWidth, measuredW / this.currentScale);
+                        }
+                    }
                     const page = window.EditorState.getActivePage();
                     if (page) page.hasEdits = true;
                     window.EditorState.pushSnapshot(`Edit Text: "${newVal}"`);

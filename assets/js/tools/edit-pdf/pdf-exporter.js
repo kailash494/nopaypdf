@@ -149,7 +149,7 @@
                         const rectW = b.pdfWidth + (pad * 2);
                         const rectH = (b.fontSizePt * (ascentRatio + Math.abs(descentRatio))) + (pad * 2);
 
-                        const coverColor = (b.bgHex && b.bgHex.startsWith('#')) ? b.bgHex : (b.vectorBgHex || '#ffffff');
+                        const coverColor = (b.bgHex && b.bgHex.startsWith('#')) ? b.bgHex : (b.autoBgHex || '#ffffff');
                         pdfPage.drawRectangle({
                             x: rectX,
                             y: rectY,

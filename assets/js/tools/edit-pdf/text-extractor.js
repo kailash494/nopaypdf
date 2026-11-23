@@ -470,7 +470,9 @@
                 matched: run.matched,
                 colorHex: run.colorHex || '#1e293b',
                 bgHex: '#ffffff',
+                autoBgHex: '#ffffff',
                 vectorBgHex: '#ffffff',
+                origPdfWidth: run.pdfWidth,
                 hasVectorBg: false,
                 hasImageBg: false,
                 sampleVariance: 0,
@@ -492,12 +494,16 @@
         },
 
         /**
-         * Sample perimeter background colors from rendered canvas ONLY for image backgrounds.
-         * For standard vector pages, bgHex is already exact vector color or #FFFFFF.
+         * Sample authoritative background and text colors directly from the clean rendered baseCanvas.
+         * Runs for ALL text blocks on the page (both vector pages and raster image scans).
+         * @param {HTMLCanvasElement} canvas Rendered PDF.js baseCanvas
+         * @param {Array} blocks Array of textBlock objects on this page
+         * @param {number} scale Current viewport render scale
+         * @param {number} pageHeightPt Page height in PDF points (default 792)
          */
         sampleBlockColors(canvas, blocks = [], scale = 1.0, pageHeightPt = 792) {
             if (!canvas || blocks.length === 0) return;
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true }) || canvas.getContext('2d');
             if (!ctx) return;
 
             const canvasWidth = canvas.width;
@@ -509,62 +515,177 @@
             const totalScale = scale * backingRatio;
 
             for (const b of blocks) {
-                // If block already has verified vector color or is on clean vector page without images, NEVER sample pixels!
-                if (!b.hasImageBg) {
-                    continue;
-                }
+                const ascentRatio = b.ascentRatio || 0.85;
+                const descentRatio = Math.abs(b.descentRatio !== undefined ? b.descentRatio : -0.20);
+                const baselinePdfY = b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY;
+                const baselineCanvasY = (pageHeightPt - baselinePdfY) * totalScale;
+                const fontSizePx = b.fontSizePt * totalScale;
 
-                // Sample a 2px outer halo 4px-7px OUTSIDE the text bounding box (prevent glyph ink contamination)
-                const haloOffset = Math.round(5 * totalScale);
-                const cx = Math.round(b.pdfX * totalScale) - haloOffset;
-                const baselineY = (pageHeightPt - b.baselinePdfY) * totalScale;
-                const cy = Math.round(baselineY - (b.fontSizePt * totalScale * b.ascentRatio)) - haloOffset;
-                const cw = Math.max(8, Math.round(b.pdfWidth * totalScale) + (haloOffset * 2));
-                const ch = Math.max(8, Math.round(b.fontSizePt * totalScale * (b.ascentRatio + Math.abs(b.descentRatio))) + (haloOffset * 2));
+                // Exact bounding box of text glyphs in backing-store canvas pixels
+                const boxX = Math.round(b.pdfX * totalScale);
+                const boxY = Math.round(baselineCanvasY - (fontSizePx * ascentRatio));
+                const boxW = Math.max(4, Math.round(b.pdfWidth * totalScale));
+                const boxH = Math.max(4, Math.round(fontSizePx * (ascentRatio + descentRatio)));
 
-                if (cx < 0 || cy < 0 || cx + cw > canvasWidth || cy + ch > canvasHeight) {
-                    continue;
-                }
+                // 1. Sample Background from Perimeter Ring (1-3px outside text box)
+                const ringOffset = Math.max(1, Math.min(4, Math.round(2 * backingRatio)));
+                const pLeft = Math.max(0, boxX - ringOffset);
+                const pRight = Math.min(canvasWidth - 1, boxX + boxW + ringOffset);
+                const pTop = Math.max(0, boxY - ringOffset);
+                const pBottom = Math.min(canvasHeight - 1, boxY + boxH + ringOffset);
 
-                try {
-                    const imgData = ctx.getImageData(cx, cy, cw, ch);
-                    const data = imgData.data;
-                    const samples = [];
+                const ringWidth = pRight - pLeft + 1;
+                const ringHeight = pBottom - pTop + 1;
 
-                    // Sample perimeter border pixels
-                    for (let x = 0; x < cw; x += 4) {
-                        const topIdx = (0 * cw + x) * 4;
-                        samples.push([data[topIdx], data[topIdx + 1], data[topIdx + 2]]);
-                        const botIdx = ((ch - 1) * cw + x) * 4;
-                        samples.push([data[botIdx], data[botIdx + 1], data[botIdx + 2]]);
-                    }
+                if (ringWidth > 0 && ringHeight > 0) {
+                    try {
+                        const ringImg = ctx.getImageData(pLeft, pTop, ringWidth, ringHeight);
+                        const rData = ringImg.data;
+                        const bgSamples = [];
 
-                    if (samples.length > 0) {
-                        // Outlier rejection: sort by brightness (L = 0.299R + 0.587G + 0.114B)
-                        samples.sort((c1, c2) => {
-                            const l1 = 0.299 * c1[0] + 0.587 * c1[1] + 0.114 * c1[2];
-                            const l2 = 0.299 * c2[0] + 0.587 * c2[1] + 0.114 * c2[2];
-                            return l1 - l2;
-                        });
+                        // Helper to extract pixel at (rx, ry) within ringImg
+                        const samplePx = (rx, ry) => {
+                            if (rx < 0 || rx >= ringWidth || ry < 0 || ry >= ringHeight) return;
+                            const idx = (ry * ringWidth + rx) * 4;
+                            let r = rData[idx];
+                            let g = rData[idx + 1];
+                            let b_col = rData[idx + 2];
+                            const a = rData[idx + 3];
 
-                        // Select 85th percentile brightest cluster
-                        const p85Idx = Math.floor(samples.length * 0.85);
-                        const cluster = samples.slice(Math.max(0, p85Idx - 3), Math.min(samples.length, p85Idx + 4));
+                            // Transparent canvas pixel (alpha 0) is pure white
+                            if (a === 0) {
+                                bgSamples.push([255, 255, 255]);
+                            } else if (a < 255) {
+                                // Composite over white
+                                const alpha = a / 255;
+                                r = Math.round(r * alpha + 255 * (1 - alpha));
+                                g = Math.round(g * alpha + 255 * (1 - alpha));
+                                b_col = Math.round(b_col * alpha + 255 * (1 - alpha));
+                                bgSamples.push([r, g, b_col]);
+                            } else {
+                                bgSamples.push([r, g, b_col]);
+                            }
+                        };
 
-                        const r = Math.round(cluster.reduce((sum, c) => sum + c[0], 0) / cluster.length);
-                        const g = Math.round(cluster.reduce((sum, c) => sum + c[1], 0) / cluster.length);
-                        const b_col = Math.round(cluster.reduce((sum, c) => sum + c[2], 0) / cluster.length);
-
-                        // Snap near-white neutral grays strictly to #FFFFFF
-                        const maxCh = Math.max(r, g, b_col);
-                        const minCh = Math.min(r, g, b_col);
-                        if (r >= 235 && g >= 235 && b_col >= 235 && (maxCh - minCh) <= 8) {
-                            b.bgHex = '#ffffff';
-                        } else {
-                            b.bgHex = rgbToHex(r, g, b_col);
+                        // Sample top and bottom perimeter rows
+                        for (let x = 0; x < ringWidth; x += 2) {
+                            samplePx(x, 0);
+                            samplePx(x, ringHeight - 1);
                         }
+                        // Sample left and right perimeter columns
+                        for (let y = 1; y < ringHeight - 1; y += 2) {
+                            samplePx(0, y);
+                            samplePx(ringWidth - 1, y);
+                        }
+
+                        if (bgSamples.length > 0) {
+                            // Find mode color using 6-bit quantization buckets
+                            const colorCounts = new Map();
+                            for (const c of bgSamples) {
+                                const key = `${c[0] >> 2}_${c[1] >> 2}_${c[2] >> 2}`;
+                                if (!colorCounts.has(key)) {
+                                    colorCounts.set(key, { count: 0, rSum: 0, gSum: 0, bSum: 0 });
+                                }
+                                const item = colorCounts.get(key);
+                                item.count++;
+                                item.rSum += c[0];
+                                item.gSum += c[1];
+                                item.bSum += c[2];
+                            }
+
+                            let bestCluster = null;
+                            for (const item of colorCounts.values()) {
+                                if (!bestCluster || item.count > bestCluster.count) {
+                                    bestCluster = item;
+                                }
+                            }
+
+                            if (bestCluster && bestCluster.count > 0) {
+                                const avgR = Math.round(bestCluster.rSum / bestCluster.count);
+                                const avgG = Math.round(bestCluster.gSum / bestCluster.count);
+                                const avgB = Math.round(bestCluster.bSum / bestCluster.count);
+
+                                let finalBgHex;
+                                // Snap near-white neutral grays strictly to #FFFFFF
+                                const maxCh = Math.max(avgR, avgG, avgB);
+                                const minCh = Math.min(avgR, avgG, avgB);
+                                if (avgR >= 245 && avgG >= 245 && avgB >= 245 && (maxCh - minCh) <= 8) {
+                                    finalBgHex = '#ffffff';
+                                } else {
+                                    finalBgHex = rgbToHex(avgR, avgG, avgB);
+                                }
+
+                                b.bgHex = finalBgHex;
+                                b.autoBgHex = finalBgHex;
+                                b.hasVectorBg = (finalBgHex.toLowerCase() !== '#ffffff');
+                            }
+                        }
+                    } catch (err) {
+                        // Keep initial fallback #ffffff
                     }
-                } catch (e) {}
+                }
+
+                // 2. Sample Foreground Glyph Ink Color inside bounding box
+                const bgR = normColor(parseInt((b.bgHex || '#ffffff').slice(1, 3), 16) || 255);
+                const bgG = normColor(parseInt((b.bgHex || '#ffffff').slice(3, 5), 16) || 255);
+                const bgB = normColor(parseInt((b.bgHex || '#ffffff').slice(5, 7), 16) || 255);
+
+                const cX = Math.max(0, boxX);
+                const cY = Math.max(0, boxY);
+                const cW = Math.min(canvasWidth - cX, boxW);
+                const cH = Math.min(canvasHeight - cY, boxH);
+
+                if (cW > 2 && cH > 2) {
+                    try {
+                        const boxImg = ctx.getImageData(cX, cY, cW, cH);
+                        const bData = boxImg.data;
+                        const inkPixels = [];
+
+                        for (let i = 0; i < bData.length; i += 4) {
+                            let r = bData[i];
+                            let g = bData[i + 1];
+                            let b_col = bData[i + 2];
+                            const a = bData[i + 3];
+
+                            if (a === 0) continue; // transparent pixel matches background
+                            if (a < 255) {
+                                const alpha = a / 255;
+                                r = Math.round(r * alpha + 255 * (1 - alpha));
+                                g = Math.round(g * alpha + 255 * (1 - alpha));
+                                b_col = Math.round(b_col * alpha + 255 * (1 - alpha));
+                            }
+
+                            // Calculate color distance from detected background
+                            const dist = Math.hypot(r - bgR, g - bgG, b_col - bgB);
+                            if (dist > 35) { // Meaningful contrast from background (ink pixel)
+                                inkPixels.push({ r, g, b: b_col, dist });
+                            }
+                        }
+
+                        if (inkPixels.length >= 3) {
+                            // Sort by contrast distance descending (core ink pixels have highest contrast)
+                            inkPixels.sort((p1, p2) => p2.dist - p1.dist);
+
+                            // Take core 35% to 75% most contrasting pixels (avoids edge anti-aliasing blending)
+                            const startIdx = Math.floor(inkPixels.length * 0.1);
+                            const endIdx = Math.max(startIdx + 1, Math.floor(inkPixels.length * 0.65));
+                            const coreInk = inkPixels.slice(startIdx, endIdx);
+
+                            if (coreInk.length > 0) {
+                                const inkR = Math.round(coreInk.reduce((sum, p) => sum + p.r, 0) / coreInk.length);
+                                const inkG = Math.round(coreInk.reduce((sum, p) => sum + p.g, 0) / coreInk.length);
+                                const inkB = Math.round(coreInk.reduce((sum, p) => sum + p.b, 0) / coreInk.length);
+
+                                // If near black, snap to #000000
+                                if (inkR <= 18 && inkG <= 18 && inkB <= 18) {
+                                    b.colorHex = '#000000';
+                                } else {
+                                    b.colorHex = rgbToHex(inkR, inkG, inkB);
+                                }
+                            }
+                        }
+                    } catch (err) {}
+                }
             }
         },
 

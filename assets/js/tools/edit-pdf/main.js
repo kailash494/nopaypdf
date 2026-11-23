@@ -402,7 +402,7 @@
             }
 
             if (fontSelect) fontSelect.value = block.tier === 1 ? 'original' : (block.matched?.local || 'sans');
-            if (fontSizeInput) fontSizeInput.value = Math.round(block.fontSizePt || 12);
+            if (fontSizeInput) fontSizeInput.value = Math.round((block.fontSizePt || 12) * 10) / 10;
             if (boldBtn) {
                 boldBtn.classList.toggle('active', Boolean(block.bold));
             }
@@ -470,7 +470,7 @@
         bgAutoBtn?.addEventListener('click', () => {
             if (window.CanvasStage.selectedBlock) {
                 const b = window.CanvasStage.selectedBlock;
-                b.bgHex = b.hasVectorBg ? (b.vectorBgHex || '#ffffff') : '#ffffff';
+                b.bgHex = b.autoBgHex || (b.hasVectorBg ? (b.vectorBgHex || '#ffffff') : '#ffffff');
                 if (bgColorInput) bgColorInput.value = (b.bgHex && b.bgHex.startsWith('#')) ? b.bgHex : '#ffffff';
                 b.modified = true;
                 renderCurrentPage();
