@@ -72,6 +72,30 @@
             color: rgb(0, 0, 0),
         });
 
+        // 3. Fractional font size 7.4pt line with Carlito TrueType font
+        let carlitoFont = null;
+        try {
+            const fontRes = await fetch('/assets/fonts/carlito/Carlito-Regular.ttf');
+            if (fontRes.ok) {
+                const carlitoBytes = await fontRes.arrayBuffer();
+                if (window.fontkit && typeof pdfDoc.registerFontkit === 'function') {
+                    pdfDoc.registerFontkit(window.fontkit);
+                }
+                carlitoFont = await pdfDoc.embedFont(carlitoBytes, { subset: false });
+                log('✓ Embedded Carlito-Regular into synthetic test PDF');
+            }
+        } catch (e) {
+            log(`Note: Carlito font fetch: ${e.message}`);
+        }
+
+        page.drawText('Invoice No: INV-2026-0042', {
+            x: 50,
+            y: 390,
+            size: 7.4,
+            font: carlitoFont || undefined,
+            color: rgb(71 / 255, 85 / 255, 105 / 255),
+        });
+
         const pdfBytes = await pdfDoc.save();
         log(`✓ Synthetic bank receipt PDF generated (${pdfBytes.length} bytes)`);
 
@@ -142,11 +166,56 @@
         }
         log('✓ PASS: Grey label Auto background is #FFFFFF and text color matches #666666');
 
+        log('\n--- Assertion 1b: Fractional Font Size & Font Matching ---');
+        const invoiceBlock = state.textBlocks.find(b => b.originalText.includes('Invoice No'));
+        if (!invoiceBlock) throw new Error('Invoice block "Invoice No" not found in EditorState');
+        const invoiceHitbox = hitboxes.find(el => el.dataset.id === invoiceBlock.id);
+        if (!invoiceHitbox) throw new Error('Invoice hitbox element not found in DOM');
+
+        log(`Invoice Block fontSizePt: ${invoiceBlock.fontSizePt}`);
+        log(`Invoice Block matched font name: ${invoiceBlock.matched?.name}`);
+        log(`Invoice Block realName: ${invoiceBlock.realName}`);
+
+        if (Math.abs(invoiceBlock.fontSizePt - 7.4) > 0.05) {
+            throw new Error(`Assertion Failed: Invoice Block fontSizePt is ${invoiceBlock.fontSizePt}, expected 7.4 (NOT rounded to whole integer!)`);
+        }
+        if (invoiceBlock.matched?.name !== 'Carlito') {
+            throw new Error(`Assertion Failed: Invoice Block matched name is ${invoiceBlock.matched?.name}, expected Carlito (NOT defaulting to Liberation Sans!)`);
+        }
+
+        invoiceHitbox.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 100));
+
+        const subFontSize = document.getElementById('sub-font-size');
+        const subFontSelect = document.getElementById('sub-font-select');
+        log(`Toolbar #sub-font-size value: ${subFontSize?.value}`);
+        log(`Toolbar #sub-font-select value: ${subFontSelect?.value}`);
+
+        if (subFontSize?.value !== '7.4') {
+            throw new Error(`Assertion Failed: #sub-font-size value is ${subFontSize?.value}, expected 7.4`);
+        }
+        if (subFontSelect?.value !== 'original' && subFontSelect?.value !== 'carlito') {
+            throw new Error(`Assertion Failed: #sub-font-select value is ${subFontSelect?.value}, expected original or carlito`);
+        }
+        if (invoiceBlock.matched?.local !== 'carlito') {
+            throw new Error(`Assertion Failed: Invoice Block matched.local is ${invoiceBlock.matched?.local}, expected carlito`);
+        }
+        log('✓ PASS: Exact fractional fontSizePt (7.4pt) and font matcher (Carlito) verified in state and toolbar');
+
+        // Blur invoice input to cleanly settle and re-render DOM
+        const invoiceInput = invoiceHitbox.querySelector('.text-inline-input');
+        if (invoiceInput) {
+            invoiceInput.blur();
+            await new Promise(r => setTimeout(r, 200));
+        }
+
         log('\n--- Assertion 2: Clicking Grey Label in Live UI ---');
-        const origWidth = greyHitbox.offsetWidth;
+        const targetGreyHitbox = document.querySelector(`.text-hitbox[data-id="${greyBlock.id}"]`);
+        if (!targetGreyHitbox) throw new Error('Target grey hitbox not found after re-render');
+        const origWidth = targetGreyHitbox.offsetWidth;
         log(`Original hitbox offsetWidth: ${origWidth}px`);
 
-        greyHitbox.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        targetGreyHitbox.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         await new Promise(r => setTimeout(r, 100));
 
         const subBgInput = document.getElementById('sub-bg-color');
@@ -166,10 +235,10 @@
         }
         log('✓ PASS: Toolbar background is #ffffff and text color matches grey');
 
-        const activeInput = greyHitbox.querySelector('.text-inline-input');
+        const activeInput = targetGreyHitbox.querySelector('.text-inline-input');
         if (!activeInput) throw new Error('.text-inline-input not found inside editing hitbox');
 
-        const editingComputedBg = window.getComputedStyle(greyHitbox).backgroundColor;
+        const editingComputedBg = window.getComputedStyle(targetGreyHitbox).backgroundColor;
         log(`Active editing hitbox computed backgroundColor: ${editingComputedBg}`);
         // Ensure computed bg is white or transparent, NEVER orange (e.g. rgb(242, 101, 34))
         if (editingComputedBg.includes('242') && editingComputedBg.includes('101')) {
@@ -182,7 +251,7 @@
         activeInput.dispatchEvent(new Event('input', { bubbles: true }));
         await new Promise(r => setTimeout(r, 100));
 
-        const expandedWidth = greyHitbox.offsetWidth;
+        const expandedWidth = targetGreyHitbox.offsetWidth;
         log(`Expanded hitbox offsetWidth: ${expandedWidth}px (orig: ${origWidth}px)`);
         if (expandedWidth <= origWidth) {
             throw new Error(`Assertion Failed: Hitbox width did not expand on typing longer text: ${expandedWidth}px <= ${origWidth}px`);

@@ -13,9 +13,10 @@
     const fontCache = new Map();
     const loadedWebFonts = new Set();
 
-    // 1. Local Vendored SIL OFL 1.1 Liberation Fonts
-    const LOCAL_LIBERATION = {
+    // 1. Local Vendored Open-Source Fonts (SIL OFL 1.1 / Apache 2.0)
+    const LOCAL_FONTS = {
         sans: {
+            dir: 'liberation',
             regular: 'LiberationSans-Regular.ttf',
             bold: 'LiberationSans-Bold.ttf',
             italic: 'LiberationSans-Italic.ttf',
@@ -27,6 +28,7 @@
             standardBoldItalic: 'HelveticaBoldOblique',
         },
         serif: {
+            dir: 'liberation',
             regular: 'LiberationSerif-Regular.ttf',
             bold: 'LiberationSerif-Bold.ttf',
             italic: 'LiberationSerif-Italic.ttf',
@@ -38,6 +40,7 @@
             standardBoldItalic: 'TimesRomanBoldItalic',
         },
         mono: {
+            dir: 'liberation',
             regular: 'LiberationMono-Regular.ttf',
             bold: 'LiberationMono-Bold.ttf',
             italic: 'LiberationMono-Regular.ttf',
@@ -48,58 +51,92 @@
             standardItalic: 'CourierOblique',
             standardBoldItalic: 'CourierBoldOblique',
         },
+        carlito: {
+            dir: 'carlito',
+            regular: 'Carlito-Regular.ttf',
+            bold: 'Carlito-Bold.ttf',
+            italic: 'Carlito-Regular.ttf',
+            boldItalic: 'Carlito-Bold.ttf',
+            cssName: 'Carlito',
+            standardRegular: 'Helvetica',
+            standardBold: 'HelveticaBold',
+            standardItalic: 'HelveticaOblique',
+            standardBoldItalic: 'HelveticaBoldOblique',
+        },
+        roboto: {
+            dir: 'roboto',
+            regular: 'Roboto-Regular.ttf',
+            bold: 'Roboto-Bold.ttf',
+            italic: 'Roboto-Regular.ttf',
+            boldItalic: 'Roboto-Bold.ttf',
+            cssName: 'Roboto',
+            standardRegular: 'Helvetica',
+            standardBold: 'HelveticaBold',
+            standardItalic: 'HelveticaOblique',
+            standardBoldItalic: 'HelveticaBoldOblique',
+        },
+        opensans: {
+            dir: 'opensans',
+            regular: 'OpenSans-Regular.ttf',
+            bold: 'OpenSans-Bold.ttf',
+            italic: 'OpenSans-Regular.ttf',
+            boldItalic: 'OpenSans-Bold.ttf',
+            cssName: 'Open Sans',
+            standardRegular: 'Helvetica',
+            standardBold: 'HelveticaBold',
+            standardItalic: 'HelveticaOblique',
+            standardBoldItalic: 'HelveticaBoldOblique',
+        },
+        lato: {
+            dir: 'lato',
+            regular: 'Lato-Regular.ttf',
+            bold: 'Lato-Bold.ttf',
+            italic: 'Lato-Regular.ttf',
+            boldItalic: 'Lato-Bold.ttf',
+            cssName: 'Lato',
+            standardRegular: 'Helvetica',
+            standardBold: 'HelveticaBold',
+            standardItalic: 'HelveticaOblique',
+            standardBoldItalic: 'HelveticaBoldOblique',
+        },
     };
+    const LOCAL_LIBERATION = LOCAL_FONTS;
 
-    // 2. Comprehensive 45+ Font Matcher Table
-    // Normalizes proprietary and popular fonts to high-fidelity OFL/Google Fonts or metric replacements
+    // 2. Comprehensive Font Matcher Table
+    // Normalizes proprietary and popular fonts to local bundled TrueType fonts (100% offline)
     const FONT_MATCHER_MATRIX = [
-        // Metric-Compatible Replacements for Proprietary Document Fonts
-        { pattern: /arial|helvetica|helveticaneue|arimo|nimbus\s*sans/i, name: 'Liberation Sans', family: 'sans', google: null, local: 'sans' },
-        { pattern: /times\s*new\s*roman|times|tinos|nimbus\s*roman/i, name: 'Liberation Serif', family: 'serif', google: null, local: 'serif' },
-        { pattern: /courier\s*new|courier|cousine|nimbus\s*mono/i, name: 'Liberation Mono', family: 'mono', google: null, local: 'mono' },
-        { pattern: /calibri|carlito/i, name: 'Carlito', family: 'sans', google: 'Carlito', local: 'sans' },
-        { pattern: /cambria|caladea/i, name: 'Caladea', family: 'serif', google: 'Caladea', local: 'serif' },
-        { pattern: /georgia|gelasio/i, name: 'Gelasio', family: 'serif', google: 'Gelasio', local: 'serif' },
-        { pattern: /segoe\s*ui|sf\s*pro|san\s*francisco|apple\s*system/i, name: 'Inter', family: 'sans', google: 'Inter', local: 'sans' },
-        { pattern: /verdana|tahoma|dejavu\s*sans/i, name: 'Liberation Sans', family: 'sans', google: null, local: 'sans' },
-        { pattern: /garamond|eb\s*garamond/i, name: 'EB Garamond', family: 'serif', google: 'EB+Garamond', local: 'serif' },
-        { pattern: /palatino|book\s*antiqua/i, name: 'Liberation Serif', family: 'serif', google: null, local: 'serif' },
-        { pattern: /century\s*gothic|futura/i, name: 'Montserrat', family: 'sans', google: 'Montserrat', local: 'sans' },
-        { pattern: /trebuchet\s*ms|fira\s*sans/i, name: 'Fira Sans', family: 'sans', google: 'Fira+Sans', local: 'sans' },
-        { pattern: /consolas|menlo|monaco|fira\s*code/i, name: 'Fira Code', family: 'mono', google: 'Fira+Code', local: 'mono' },
-        { pattern: /jetbrains\s*mono/i, name: 'JetBrains Mono', family: 'mono', google: 'JetBrains+Mono', local: 'mono' },
+        // Metric-Compatible Replacements for Microsoft Office Fonts
+        { pattern: /calibri|carlito/i, name: 'Carlito', family: 'sans', local: 'carlito' },
+        { pattern: /roboto/i, name: 'Roboto', family: 'sans', local: 'roboto' },
+        { pattern: /open\s*sans/i, name: 'Open Sans', family: 'sans', local: 'opensans' },
+        { pattern: /segoe\s*ui|sf\s*pro|san\s*francisco|apple\s*system/i, name: 'Open Sans', family: 'sans', local: 'opensans' },
+        { pattern: /lato/i, name: 'Lato', family: 'sans', local: 'lato' },
+        { pattern: /inter|fintech/i, name: 'Lato', family: 'sans', local: 'lato' },
 
-        // Popular Open-Source & Google Fonts Direct Matches
-        { pattern: /roboto\s*mono/i, name: 'Roboto Mono', family: 'mono', google: 'Roboto+Mono', local: 'mono' },
-        { pattern: /roboto\s*slab/i, name: 'Roboto Slab', family: 'serif', google: 'Roboto+Slab', local: 'serif' },
-        { pattern: /roboto/i, name: 'Roboto', family: 'sans', google: 'Roboto', local: 'sans' },
-        { pattern: /open\s*sans/i, name: 'Open Sans', family: 'sans', google: 'Open+Sans', local: 'sans' },
-        { pattern: /lato/i, name: 'Lato', family: 'sans', google: 'Lato', local: 'sans' },
-        { pattern: /montserrat/i, name: 'Montserrat', family: 'sans', google: 'Montserrat', local: 'sans' },
-        { pattern: /poppins/i, name: 'Poppins', family: 'sans', google: 'Poppins', local: 'sans' },
-        { pattern: /inter/i, name: 'Inter', family: 'sans', google: 'Inter', local: 'sans' },
-        { pattern: /source\s*sans/i, name: 'Source Sans 3', family: 'sans', google: 'Source+Sans+3', local: 'sans' },
-        { pattern: /source\s*serif/i, name: 'Source Serif 4', family: 'serif', google: 'Source+Serif+4', local: 'serif' },
-        { pattern: /source\s*code/i, name: 'Source Code Pro', family: 'mono', google: 'Source+Code+Pro', local: 'mono' },
-        { pattern: /nunito/i, name: 'Nunito', family: 'sans', google: 'Nunito', local: 'sans' },
-        { pattern: /raleway/i, name: 'Raleway', family: 'sans', google: 'Raleway', local: 'sans' },
-        { pattern: /merriweather/i, name: 'Merriweather', family: 'serif', google: 'Merriweather', local: 'serif' },
-        { pattern: /playfair\s*display/i, name: 'Playfair Display', family: 'serif', google: 'Playfair+Display', local: 'serif' },
-        { pattern: /oswald/i, name: 'Oswald', family: 'sans', google: 'Oswald', local: 'sans' },
-        { pattern: /ubuntu/i, name: 'Ubuntu', family: 'sans', google: 'Ubuntu', local: 'sans' },
-        { pattern: /pt\s*sans/i, name: 'PT Sans', family: 'sans', google: 'PT+Sans', local: 'sans' },
-        { pattern: /pt\s*serif/i, name: 'PT Serif', family: 'serif', google: 'PT+Serif', local: 'serif' },
-        { pattern: /noto\s*sans/i, name: 'Noto Sans', family: 'sans', google: 'Noto+Sans', local: 'sans' },
-        { pattern: /noto\s*serif/i, name: 'Noto Serif', family: 'serif', google: 'Noto+Serif', local: 'serif' },
-        { pattern: /lora/i, name: 'Lora', family: 'serif', google: 'Lora', local: 'serif' },
-        { pattern: /rubik/i, name: 'Rubik', family: 'sans', google: 'Rubik', local: 'sans' },
-        { pattern: /inconsolata/i, name: 'Inconsolata', family: 'mono', google: 'Inconsolata', local: 'mono' },
-        { pattern: /cormorant/i, name: 'Cormorant Garamond', family: 'serif', google: 'Cormorant+Garamond', local: 'serif' },
-        { pattern: /work\s*sans/i, name: 'Work Sans', family: 'sans', google: 'Work+Sans', local: 'sans' },
-        { pattern: /space\s*grotesk/i, name: 'Space Grotesk', family: 'sans', google: 'Space+Grotesk', local: 'sans' },
-        { pattern: /space\s*mono/i, name: 'Space Mono', family: 'mono', google: 'Space+Mono', local: 'mono' },
-        { pattern: /cinzel/i, name: 'Cinzel', family: 'serif', google: 'Cinzel', local: 'serif' },
-        { pattern: /karla/i, name: 'Karla', family: 'sans', google: 'Karla', local: 'sans' },
+        // Standard Document & Metric Fonts
+        { pattern: /arial|helvetica|helveticaneue|arimo|nimbus\s*sans/i, name: 'Liberation Sans', family: 'sans', local: 'sans' },
+        { pattern: /times\s*new\s*roman|times|tinos|nimbus\s*roman/i, name: 'Liberation Serif', family: 'serif', local: 'serif' },
+        { pattern: /courier\s*new|courier|cousine|nimbus\s*mono/i, name: 'Liberation Mono', family: 'mono', local: 'mono' },
+        { pattern: /cambria|caladea/i, name: 'Liberation Serif', family: 'serif', local: 'serif' },
+        { pattern: /georgia|gelasio/i, name: 'Liberation Serif', family: 'serif', local: 'serif' },
+        { pattern: /verdana|tahoma|dejavu\s*sans/i, name: 'Liberation Sans', family: 'sans', local: 'sans' },
+        { pattern: /garamond|eb\s*garamond/i, name: 'Liberation Serif', family: 'serif', local: 'serif' },
+        { pattern: /palatino|book\s*antiqua/i, name: 'Liberation Serif', family: 'serif', local: 'serif' },
+        { pattern: /century\s*gothic|futura|montserrat/i, name: 'Carlito', family: 'sans', local: 'carlito' },
+        { pattern: /trebuchet\s*ms|fira\s*sans/i, name: 'Open Sans', family: 'sans', local: 'opensans' },
+        { pattern: /consolas|menlo|monaco|fira\s*code|jetbrains\s*mono/i, name: 'Liberation Mono', family: 'mono', local: 'mono' },
+
+        // Popular Open-Source & Web Fonts
+        { pattern: /roboto\s*mono/i, name: 'Liberation Mono', family: 'mono', local: 'mono' },
+        { pattern: /roboto\s*slab/i, name: 'Liberation Serif', family: 'serif', local: 'serif' },
+        { pattern: /source\s*sans/i, name: 'Open Sans', family: 'sans', local: 'opensans' },
+        { pattern: /source\s*serif/i, name: 'Liberation Serif', family: 'serif', local: 'serif' },
+        { pattern: /source\s*code/i, name: 'Liberation Mono', family: 'mono', local: 'mono' },
+        { pattern: /nunito|rubik|karla/i, name: 'Carlito', family: 'sans', local: 'carlito' },
+        { pattern: /noto\s*sans/i, name: 'Roboto', family: 'sans', local: 'roboto' },
+        { pattern: /noto\s*serif/i, name: 'Liberation Serif', family: 'serif', local: 'serif' },
+        { pattern: /merriweather|lora|playfair/i, name: 'Liberation Serif', family: 'serif', local: 'serif' },
+        { pattern: /ubuntu|pt\s*sans/i, name: 'Open Sans', family: 'sans', local: 'opensans' },
     ];
 
     const FontManager = {
@@ -324,38 +361,48 @@
         },
 
         /**
-         * Ensure a matched Google Web Font is loaded into document.fonts for live browser editing.
+         * Ensure a matched font is loaded into document.fonts for live browser editing.
          */
         async loadWebFont(matched) {
-            if (!matched || !matched.google || loadedWebFonts.has(matched.google)) return;
-            loadedWebFonts.add(matched.google);
-
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = `https://fonts.googleapis.com/css2?family=${matched.google}:ital,wght@0,400;0,700;1,400;1,700&display=swap`;
-            document.head.appendChild(link);
+            if (!matched || !matched.name) return;
+            const fontName = matched.name;
+            if (loadedWebFonts.has(fontName)) return;
+            loadedWebFonts.add(fontName);
 
             try {
                 if (document.fonts) {
-                    await document.fonts.load(`14px "${matched.name}"`);
+                    await document.fonts.load(`14px "${fontName}"`);
                 }
             } catch (e) {}
         },
 
         /**
-         * Fetch local Liberation font TTF buffer.
+         * Fetch local TrueType font buffer.
+         * Accepts (dir, filename) or (filename).
          */
-        async fetchFontBuffer(filename) {
-            if (fontCache.has(filename)) {
-                return fontCache.get(filename);
+        async fetchFontBuffer(dirOrFile, filename) {
+            let dir = 'liberation';
+            let file = dirOrFile;
+            if (filename) {
+                dir = dirOrFile;
+                file = filename;
+            } else if (dirOrFile.includes('/')) {
+                const parts = dirOrFile.split('/');
+                dir = parts[0];
+                file = parts[1];
             }
-            const url = `/assets/fonts/liberation/${filename}`;
+
+            const cacheKey = `${dir}/${file}`;
+            if (fontCache.has(cacheKey)) {
+                return fontCache.get(cacheKey);
+            }
+            const url = `/assets/fonts/${dir}/${file}`;
             const res = await fetch(url);
             if (!res.ok) {
                 throw new Error(`Failed to load font from ${url} (HTTP ${res.status})`);
             }
             const buffer = await res.arrayBuffer();
-            fontCache.set(filename, buffer);
+            fontCache.set(cacheKey, buffer);
             return buffer;
         },
 
@@ -385,20 +432,22 @@
                 }
             }
 
-            // TIER 2: Auto-Matched OFL / Google Font
+            // TIER 2: Auto-Matched Local TrueType Font (Carlito, Roboto, Open Sans, Lato, Liberation)
             const matched = block.matched || this.matchFontName(block.realName);
             const bold = Boolean(block.bold);
             const italic = Boolean(block.italic);
 
-            // 1. Try local metric replacement (Liberation Sans / Serif / Mono)
-            const localKey = matched.local || 'sans';
-            const localMap = LOCAL_LIBERATION[localKey] || LOCAL_LIBERATION.sans;
+            const localKey = (block.fontFamily && LOCAL_FONTS[block.fontFamily])
+                ? block.fontFamily
+                : (matched.local || 'sans');
+            const localMap = LOCAL_FONTS[localKey] || LOCAL_FONTS.sans;
+
             let localFile = localMap.regular;
             let standardKey = localMap.standardRegular;
 
             if (bold && italic) {
-                localFile = localMap.boldItalic;
-                standardKey = localMap.standardBoldItalic;
+                localFile = localMap.boldItalic || localMap.bold;
+                standardKey = localMap.standardBoldItalic || localMap.standardBold;
             } else if (bold) {
                 localFile = localMap.bold;
                 standardKey = localMap.standardBold;
@@ -409,12 +458,12 @@
 
             if (window.fontkit && typeof pdfDoc.registerFontkit === 'function') {
                 try {
-                    const ttfBytes = await this.fetchFontBuffer(localFile);
+                    const ttfBytes = await this.fetchFontBuffer(localMap.dir, localFile);
                     const embeddedFont = await pdfDoc.embedFont(ttfBytes, { subset: true });
                     return {
                         font: embeddedFont,
                         tier: 2,
-                        fontName: matched.name,
+                        fontName: localMap.cssName,
                     };
                 } catch (err) {
                     console.warn(`Tier 2 local embedding failed for ${localFile}:`, err);
@@ -433,7 +482,7 @@
         },
 
         getCssFamily(family) {
-            return LOCAL_LIBERATION[family]?.cssName || LOCAL_LIBERATION.sans.cssName;
+            return LOCAL_FONTS[family]?.cssName || LOCAL_FONTS.sans.cssName;
         },
     };
 

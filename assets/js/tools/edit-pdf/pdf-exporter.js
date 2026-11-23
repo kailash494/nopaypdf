@@ -165,10 +165,16 @@
                     const embedResult = await window.FontManager.embedFontForBlock(pdfDoc, b, b.currentText);
                     const font = embedResult.font;
 
+                    // Calibrate export font size if horizontal scaling or width ratio requires subtle metric alignment
+                    let exportFontSize = b.fontSizePt;
+                    if (b.widthRatio && b.widthRatio > 0.85 && b.widthRatio < 1.15) {
+                        exportFontSize = Math.round(b.fontSizePt * (1.0 + (b.widthRatio - 1.0) * 0.35) * 100) / 100;
+                    }
+
                     pdfPage.drawText(b.currentText, {
                         x: b.pdfX,
                         y: baselineY,
-                        size: b.fontSizePt,
+                        size: exportFontSize,
                         font,
                         color: hexToRgb(b.colorHex || '#1e293b'),
                     });

@@ -401,8 +401,11 @@
                 }
             }
 
-            if (fontSelect) fontSelect.value = block.tier === 1 ? 'original' : (block.matched?.local || 'sans');
-            if (fontSizeInput) fontSizeInput.value = Math.round((block.fontSizePt || 12) * 10) / 10;
+            if (fontSelect) {
+                const selectedKey = block.fontFamily || (block.tier === 1 ? 'original' : (block.matched?.local || 'sans'));
+                fontSelect.value = selectedKey;
+            }
+            if (fontSizeInput) fontSizeInput.value = (Math.round((block.fontSizePt || 12) * 100) / 100).toString();
             if (boldBtn) {
                 boldBtn.classList.toggle('active', Boolean(block.bold));
             }

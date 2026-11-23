@@ -76,6 +76,70 @@
     font-display: swap;
 }
 
+/* Carlito (Metric-compatible replacement for Microsoft Calibri) */
+@font-face {
+    font-family: 'Carlito';
+    src: url('/assets/fonts/carlito/Carlito-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Carlito';
+    src: url('/assets/fonts/carlito/Carlito-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Roboto (Google Android / Web invoice standard) */
+@font-face {
+    font-family: 'Roboto';
+    src: url('/assets/fonts/roboto/Roboto-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Roboto';
+    src: url('/assets/fonts/roboto/Roboto-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Open Sans (Humanist sans-serif / Segoe UI equivalent) */
+@font-face {
+    font-family: 'Open Sans';
+    src: url('/assets/fonts/opensans/OpenSans-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Open Sans';
+    src: url('/assets/fonts/opensans/OpenSans-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Lato (Corporate / Fintech invoice standard) */
+@font-face {
+    font-family: 'Lato';
+    src: url('/assets/fonts/lato/Lato-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Lato';
+    src: url('/assets/fonts/lato/Lato-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* ====================================================================
    2. Workspace & 3-Layer Synchronized Stage Architecture
    ==================================================================== */

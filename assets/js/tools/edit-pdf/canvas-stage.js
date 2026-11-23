@@ -177,6 +177,30 @@
             return this._measureCtx;
         }
 
+        _checkUnicodeSafe(loadedName, originalText, expectedWidthPx, measureCtx) {
+            if (!loadedName || !originalText || !measureCtx) return false;
+            try {
+                if (document.fonts && typeof document.fonts.check === 'function') {
+                    if (!document.fonts.check(`16px "${loadedName}"`)) {
+                        return false;
+                    }
+                }
+                measureCtx.font = `16px "${loadedName}"`;
+                const measured16 = measureCtx.measureText(originalText).width;
+                if (!measured16 || measured16 <= 0) return false;
+
+                measureCtx.font = '16px "Liberation Sans", sans-serif';
+                const measuredSans = measureCtx.measureText(originalText).width;
+                if (measuredSans > 0) {
+                    const ratio = measured16 / measuredSans;
+                    if (ratio < 0.4 || ratio > 2.2) return false;
+                }
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
         _renderDomLayer(pageState, viewportWidth, viewportHeight) {
             this.domLayer.innerHTML = '';
             const scale = this.currentScale;
@@ -197,9 +221,19 @@
                 const hasCoverage = window.FontManager.checkEmbeddedCoverage(block.embeddedBytes, block.currentText);
                 block.tier = hasCoverage ? 1 : 2;
 
-                const cssFontFamily = block.tier === 1 && block.loadedName
-                    ? `"${block.loadedName}", "${block.matched?.name || 'Liberation Sans'}", sans-serif`
-                    : `"${block.matched?.name || 'Liberation Sans'}", sans-serif`;
+                const matchedName = block.matched?.name || 'Liberation Sans';
+                const isUnicodeSafe = this._checkUnicodeSafe(block.loadedName, block.originalText, (block.origPdfWidth || block.pdfWidth) * scale, measureCtx);
+                block.isUnicodeSafe = isUnicodeSafe;
+
+                let cssFontFamily;
+                if (block.fontFamily && window.FontManager && typeof window.FontManager.getCssFamily === 'function') {
+                    cssFontFamily = `"${window.FontManager.getCssFamily(block.fontFamily)}", "Liberation Sans", sans-serif`;
+                } else if ((block.tier === 1 || isUnicodeSafe) && block.loadedName) {
+                    // Sejda-style hybrid stack: exact original glyphs for existing characters, matched fallback for new characters
+                    cssFontFamily = `"${block.loadedName}", "${matchedName}", "Liberation Sans", sans-serif`;
+                } else {
+                    cssFontFamily = `"${matchedName}", "Liberation Sans", sans-serif`;
+                }
 
                 let currentPdfW = block.pdfWidth;
                 if (block.modified && block.currentText && measureCtx) {
@@ -229,12 +263,14 @@
 
                 // Calibrate letter-spacing to match original PDF character advances
                 let letterSpacingPx = 0;
+                const expectedOrigPx = (block.origPdfWidth || block.pdfWidth) * scale;
                 if (block.originalText && block.originalText.length > 1 && measureCtx) {
                     measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${fontSizePx}px ${cssFontFamily}`;
                     const measuredW = measureCtx.measureText(block.originalText).width;
                     if (measuredW > 0) {
-                        letterSpacingPx = (widthPx - measuredW) / (block.originalText.length - 1);
-                        letterSpacingPx = Math.max(-1.5, Math.min(4.0, letterSpacingPx));
+                        letterSpacingPx = (expectedOrigPx - measuredW) / (block.originalText.length - 1);
+                        letterSpacingPx = Math.max(-2.0, Math.min(3.5, letterSpacingPx));
+                        block.widthRatio = expectedOrigPx / measuredW;
                     }
                 }
                 block.letterSpacingPx = letterSpacingPx;
@@ -372,16 +408,21 @@
             input.addEventListener('input', () => {
                 const val = input.value;
                 const covered = window.FontManager.checkEmbeddedCoverage(block.embeddedBytes, val);
+                const matchedName = block.matched?.name || 'Liberation Sans';
                 if (covered) {
                     block.tier = 1;
                     fontPill.className = 'text-quick-pill';
                     fontPill.textContent = `Embedded: ${block.realName}`;
-                    input.style.fontFamily = `"${block.loadedName}", "${block.matched?.name || 'Liberation Sans'}", sans-serif`;
+                    input.style.fontFamily = `"${block.loadedName}", "${matchedName}", "Liberation Sans", sans-serif`;
                 } else {
                     block.tier = 2;
                     fontPill.className = 'text-quick-pill tier2';
-                    fontPill.textContent = `Matched: ${block.matched?.name || 'Liberation Sans'}`;
-                    input.style.fontFamily = `"${block.matched?.name || 'Liberation Sans'}", sans-serif`;
+                    fontPill.textContent = `Matched: ${matchedName}`;
+                    if (block.isUnicodeSafe && block.loadedName) {
+                        input.style.fontFamily = `"${block.loadedName}", "${matchedName}", "Liberation Sans", sans-serif`;
+                    } else {
+                        input.style.fontFamily = `"${matchedName}", "Liberation Sans", sans-serif`;
+                    }
                     window.FontManager.loadWebFont(block.matched);
                 }
 

@@ -264,20 +264,18 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Font Family -->
             <select id="sub-font-select" class="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium">
                 <option value="original">Original (Embedded)</option>
-                <option value="sans">Liberation Sans (Arial)</option>
+                <option value="carlito">Carlito (Calibri)</option>
+                <option value="roboto">Roboto</option>
+                <option value="opensans">Open Sans (Segoe UI)</option>
+                <option value="lato">Lato</option>
+                <option value="sans">Liberation Sans (Arial / Helvetica)</option>
                 <option value="serif">Liberation Serif (Times)</option>
                 <option value="mono">Liberation Mono (Courier)</option>
-                <option value="carlito">Carlito (Calibri)</option>
-                <option value="caladea">Caladea (Cambria)</option>
-                <option value="inter">Inter (Segoe UI / SF Pro)</option>
-                <option value="roboto">Roboto</option>
-                <option value="open-sans">Open Sans</option>
-                <option value="montserrat">Montserrat</option>
             </select>
             <span id="sub-font-tier-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hidden"></span>
 
             <!-- Font Size -->
-            <input type="number" id="sub-font-size" value="12" min="6" max="96" step="0.5" class="w-14 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium text-center">
+            <input type="number" id="sub-font-size" value="12" min="4" max="144" step="0.05" class="w-14 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium text-center">
 
             <!-- Bold / Italic -->
             <button type="button" id="sub-bold-btn" class="px-2.5 py-1 rounded-md border border-slate-200 font-extrabold hover:bg-slate-100">B</button>

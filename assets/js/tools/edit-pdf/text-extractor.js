@@ -255,7 +255,11 @@
                 fullText += str + ' ';
 
                 const tx = item.transform; // [a, b, c, d, e, f]
-                const fontSizePt = Math.hypot(tx[2], tx[3]) || Math.hypot(tx[0], tx[1]) || item.height || 12;
+                const scaleY = Math.hypot(tx[2], tx[3]) || item.height || 12;
+                const scaleX = Math.hypot(tx[0], tx[1]) || scaleY;
+                const hScale = scaleY > 0 ? (scaleX / scaleY) : 1.0;
+                const fontSizePt = Math.round(scaleY * 100) / 100;
+                const roundedHScale = Math.round(hScale * 100) / 100;
 
                 // Inspect real font from PDF.js commonObjs
                 const fontObj = window.FontManager ? window.FontManager.getFontObjFromPage(page, item.fontName) : null;
@@ -314,7 +318,8 @@
                     baselinePdfY: pdfY,
                     pdfWidth,
                     pdfHeight,
-                    fontSizePt: Math.round(fontSizePt * 100) / 100,
+                    fontSizePt,
+                    hScale: roundedHScale,
                     fontId: fontTraits.fontId,
                     loadedName: fontTraits.loadedName,
                     realName: fontTraits.realName,
@@ -381,6 +386,7 @@
                         pdfWidth: run.pdfWidth,
                         pdfHeight: run.pdfHeight,
                         fontSizePt: run.fontSizePt,
+                        hScale: run.hScale || 1.0,
                     });
                 } else {
                     lineBlocks.push(currentBlock);
@@ -419,6 +425,7 @@
                 pdfWidth: run.pdfWidth,
                 pdfHeight: run.pdfHeight,
                 fontSizePt: run.fontSizePt,
+                hScale: run.hScale || 1.0,
                 fontId: run.fontId,
                 loadedName: run.loadedName,
                 realName: run.realName,
@@ -449,6 +456,7 @@
                     pdfWidth: run.pdfWidth,
                     pdfHeight: run.pdfHeight,
                     fontSizePt: run.fontSizePt,
+                    hScale: run.hScale || 1.0,
                 }],
             };
         },
