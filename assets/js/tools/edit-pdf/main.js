@@ -392,9 +392,10 @@
             const fontTierPill = document.getElementById('sub-font-tier-pill');
             if (fontTierPill) {
                 fontTierPill.classList.remove('hidden');
+                const displayName = block.baseFontName || block.realName || 'Original';
                 if (block.tier === 1) {
                     fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200';
-                    fontTierPill.textContent = `Embedded: ${block.realName}`;
+                    fontTierPill.textContent = `Original: ${displayName}`;
                 } else {
                     fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200';
                     fontTierPill.textContent = `Matched: ${block.matched?.name || 'Liberation Sans'}`;

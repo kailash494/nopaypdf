@@ -507,6 +507,7 @@ require_once __DIR__ . '/../includes/header.php';
 <script src="/assets/js/tools/edit-pdf/font-manager.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/text-extractor.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/editor-state.js?v=<?= APP_VERSION ?>"></script>
+<script src="/assets/js/tools/edit-pdf/embedded-font-encoder.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/content-stream-editor.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/canvas-stage.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/pdf-exporter.js?v=<?= APP_VERSION ?>"></script>

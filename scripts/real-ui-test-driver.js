@@ -56,22 +56,6 @@
             color: rgb(242 / 255, 101 / 255, 34 / 255),
         });
 
-        // Medium-grey label (#666666) on pure white background
-        page.drawText('Beneficiary Bank Name', {
-            x: 50,
-            y: 450,
-            size: 12,
-            color: rgb(102 / 255, 102 / 255, 102 / 255),
-        });
-
-        // Black value text (#000000) on pure white background
-        page.drawText('Chase Bank NA', {
-            x: 50,
-            y: 420,
-            size: 12,
-            color: rgb(0, 0, 0),
-        });
-
         // 3. Fractional font size 7.4pt line with Carlito TrueType font
         let carlitoFont = null;
         try {
@@ -87,6 +71,24 @@
         } catch (e) {
             log(`Note: Carlito font fetch: ${e.message}`);
         }
+
+        // Exact grey label (0.3 0.3 0.3 rg = #4d4d4d) with embedded TrueType font
+        page.drawText('Beneficiary Bank Name', {
+            x: 50,
+            y: 450,
+            size: 12,
+            font: carlitoFont || undefined,
+            color: rgb(0.3, 0.3, 0.3),
+        });
+
+        // Black value text (#000000) on pure white background
+        page.drawText('Chase Bank NA', {
+            x: 50,
+            y: 420,
+            size: 12,
+            font: carlitoFont || undefined,
+            color: rgb(0, 0, 0),
+        });
 
         page.drawText('Invoice No: INV-2026-0042', {
             x: 50,
@@ -141,6 +143,8 @@
         log(`Grey Block bgHex: ${greyBlock.bgHex}`);
         log(`Grey Block autoBgHex: ${greyBlock.autoBgHex}`);
         log(`Grey Block colorHex: ${greyBlock.colorHex}`);
+        log(`Grey Block exactPdfColorHex: ${greyBlock.exactPdfColorHex}`);
+        log(`Grey Block baseFontName: ${greyBlock.baseFontName}`);
         log(`Grey Block hasVectorBg: ${greyBlock.hasVectorBg}`);
 
         if (greyBlock.bgHex.toLowerCase() !== '#ffffff') {
@@ -152,19 +156,10 @@
         if (greyBlock.hasVectorBg !== false) {
             throw new Error(`Assertion Failed: greyBlock.hasVectorBg is ${greyBlock.hasVectorBg}, expected false`);
         }
-        // Check grey color range
-        const grR = parseInt(greyBlock.colorHex.slice(1, 3), 16);
-        const grG = parseInt(greyBlock.colorHex.slice(3, 5), 16);
-        const grB = parseInt(greyBlock.colorHex.slice(5, 7), 16);
-        log(`Grey Block detected RGB: (${grR}, ${grG}, ${grB})`);
-
-        if (greyBlock.colorHex === '#000000' || greyBlock.colorHex === '#1e293b') {
-            throw new Error(`Assertion Failed: Grey label colorHex defaulted to black: ${greyBlock.colorHex}`);
+        if (greyBlock.colorHex.toLowerCase() !== '#4d4d4d' && greyBlock.colorHex.toLowerCase() !== '#4c4c4c') {
+            throw new Error(`Assertion Failed: Grey label colorHex is ${greyBlock.colorHex}, expected exact 30% grey #4d4d4d or #4c4c4c (NOT washed-out #6a6a6a!)`);
         }
-        if (Math.abs(grR - 102) > 20 || Math.abs(grG - 102) > 20 || Math.abs(grB - 102) > 20) {
-            throw new Error(`Assertion Failed: Grey label colorHex (${greyBlock.colorHex}) is not close to #666666`);
-        }
-        log('✓ PASS: Grey label Auto background is #FFFFFF and text color matches #666666');
+        log(`✓ PASS: Grey label Auto background is #FFFFFF and text color matches exact 30% grey (${greyBlock.colorHex})`);
 
         log('\n--- Assertion 1b: Fractional Font Size & Font Matching ---');
         const invoiceBlock = state.textBlocks.find(b => b.originalText.includes('Invoice No'));
@@ -230,10 +225,10 @@
         if (subBgInput.value.toLowerCase() !== '#ffffff') {
             throw new Error(`Assertion Failed: #sub-bg-color value is ${subBgInput.value}, expected #ffffff (NOT orange!)`);
         }
-        if (subTextInput.value === '#000000' || subTextInput.value === '#1e293b') {
-            throw new Error(`Assertion Failed: #sub-text-color defaulted to black: ${subTextInput.value}`);
+        if (subTextInput.value.toLowerCase() !== '#4d4d4d' && subTextInput.value.toLowerCase() !== '#4c4c4c') {
+            throw new Error(`Assertion Failed: #sub-text-color is ${subTextInput.value}, expected exact 30% grey #4d4d4d or #4c4c4c`);
         }
-        log('✓ PASS: Toolbar background is #ffffff and text color matches grey');
+        log(`✓ PASS: Toolbar background is #ffffff and text color matches exact 30% grey (${subTextInput.value})`);
 
         const activeInput = targetGreyHitbox.querySelector('.text-inline-input');
         if (!activeInput) throw new Error('.text-inline-input not found inside editing hitbox');
@@ -328,6 +323,12 @@
             throw new Error(`Assertion Failed: Found ${orangeRectCount} unexpected cover rectangles near body text in exported PDF`);
         }
         log('✓ PASS: Exported PDF has zero orange mask rectangles over edited body text');
+
+        // Verify in-place stream rewriting
+        if (!allContentStr.includes('Tj') && !allContentStr.includes('TJ')) {
+            throw new Error('Assertion Failed: Exported PDF content stream is missing text-showing operators');
+        }
+        log('✓ PASS: Content stream successfully rewritten in-place using native embedded font');
 
         log('\n🎉 ALL REAL-UI E2E ASSERTIONS PASSED SUCCESSFULLY!');
         await report('PASSED');

@@ -20,9 +20,12 @@
     }
 
     function normColor(val) {
-        if (typeof val !== 'number') return 0;
-        if (val > 0 && val <= 1 && (val % 1 !== 0)) {
+        if (typeof val !== 'number' || isNaN(val)) return 0;
+        if (val > 0 && val < 1) {
             return Math.round(val * 255);
+        }
+        if (val === 1) {
+            return 255;
         }
         return Math.max(0, Math.min(255, Math.round(val)));
     }
@@ -116,7 +119,21 @@
                             currentColor = rgbToHex(r, g, b);
                         }
                     } else if (fn === OPS.showText || fn === OPS.showSpacedText || fn === OPS.nextLineShowText || fn === OPS.nextLineSetSpacingShowText) {
-                        textColors.push(currentColor);
+                        let opStr = '';
+                        if (args && args[0]) {
+                            if (typeof args[0] === 'string') {
+                                opStr = args[0];
+                            } else if (Array.isArray(args[0])) {
+                                for (const item of args[0]) {
+                                    if (typeof item === 'string') opStr += item;
+                                    else if (item && typeof item === 'object') {
+                                        if (typeof item.unicode === 'string') opStr += item.unicode;
+                                        else if (typeof item.fontChar === 'string') opStr += item.fontChar;
+                                    }
+                                }
+                            }
+                        }
+                        textColors.push({ color: currentColor, str: opStr });
                     } else if (fn === OPS.rectangle && args && args.length >= 4) {
                         const x = args[0];
                         const y = args[1];
@@ -302,7 +319,20 @@
                     };
 
                 // Exact operator fill color
-                const colorHex = opColors[textItemIdx] || '#1e293b';
+                let colorHex = '#1e293b';
+                if (opColors.length > 0) {
+                    const exactMatch = opColors.find((op, idx) => {
+                        return idx >= Math.max(0, textItemIdx - 3) &&
+                               idx <= Math.min(opColors.length - 1, textItemIdx + 3) &&
+                               op.str && (op.str === str || op.str.includes(str) || str.includes(op.str));
+                    });
+                    if (exactMatch) {
+                        colorHex = exactMatch.color;
+                    } else if (textItemIdx < opColors.length) {
+                        const entry = opColors[textItemIdx];
+                        colorHex = (typeof entry === 'object' && entry !== null) ? entry.color : (entry || '#1e293b');
+                    }
+                }
                 textItemIdx++;
 
                 // PDF User space coordinates (bottom-left origin)
@@ -310,6 +340,8 @@
                 const pdfY = tx[5]; // Baseline Y
                 const pdfWidth = item.width || (str.length * fontSizePt * 0.5);
                 const pdfHeight = item.height || fontSizePt;
+
+                const baseFontName = (fontTraits.realName || '').replace(/^\//, '').replace(/^[A-Z]{6}\+/, '').trim() || fontTraits.loadedName || 'Original';
 
                 rawRuns.push({
                     str,
@@ -323,6 +355,7 @@
                     fontId: fontTraits.fontId,
                     loadedName: fontTraits.loadedName,
                     realName: fontTraits.realName,
+                    baseFontName,
                     embeddedBytes: fontTraits.embeddedBytes,
                     ascentRatio: fontTraits.ascentRatio,
                     descentRatio: fontTraits.descentRatio,
@@ -330,6 +363,7 @@
                     italic: fontTraits.italic,
                     matched: fontTraits.matched,
                     colorHex,
+                    exactPdfColorHex: colorHex,
                 });
             }
 
@@ -429,6 +463,7 @@
                 fontId: run.fontId,
                 loadedName: run.loadedName,
                 realName: run.realName,
+                baseFontName: run.baseFontName || (run.realName || '').replace(/^\//, '').replace(/^[A-Z]{6}\+/, '').trim() || run.loadedName || 'Original',
                 embeddedBytes: run.embeddedBytes,
                 ascentRatio: run.ascentRatio,
                 descentRatio: run.descentRatio,
@@ -436,6 +471,7 @@
                 italic: run.italic,
                 matched: run.matched,
                 colorHex: run.colorHex || '#1e293b',
+                exactPdfColorHex: run.exactPdfColorHex || run.colorHex || '#1e293b',
                 bgHex: '#ffffff',
                 autoBgHex: '#ffffff',
                 vectorBgHex: '#ffffff',
@@ -639,61 +675,67 @@
                 b.hasVectorBg = (finalBgHex.toLowerCase() !== '#ffffff');
 
                 // 2. Sample Foreground Glyph Ink Color inside bounding box
-                const bgR = normColor(parseInt(finalBgHex.slice(1, 3), 16) || 255);
-                const bgG = normColor(parseInt(finalBgHex.slice(3, 5), 16) || 255);
-                const bgB = normColor(parseInt(finalBgHex.slice(5, 7), 16) || 255);
+                // If authoritative vector PDF graphics color is already known, NEVER overwrite with fuzzy canvas pixel averages
+                const hasAuthoritativeColor = Boolean(b.exactPdfColorHex && b.exactPdfColorHex !== '#1e293b');
+                if (hasAuthoritativeColor && !b.hasImageBg) {
+                    b.colorHex = b.exactPdfColorHex;
+                } else {
+                    const bgR = normColor(parseInt(finalBgHex.slice(1, 3), 16) || 255);
+                    const bgG = normColor(parseInt(finalBgHex.slice(3, 5), 16) || 255);
+                    const bgB = normColor(parseInt(finalBgHex.slice(5, 7), 16) || 255);
 
-                const cX = Math.max(0, boxX);
-                const cY = Math.max(0, boxY);
-                const cW = Math.min(canvasWidth - cX, boxW);
-                const cH = Math.min(canvasHeight - cY, boxH);
+                    const cX = Math.max(0, boxX);
+                    const cY = Math.max(0, boxY);
+                    const cW = Math.min(canvasWidth - cX, boxW);
+                    const cH = Math.min(canvasHeight - cY, boxH);
 
-                if (cW > 2 && cH > 2) {
-                    try {
-                        const boxImg = ctx.getImageData(cX, cY, cW, cH);
-                        const bData = boxImg.data;
-                        const inkPixels = [];
+                    if (cW > 2 && cH > 2) {
+                        try {
+                            const boxImg = ctx.getImageData(cX, cY, cW, cH);
+                            const bData = boxImg.data;
+                            const inkPixels = [];
 
-                        for (let i = 0; i < bData.length; i += 4) {
-                            let r = bData[i];
-                            let g = bData[i + 1];
-                            let b_col = bData[i + 2];
-                            const a = bData[i + 3];
+                            for (let i = 0; i < bData.length; i += 4) {
+                                let r = bData[i];
+                                let g = bData[i + 1];
+                                let b_col = bData[i + 2];
+                                const a = bData[i + 3];
 
-                            if (a === 0) continue;
-                            if (a < 255) {
-                                const alpha = a / 255;
-                                r = Math.round(r * alpha + 255 * (1 - alpha));
-                                g = Math.round(g * alpha + 255 * (1 - alpha));
-                                b_col = Math.round(b_col * alpha + 255 * (1 - alpha));
-                            }
+                                if (a === 0) continue;
+                                if (a < 255) {
+                                    const alpha = a / 255;
+                                    r = Math.round(r * alpha + 255 * (1 - alpha));
+                                    g = Math.round(g * alpha + 255 * (1 - alpha));
+                                    b_col = Math.round(b_col * alpha + 255 * (1 - alpha));
+                                }
 
-                            const dist = Math.hypot(r - bgR, g - bgG, b_col - bgB);
-                            if (dist > 35) {
-                                inkPixels.push({ r, g, b: b_col, dist });
-                            }
-                        }
-
-                        if (inkPixels.length >= 3) {
-                            inkPixels.sort((p1, p2) => p2.dist - p1.dist);
-                            // Take the top 20% most contrasting pixels (the center of glyph strokes, ignoring anti-aliased edges)
-                            const startIdx = 0;
-                            const endIdx = Math.max(3, Math.floor(inkPixels.length * 0.20));
-                            const coreInk = inkPixels.slice(startIdx, endIdx);
-
-                            if (coreInk.length > 0) {
-                                const inkR = Math.round(coreInk.reduce((sum, p) => sum + p.r, 0) / coreInk.length);
-                                const inkG = Math.round(coreInk.reduce((sum, p) => sum + p.g, 0) / coreInk.length);
-                                const inkB = Math.round(coreInk.reduce((sum, p) => sum + p.b, 0) / coreInk.length);
-
-                                if (inkR <= 22 && inkG <= 22 && inkB <= 22) {
-                                    b.colorHex = '#000000';
-                                } else {
-                                    b.colorHex = rgbToHex(inkR, inkG, inkB);
+                                const dist = Math.hypot(r - bgR, g - bgG, b_col - bgB);
+                                if (dist > 35) {
+                                    inkPixels.push({ r, g, b: b_col, dist });
                                 }
                             }
-                        }
-                    } catch (err) {}
+
+                            if (inkPixels.length >= 3) {
+                                inkPixels.sort((p1, p2) => p2.dist - p1.dist);
+                                // Take the top 20% most contrasting pixels (the center of glyph strokes, ignoring anti-aliased edges)
+                                const startIdx = 0;
+                                const endIdx = Math.max(3, Math.floor(inkPixels.length * 0.20));
+                                const coreInk = inkPixels.slice(startIdx, endIdx);
+
+                                if (coreInk.length > 0) {
+                                    const inkR = Math.round(coreInk.reduce((sum, p) => sum + p.r, 0) / coreInk.length);
+                                    const inkG = Math.round(coreInk.reduce((sum, p) => sum + p.g, 0) / coreInk.length);
+                                    const inkB = Math.round(coreInk.reduce((sum, p) => sum + p.b, 0) / coreInk.length);
+
+                                    if (inkR <= 22 && inkG <= 22 && inkB <= 22) {
+                                        b.colorHex = '#000000';
+                                    } else {
+                                        b.colorHex = rgbToHex(inkR, inkG, inkB);
+                                    }
+                                }
+                            }
+                        } catch (err) {}
+                    }
                 }
             }
         },

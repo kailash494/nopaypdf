@@ -370,7 +370,8 @@
 
             const fontPill = document.createElement('span');
             fontPill.className = `text-quick-pill ${block.tier === 1 ? '' : 'tier2'}`;
-            fontPill.textContent = block.tier === 1 ? `Embedded: ${block.realName}` : `Matched: ${block.matched?.name || 'Liberation Sans'}`;
+            const displayName = block.baseFontName || block.realName || 'Original';
+            fontPill.textContent = block.tier === 1 ? `Original: ${displayName}` : `Matched: ${block.matched?.name || 'Liberation Sans'}`;
             quickBar.appendChild(fontPill);
 
             // Revert Button
@@ -412,7 +413,7 @@
                 if (covered) {
                     block.tier = 1;
                     fontPill.className = 'text-quick-pill';
-                    fontPill.textContent = `Embedded: ${block.realName}`;
+                    fontPill.textContent = `Original: ${displayName}`;
                     input.style.fontFamily = `"${block.loadedName}", "${matchedName}", "Liberation Sans", sans-serif`;
                 } else {
                     block.tier = 2;

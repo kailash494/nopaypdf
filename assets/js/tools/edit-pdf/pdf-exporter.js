@@ -118,24 +118,50 @@
             const hasEdits = blocks.some(b => b.modified || b.deleted);
             if (!hasEdits) return;
 
-            // 1. Surgical Content Stream Removal
+            // 1. Surgical Content Stream Rewriting / Removal
             let removedBlockIds = new Set();
-            if (window.ContentStreamEditor && typeof window.ContentStreamEditor.removeEditedTextRuns === 'function') {
+            let inPlaceRewrittenBlockIds = new Set();
+            if (window.ContentStreamEditor && typeof window.ContentStreamEditor.rewriteOrRemoveTextRuns === 'function') {
                 try {
-                    removedBlockIds = await window.ContentStreamEditor.removeEditedTextRuns(pdfDoc, pdfPage, pageState);
+                    const result = await window.ContentStreamEditor.rewriteOrRemoveTextRuns(pdfDoc, pdfPage, pageState);
+                    removedBlockIds = result.removedBlockIds || new Set();
+                    inPlaceRewrittenBlockIds = result.inPlaceRewrittenBlockIds || new Set();
+                } catch (err) {
+                    console.warn('Content stream text rewriting failed, using vector mask fallback:', err);
+                }
+            } else if (window.ContentStreamEditor && typeof window.ContentStreamEditor.removeEditedTextRuns === 'function') {
+                try {
+                    const result = await window.ContentStreamEditor.removeEditedTextRuns(pdfDoc, pdfPage, pageState);
+                    if (result instanceof Set) {
+                        removedBlockIds = result;
+                        inPlaceRewrittenBlockIds = result.inPlaceRewrittenBlockIds || new Set();
+                    } else if (result) {
+                        removedBlockIds = result.removedBlockIds || new Set();
+                        inPlaceRewrittenBlockIds = result.inPlaceRewrittenBlockIds || new Set();
+                    }
                 } catch (err) {
                     console.warn('Content stream text removal failed, using vector mask fallback:', err);
                 }
             }
 
-            // 2. Process Blocks: Zero-cover stamping for stream-removed blocks, vector mask fallback otherwise
+            // 2. Process Blocks:
+            // - inPlaceRewritten: Native stream already rewritten with original /F# font, size, & color. Zero cover rect, zero stamped text!
+            // - removed: Stream operator removed. Zero cover rect, stamp replacement text using matched font.
+            // - fallback (neither): Draw vector background cover rectangle, then stamp replacement text.
             for (const b of blocks) {
                 if (!b.modified && !b.deleted) {
                     continue; // Leave 100% original vectors untouched
                 }
 
                 const baselineY = b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY;
+                const wasInPlaceRewritten = inPlaceRewrittenBlockIds.has(b.id);
                 const wasStreamRemoved = removedBlockIds.has(b.id);
+
+                if (wasInPlaceRewritten) {
+                    // Sejda-style native in-place rewriting succeeded!
+                    // ZERO cover rectangle, ZERO stamped fallback text! The original font, weight, and graphics state are 100% preserved natively.
+                    continue;
+                }
 
                 if (!wasStreamRemoved) {
                     // Fallback: Draw tight vector background cover rectangle ONLY if stream removal didn't succeed and background is not transparent

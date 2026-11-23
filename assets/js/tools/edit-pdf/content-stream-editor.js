@@ -224,22 +224,37 @@
 
     const ContentStreamEditor = {
         /**
-         * Surgically remove edited and deleted text runs from a page's content stream.
+         * Surgically rewrite or remove edited and deleted text runs from a page's content stream.
+         * For blocks whose fonts can natively encode the modified text, rewrites operands in-place.
+         * Otherwise cleanly removes the operator so fallback fonts can be stamped.
          *
          * @param {Object} pdfDoc PDFDocument from pdf-lib
          * @param {Object} pdfPage PDFPage from pdf-lib
          * @param {Object} pageState State object for the page from EditorState
-         * @returns {Promise<Set<string>>} Set of block IDs that were confirmed 100% removed from content stream
+         * @returns {Promise<{ inPlaceRewrittenBlockIds: Set<string>, removedBlockIds: Set<string> }>}
          */
-        async removeEditedTextRuns(pdfDoc, pdfPage, pageState) {
+        async rewriteOrRemoveTextRuns(pdfDoc, pdfPage, pageState) {
             const removedBlockIds = new Set();
+            const inPlaceRewrittenBlockIds = new Set();
+            removedBlockIds.inPlaceRewrittenBlockIds = inPlaceRewrittenBlockIds;
+
             const editedBlocks = (pageState.textBlocks || []).filter(b => b.modified || b.deleted);
 
             if (editedBlocks.length === 0) {
-                return removedBlockIds;
+                return { inPlaceRewrittenBlockIds, removedBlockIds };
             }
 
-            // Build target lookup list of all raw runs needing removal
+            // 1. Build font encoders for all fonts defined in this page's /Resources
+            let fontEncoders = new Map();
+            if (window.EmbeddedFontEncoder && typeof window.EmbeddedFontEncoder.createPageFontEncoders === 'function') {
+                try {
+                    fontEncoders = window.EmbeddedFontEncoder.createPageFontEncoders(pdfDoc, pdfPage);
+                } catch (e) {
+                    console.warn('Failed to create page font encoders:', e);
+                }
+            }
+
+            // 2. Build target lookup list of all raw runs needing removal or in-place rewriting
             const targetRuns = [];
             for (const b of editedBlocks) {
                 const runs = (b.rawRuns && b.rawRuns.length > 0) ? b.rawRuns : [{
@@ -250,24 +265,32 @@
                     str: b.originalText,
                 }];
 
-                for (const r of runs) {
+                const isFontChanged = Boolean(b.fontFamily && b.fontFamily !== 'original');
+                const wantInPlace = !b.deleted && !isFontChanged;
+
+                for (let rIdx = 0; rIdx < runs.length; rIdx++) {
                     targetRuns.push({
                         blockId: b.id,
-                        run: r,
+                        run: runs[rIdx],
+                        runIndex: rIdx,
+                        totalRuns: runs.length,
+                        block: b,
+                        wantInPlace,
                         removed: false,
+                        inPlaceRewritten: false,
                     });
                 }
             }
 
             const { PDFName, PDFArray, decodePDFRawStream } = window.PDFLib;
 
-            // 1. Process Page's /Contents
+            // 3. Process Page's /Contents
             const contentsRef = pdfPage.node.lookup(PDFName.of('Contents'));
             if (contentsRef) {
-                await this._processContentsEntry(pdfDoc, pdfPage.node, PDFName.of('Contents'), contentsRef, targetRuns);
+                await this._processContentsEntry(pdfDoc, pdfPage.node, PDFName.of('Contents'), contentsRef, targetRuns, fontEncoders);
             }
 
-            // 2. Process Form XObjects if any unremoved runs remain
+            // 4. Process Form XObjects if any unremoved runs remain
             const unremovedCount = targetRuns.filter(t => !t.removed).length;
             if (unremovedCount > 0) {
                 const resources = pdfPage.node.lookup(PDFName.of('Resources'));
@@ -280,7 +303,7 @@
                                 const subtype = xObj.lookup(PDFName.of('Subtype'));
                                 if (subtype && subtype.asString && subtype.asString() === '/Form') {
                                     // Process Form XObject stream
-                                    await this._processContentsEntry(pdfDoc, null, null, xObj, targetRuns);
+                                    await this._processContentsEntry(pdfDoc, null, null, xObj, targetRuns, fontEncoders);
                                 }
                             }
                         }
@@ -288,19 +311,28 @@
                 }
             }
 
-            // Check which blocks had 100% of their runs removed
+            // 5. Check which blocks were rewritten in-place vs removed
             for (const b of editedBlocks) {
                 const blockTargets = targetRuns.filter(t => t.blockId === b.id);
+                const allInPlace = blockTargets.length > 0 && blockTargets.every(t => t.inPlaceRewritten);
                 const allRemoved = blockTargets.length > 0 && blockTargets.every(t => t.removed);
-                if (allRemoved) {
+
+                if (allInPlace) {
+                    inPlaceRewrittenBlockIds.add(b.id);
+                    removedBlockIds.add(b.id);
+                } else if (allRemoved) {
                     removedBlockIds.add(b.id);
                 }
             }
 
-            return removedBlockIds;
+            return { inPlaceRewrittenBlockIds, removedBlockIds };
         },
 
-        async _processContentsEntry(pdfDoc, parentNode, entryName, streamOrArray, targetRuns) {
+        async removeEditedTextRuns(pdfDoc, pdfPage, pageState) {
+            return this.rewriteOrRemoveTextRuns(pdfDoc, pdfPage, pageState);
+        },
+
+        async _processContentsEntry(pdfDoc, parentNode, entryName, streamOrArray, targetRuns, fontEncoders = new Map()) {
             const { PDFArray, decodePDFRawStream } = window.PDFLib;
 
             let streams = [];
@@ -329,8 +361,8 @@
                 const streamStr = latin1Decoder.decode(streamBytes);
                 const operations = parseContentStream(streamStr);
 
-                // Run surgical text removal with matrix tracking
-                const { modified, newStreamStr } = this._applyStreamTransform(operations, targetRuns);
+                // Run surgical text rewriting/removal with matrix tracking
+                const { modified, newStreamStr } = this._applyStreamTransform(operations, targetRuns, fontEncoders);
 
                 if (modified) {
                     // Encode new bytes preserving 100% Latin-1 mapping
@@ -362,7 +394,7 @@
             }
         },
 
-        _applyStreamTransform(operations, targetRuns) {
+        _applyStreamTransform(operations, targetRuns, fontEncoders = new Map()) {
             let modified = false;
 
             // Graphics State Stack
@@ -371,6 +403,7 @@
 
             // Text State
             let inTextObject = false;
+            let currentFontKey = null;
             let tm = identityMatrix();
             let tlm = identityMatrix();
             let leading = 12;
@@ -452,6 +485,7 @@
                     continue;
                 }
                 if (fn === 'Tf' && args.length >= 2) {
+                    currentFontKey = args[0];
                     fontSize = parseFloat(args[1]) || 12;
                     transformedOps.push(op);
                     continue;
@@ -487,6 +521,53 @@
                     }
 
                     if (matchedTarget) {
+                        // Check if in-place native embedded font rewriting is possible
+                        if (matchedTarget.wantInPlace && currentFontKey && fontEncoders && fontEncoders.has(currentFontKey)) {
+                            const encoder = fontEncoders.get(currentFontKey);
+                            if (encoder && encoder.canEncode(matchedTarget.block.currentText)) {
+                                matchedTarget.inPlaceRewritten = true;
+                                matchedTarget.removed = true;
+                                modified = true;
+
+                                if (matchedTarget.runIndex === 0) {
+                                    // First run in this block: rewrite with full updated text
+                                    const enc = encoder.encode(matchedTarget.block.currentText);
+                                    transformedOps.push({
+                                        operator: enc.operator,
+                                        operands: enc.operands,
+                                    });
+
+                                    // Compensate horizontal position difference if downstream text exists in same block
+                                    let hasDownstreamTextInBlock = false;
+                                    for (let k = i + 1; k < operations.length; k++) {
+                                        const nextFn = operations[k].operator;
+                                        if (nextFn === 'ET' || nextFn === 'Tm') break;
+                                        if (nextFn === 'Tj' || nextFn === 'TJ' || nextFn === '\'' || nextFn === '"') {
+                                            hasDownstreamTextInBlock = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if (hasDownstreamTextInBlock) {
+                                        const deltaAdv = Math.round(((matchedTarget.block.pdfWidth || 0) - (matchedTarget.run.pdfWidth || 0)) * 100) / 100;
+                                        if (Math.abs(deltaAdv) > 0.5) {
+                                            transformedOps.push({
+                                                operator: 'Td',
+                                                operands: [deltaAdv.toString(), '0'],
+                                            });
+                                            tlm = multMatrix([1, 0, 0, 1, deltaAdv, 0], tlm);
+                                            tm = tlm.slice();
+                                        }
+                                    }
+                                    continue;
+                                } else {
+                                    // Subsequent runs of the same line: omit them cleanly
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // Fallback: Remove operator from content stream so PdfExporter can stamp replacement text
                         matchedTarget.removed = true;
                         modified = true;
 
