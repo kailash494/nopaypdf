@@ -91,6 +91,16 @@
         const btnClearSigDraw = document.getElementById('btn-clear-sig-draw');
         const sigTypeInput = document.getElementById('sig-type-input');
         const btnApplySignature = document.getElementById('btn-apply-signature');
+        const sigUploadDropzone = document.getElementById('sig-upload-dropzone');
+        const sigUploadFileInput = document.getElementById('sig-upload-file-input');
+        const sigUploadPreviewWrap = document.getElementById('sig-upload-preview-wrap');
+        const sigUploadCanvas = document.getElementById('sig-upload-canvas');
+        const sigRemoveBgToggle = document.getElementById('sig-remove-bg-toggle');
+        const btnClearSigUpload = document.getElementById('btn-clear-sig-upload');
+
+        // Sub-Toolbars
+        const annotateSubToolbar = document.getElementById('annotate-sub-toolbar');
+        const whiteoutSubToolbar = document.getElementById('whiteout-sub-toolbar');
 
         // Hidden Image Input
         const hiddenImgInput = document.getElementById('hidden-image-input');
@@ -312,10 +322,19 @@
                 toolBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
+                // Toggle sub-toolbars
+                annotateSubToolbar?.classList.toggle('hidden', tool !== 'annotate');
+                whiteoutSubToolbar?.classList.toggle('hidden', tool !== 'whiteout');
+                if (tool !== 'text-edit') {
+                    subToolbar?.classList.add('hidden');
+                }
+
                 window.CanvasStage.setTool(tool);
 
                 if (tool === 'add-text') {
                     // Click-to-place mode activated via setTool('add-text')
+                } else if (tool === 'annotate') {
+                    // Annotate mode activated via setTool('annotate')
                 } else if (tool === 'whiteout') {
                     window.CanvasStage.addWhiteoutBox();
                 } else if (tool === 'shapes') {
@@ -328,6 +347,73 @@
                     createFormFieldPrompt();
                 }
             });
+        });
+
+        // Annotate Sub-Toolbar wiring
+        const annotTypeBtns = document.querySelectorAll('.annot-type-btn');
+        annotTypeBtns.forEach(b => {
+            b.addEventListener('click', () => {
+                annotTypeBtns.forEach(btn => {
+                    btn.classList.remove('active', 'bg-white', 'text-blue-600', 'shadow-xs');
+                    btn.classList.add('text-slate-600', 'hover:text-slate-900');
+                });
+                b.classList.add('active', 'bg-white', 'text-blue-600', 'shadow-xs');
+                b.classList.remove('text-slate-600', 'hover:text-slate-900');
+                window.CanvasStage.annotateType = b.dataset.type || 'highlight';
+            });
+        });
+
+        const annotColorPicker = document.getElementById('annot-color-picker');
+        annotColorPicker?.addEventListener('input', (e) => {
+            window.CanvasStage.annotateColor = e.target.value;
+        });
+
+        const annotSwatches = document.querySelectorAll('.annot-swatch');
+        annotSwatches.forEach(sw => {
+            sw.addEventListener('click', () => {
+                const color = sw.dataset.color;
+                if (color) {
+                    window.CanvasStage.annotateColor = color;
+                    if (annotColorPicker) annotColorPicker.value = color;
+                }
+            });
+        });
+
+        // Whiteout Sub-Toolbar wiring
+        const whiteoutFillColor = document.getElementById('whiteout-fill-color');
+        const btnAddWhiteoutBox = document.getElementById('btn-add-whiteout-box');
+        const whiteoutSwatches = document.querySelectorAll('.whiteout-swatch');
+
+        function updateActiveWhiteoutFill(color) {
+            const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+            if (activeObj && activeObj.isWhiteout) {
+                const isWhite = color.toLowerCase() === '#ffffff' || color.toLowerCase() === '#fff';
+                activeObj.set({
+                    fill: color,
+                    stroke: isWhite ? '#e2e8f0' : color,
+                });
+                window.CanvasStage?.fabricCanvas?.renderAll();
+                window.CanvasStage?._saveFabricState();
+                window.EditorState.pushSnapshot('Change Whiteout Color');
+            }
+        }
+
+        whiteoutFillColor?.addEventListener('input', (e) => {
+            updateActiveWhiteoutFill(e.target.value);
+        });
+
+        whiteoutSwatches.forEach(sw => {
+            sw.addEventListener('click', () => {
+                const color = sw.dataset.color;
+                if (color) {
+                    if (whiteoutFillColor) whiteoutFillColor.value = color;
+                    updateActiveWhiteoutFill(color);
+                }
+            });
+        });
+
+        btnAddWhiteoutBox?.addEventListener('click', () => {
+            window.CanvasStage.addWhiteoutBox();
         });
 
         hiddenImgInput?.addEventListener('change', (e) => {
@@ -520,6 +606,8 @@
                     window.CanvasStage?._hideFloatingBar();
                 }
                 subToolbar?.classList.add('hidden');
+                annotateSubToolbar?.classList.add('hidden');
+                whiteoutSubToolbar?.classList.add('hidden');
                 findDrawer?.classList.add('hidden');
                 closeSigModal();
                 toolBtns.forEach(b => b.classList.toggle('active', b.dataset.tool === 'text-edit'));
@@ -658,18 +746,127 @@
             }
         });
 
-        sigTabDrawBtn?.addEventListener('click', () => {
-            sigTabDrawBtn.className = 'px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-bold text-xs';
-            sigTabTypeBtn.className = 'px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-xs';
-            sigPaneDraw?.classList.remove('hidden');
-            sigPaneType?.classList.add('hidden');
+        function selectSigTab(activeTab) {
+            const tabs = [
+                { btn: sigTabDrawBtn, pane: sigPaneDraw, id: 'draw' },
+                { btn: sigTabTypeBtn, pane: sigPaneType, id: 'type' },
+                { btn: sigTabUploadBtn, pane: sigPaneUpload, id: 'upload' },
+            ];
+            tabs.forEach(t => {
+                const isActive = t.id === activeTab;
+                if (t.btn) {
+                    t.btn.className = isActive
+                        ? 'px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-bold text-xs'
+                        : 'px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-xs';
+                }
+                if (t.pane) {
+                    t.pane.classList.toggle('hidden', !isActive);
+                }
+            });
+        }
+
+        sigTabDrawBtn?.addEventListener('click', () => selectSigTab('draw'));
+        sigTabTypeBtn?.addEventListener('click', () => selectSigTab('type'));
+        sigTabUploadBtn?.addEventListener('click', () => selectSigTab('upload'));
+
+        // Upload Picture Signature Logic
+        let currentUploadedSigImg = null;
+
+        function processSignatureUpload(img, removeBg = true) {
+            if (!sigUploadCanvas || !img) return;
+            const maxW = 500;
+            const maxH = 200;
+            let w = img.width;
+            let h = img.height;
+            if (w > maxW || h > maxH) {
+                const ratio = Math.min(maxW / w, maxH / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+            sigUploadCanvas.width = w;
+            sigUploadCanvas.height = h;
+            const ctx = sigUploadCanvas.getContext('2d');
+            ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+
+            if (removeBg) {
+                const imgData = ctx.getImageData(0, 0, w, h);
+                const d = imgData.data;
+                for (let i = 0; i < d.length; i += 4) {
+                    const r = d[i], g = d[i + 1], b = d[i + 2];
+                    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                    if (lum > 220) {
+                        d[i + 3] = 0; // Pure background
+                    } else if (lum > 175) {
+                        const factor = (220 - lum) / 45;
+                        d[i + 3] = Math.round(d[i + 3] * factor);
+                    } else {
+                        d[i] = Math.round(r * 0.4);
+                        d[i + 1] = Math.round(g * 0.4);
+                        d[i + 2] = Math.round(b * 0.4);
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+            }
+
+            sigUploadDropzone?.classList.add('hidden');
+            sigUploadPreviewWrap?.classList.remove('hidden');
+        }
+
+        function handleSigUploadFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    currentUploadedSigImg = img;
+                    processSignatureUpload(img, sigRemoveBgToggle ? sigRemoveBgToggle.checked : true);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        sigUploadDropzone?.addEventListener('click', () => {
+            sigUploadFileInput?.click();
         });
 
-        sigTabTypeBtn?.addEventListener('click', () => {
-            sigTabTypeBtn.className = 'px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-bold text-xs';
-            sigTabDrawBtn.className = 'px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-xs';
-            sigPaneType?.classList.remove('hidden');
-            sigPaneDraw?.classList.add('hidden');
+        sigUploadDropzone?.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            sigUploadDropzone.classList.add('border-blue-500', 'bg-blue-50/50');
+        });
+
+        sigUploadDropzone?.addEventListener('dragleave', () => {
+            sigUploadDropzone.classList.remove('border-blue-500', 'bg-blue-50/50');
+        });
+
+        sigUploadDropzone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            sigUploadDropzone.classList.remove('border-blue-500', 'bg-blue-50/50');
+            const file = e.dataTransfer?.files?.[0];
+            if (file) handleSigUploadFile(file);
+        });
+
+        sigUploadFileInput?.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (file) handleSigUploadFile(file);
+        });
+
+        sigRemoveBgToggle?.addEventListener('change', () => {
+            if (currentUploadedSigImg) {
+                processSignatureUpload(currentUploadedSigImg, sigRemoveBgToggle.checked);
+            }
+        });
+
+        btnClearSigUpload?.addEventListener('click', () => {
+            currentUploadedSigImg = null;
+            if (sigUploadFileInput) sigUploadFileInput.value = '';
+            sigUploadPreviewWrap?.classList.add('hidden');
+            sigUploadDropzone?.classList.remove('hidden');
+            if (sigUploadCanvas) {
+                const ctx = sigUploadCanvas.getContext('2d');
+                ctx.clearRect(0, 0, sigUploadCanvas.width, sigUploadCanvas.height);
+            }
         });
 
         btnApplySignature?.addEventListener('click', () => {
@@ -688,6 +885,8 @@
                 c.textBaseline = 'middle';
                 c.fillText(text, 200, 60);
                 dataUrl = off.toDataURL('image/png');
+            } else if (!sigPaneUpload?.classList.contains('hidden') && sigUploadCanvas) {
+                dataUrl = sigUploadCanvas.toDataURL('image/png');
             }
 
             if (dataUrl) {

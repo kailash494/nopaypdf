@@ -212,6 +212,10 @@ require_once __DIR__ . '/../includes/header.php';
                 <i data-lucide="pen-tool" class="w-3.5 h-3.5"></i>
                 <span>Sign</span>
             </button>
+            <button type="button" class="editor-tool-btn editor-toolbar-btn" data-tool="annotate" title="Annotate (Highlight, Underline, Strikethrough)">
+                <i data-lucide="highlighter" class="w-3.5 h-3.5"></i>
+                <span>Annotate</span>
+            </button>
             <button type="button" class="editor-tool-btn editor-toolbar-btn" data-tool="whiteout" title="Cover/Mask Sensitive Content">
                 <i data-lucide="square" class="w-3.5 h-3.5"></i>
                 <span>Whiteout</span>
@@ -302,6 +306,51 @@ require_once __DIR__ . '/../includes/header.php';
                 Delete Line
             </button>
         </div>
+    </div>
+
+    <!-- Annotate Sub-Toolbar -->
+    <div id="annotate-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
+        <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Annotate:</span>
+            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                <button type="button" id="annot-type-highlight" class="annot-type-btn active px-2.5 py-1 rounded-md font-semibold text-xs transition-colors bg-white text-blue-600 shadow-xs" data-type="highlight">
+                    Highlight
+                </button>
+                <button type="button" id="annot-type-underline" class="annot-type-btn px-2.5 py-1 rounded-md font-semibold text-xs transition-colors text-slate-600 hover:text-slate-900" data-type="underline">
+                    Underline
+                </button>
+                <button type="button" id="annot-type-strike" class="annot-type-btn px-2.5 py-1 rounded-md font-semibold text-xs transition-colors text-slate-600 hover:text-slate-900" data-type="strike">
+                    Strikethrough
+                </button>
+            </div>
+
+            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                <label for="annot-color-picker" class="text-[10px] text-slate-500 font-semibold">Color:</label>
+                <input type="color" id="annot-color-picker" value="#fef08a" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Annotation Color">
+                <button type="button" class="annot-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#fef08a]" data-color="#fef08a" title="Yellow"></button>
+                <button type="button" class="annot-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#bbf7d0]" data-color="#bbf7d0" title="Green"></button>
+                <button type="button" class="annot-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#bfdbfe]" data-color="#bfdbfe" title="Blue"></button>
+                <button type="button" class="annot-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#fbcfe8]" data-color="#fbcfe8" title="Pink"></button>
+            </div>
+        </div>
+        <p class="text-[11px] text-slate-500 hidden sm:block">Click & drag on page to annotate text or areas</p>
+    </div>
+
+    <!-- Whiteout Sub-Toolbar -->
+    <div id="whiteout-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
+        <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Whiteout Fill:</span>
+            <div class="flex items-center gap-1.5">
+                <input type="color" id="whiteout-fill-color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Cover Fill Color">
+                <button type="button" class="whiteout-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#ffffff]" data-color="#ffffff" title="White (Default)"></button>
+                <button type="button" class="whiteout-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#faf8f5]" data-color="#faf8f5" title="Cream"></button>
+                <button type="button" class="whiteout-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#f1f5f9]" data-color="#f1f5f9" title="Soft Grey"></button>
+                <button type="button" class="whiteout-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#000000]" data-color="#000000" title="Blackout (Redaction)"></button>
+            </div>
+        </div>
+        <button type="button" id="btn-add-whiteout-box" class="px-3 py-1 rounded-lg bg-blue-600 text-white font-semibold text-xs hover:bg-blue-700">
+            + Add Cover Box
+        </button>
     </div>
 
     <!-- Find & Replace Floating Drawer -->
@@ -398,6 +447,15 @@ require_once __DIR__ . '/../includes/header.php';
                         <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
                         <span class="sr-only">Backward</span>
                     </button>
+                    <div class="floating-bar-divider" id="floating-divider-rotate"></div>
+                    <button type="button" id="floating-btn-rotate-left" class="floating-bar-btn" title="Rotate -90°" aria-label="Rotate -90°">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                        <span class="sr-only">Rotate Left</span>
+                    </button>
+                    <button type="button" id="floating-btn-rotate-right" class="floating-bar-btn" title="Rotate +90°" aria-label="Rotate +90°">
+                        <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+                        <span class="sr-only">Rotate Right</span>
+                    </button>
                     <div class="floating-bar-divider"></div>
                     <button type="button" id="floating-btn-delete" class="floating-bar-btn floating-bar-btn-danger" title="Delete (Del)" aria-label="Delete">
                         <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -426,6 +484,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="flex border-b border-slate-200">
             <button type="button" id="sig-tab-draw-btn" class="px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-bold text-xs">Draw</button>
             <button type="button" id="sig-tab-type-btn" class="px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-xs">Type</button>
+            <button type="button" id="sig-tab-upload-btn" class="px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-xs">Upload Picture</button>
         </div>
 
         <!-- Draw Pane -->
@@ -441,6 +500,30 @@ require_once __DIR__ . '/../includes/header.php';
             <input type="text" id="sig-type-input" value="Jane Doe" placeholder="Type name..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
             <div class="p-4 border border-slate-200 rounded-xl text-center text-3xl text-slate-800 font-serif italic" style="font-family: 'Brush Script MT', cursive;">
                 Jane Doe
+            </div>
+        </div>
+
+        <!-- Upload Picture Pane -->
+        <div id="sig-pane-upload" class="hidden space-y-3">
+            <div id="sig-upload-dropzone" class="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer transition-colors bg-slate-50/50">
+                <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto text-slate-400 mb-2"></i>
+                <p class="text-xs font-semibold text-slate-700">Click or drag photo/scan of signature</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">PNG, JPG, JPEG, WEBP up to 10MB</p>
+                <input type="file" id="sig-upload-file-input" class="hidden" accept="image/png,image/jpeg,image/webp">
+            </div>
+
+            <!-- Preview canvas -->
+            <div id="sig-upload-preview-wrap" class="hidden space-y-2">
+                <div class="border border-slate-200 rounded-xl p-2 bg-[repeating-conic-gradient(#f8fafc_0%_25%,#ffffff_0%_50%)] bg-[size:16px_16px] flex items-center justify-center min-h-[100px]">
+                    <canvas id="sig-upload-canvas" class="max-h-28 max-w-full object-contain"></canvas>
+                </div>
+                <div class="flex items-center justify-between pt-1">
+                    <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 select-none">
+                        <input type="checkbox" id="sig-remove-bg-toggle" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <span>Remove white paper background</span>
+                    </label>
+                    <button type="button" id="btn-clear-sig-upload" class="text-xs text-rose-600 hover:text-rose-700 font-semibold">Remove</button>
+                </div>
             </div>
         </div>
 

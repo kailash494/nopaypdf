@@ -31,6 +31,10 @@
             this._isRestoring = false;
             this._onPlacementMove = null;
             this._onPlacementClick = null;
+            this.annotateType = 'highlight'; // 'highlight'|'underline'|'strike'
+            this.annotateColor = '#fef08a';
+            this.isDrawingAnnot = false;
+            this.annotDrawStart = null;
         }
 
         init(containerEl, baseCanvasEl, domLayerEl, fabricCanvasEl) {
@@ -86,7 +90,7 @@
                 this.fabricCanvas.on('mouse:down', (opt) => {
                     if (this.activeTool === 'add-text') {
                         if (opt.target) return;
-                        const pointer = this.fabricCanvas.getPointer(opt.e);
+                        const pointer = opt.pointer || this.fabricCanvas.getPointer(opt.e);
                         const fontSize = parseInt(document.getElementById('sub-font-size')?.value || '18', 10);
                         const fill = document.getElementById('sub-text-color')?.value || '#1e293b';
 
@@ -97,6 +101,8 @@
                             fill: fill,
                             fontFamily: 'Liberation Sans',
                             lockUniScaling: true,
+                            hasControls: true,
+                            hasBorders: true,
                             cornerSize: 8,
                             transparentCorners: false,
                         });
@@ -108,9 +114,39 @@
                         this._saveFabricState();
                         window.EditorState.pushSnapshot('Add Text');
                         this._updateFloatingBar();
-                        this.setTool('text-edit');
-                        const toolBtns = document.querySelectorAll('.tool-btn');
-                        toolBtns.forEach(b => b.classList.toggle('active', b.dataset.tool === 'text-edit'));
+                        return;
+                    }
+
+                    if (this.activeTool === 'annotate') {
+                        if (opt.target) return;
+                        this.isDrawingAnnot = true;
+                        this.annotDrawStart = this.fabricCanvas.getPointer(opt.e);
+                        return;
+                    }
+
+                    // In text-edit mode, if click hits empty canvas, forward click to underlying DOM text hitbox
+                    if (this.activeTool === 'text-edit' && !opt.target && opt.e) {
+                        const elements = document.elementsFromPoint(opt.e.clientX, opt.e.clientY);
+                        const hitbox = elements.find(el => el.classList.contains('text-hitbox') || el.classList.contains('link-hotspot') || el.classList.contains('form-field-hotspot'));
+                        if (hitbox) {
+                            hitbox.dispatchEvent(new MouseEvent('click', { clientX: opt.e.clientX, clientY: opt.e.clientY, bubbles: true }));
+                        }
+                    }
+                });
+
+                this.fabricCanvas.on('mouse:up', (opt) => {
+                    if (this.activeTool === 'annotate' && this.isDrawingAnnot && this.annotDrawStart) {
+                        this.isDrawingAnnot = false;
+                        const endPointer = this.fabricCanvas.getPointer(opt.e);
+                        const x = Math.min(this.annotDrawStart.x, endPointer.x);
+                        const y = Math.min(this.annotDrawStart.y, endPointer.y);
+                        const w = Math.abs(endPointer.x - this.annotDrawStart.x);
+                        const h = Math.abs(endPointer.y - this.annotDrawStart.y);
+                        this.annotDrawStart = null;
+
+                        if (w > 10 && h > 4) {
+                            this.addAnnotation(this.annotateType, [x, y, w, h], this.annotateColor);
+                        }
                     }
                 });
             }
@@ -136,31 +172,22 @@
 
             if (tool === 'text-edit') {
                 this.fabricCanvas.defaultCursor = 'default';
-                this.fabricCanvas.discardActiveObject();
-                this.fabricCanvas.renderAll();
-                this._hideFloatingBar();
             } else if (tool === 'add-text') {
                 this.fabricCanvas.defaultCursor = 'crosshair';
-                this.fabricCanvas.discardActiveObject();
-                this.fabricCanvas.renderAll();
-                this._hideFloatingBar();
+            } else if (tool === 'annotate') {
+                this.fabricCanvas.defaultCursor = 'crosshair';
             } else {
                 this.fabricCanvas.defaultCursor = 'default';
             }
         }
 
         _updatePointerEvents() {
-            const isDomTool = ['text-edit', 'links', 'forms'].includes(this.activeTool);
-            const fabricWrap = this.container.querySelector('.stage-layer-fabric-wrap');
-
+            const fabricWrap = this.container ? this.container.querySelector('.stage-layer-fabric-wrap') : null;
             if (fabricWrap) {
-                if (isDomTool) {
-                    fabricWrap.classList.remove('interactive');
-                    this.domLayer.style.pointerEvents = 'auto';
-                } else {
-                    fabricWrap.classList.add('interactive');
-                    this.domLayer.style.pointerEvents = 'none';
-                }
+                fabricWrap.classList.add('interactive');
+            }
+            if (this.domLayer) {
+                this.domLayer.style.pointerEvents = 'auto';
             }
         }
 
@@ -168,7 +195,10 @@
             if (this._isRestoring) return;
             const page = window.EditorState.getActivePage();
             if (page && this.fabricCanvas) {
-                page.fabricJson = this.fabricCanvas.toJSON(['id', 'toolType', 'isWhiteout', 'isSignature', 'lockUniScaling']);
+                page.fabricJson = this.fabricCanvas.toJSON([
+                    'id', 'toolType', 'isWhiteout', 'isSignature', 'isAnnotation',
+                    'annotType', 'lockUniScaling', 'angle', 'opacity', 'fill', 'stroke', 'strokeWidth'
+                ]);
                 page.hasEdits = true;
             }
         }
@@ -600,6 +630,7 @@
 
             this.fabricCanvas.setWidth(viewportWidth);
             this.fabricCanvas.setHeight(viewportHeight);
+            this.fabricCanvas.setZoom(this.currentScale);
 
             if (pageState.fabricJson) {
                 this._isRestoring = true;
@@ -634,6 +665,8 @@
             const delBtn = document.getElementById('floating-btn-delete');
             const fwdBtn = document.getElementById('floating-btn-forward');
             const bwdBtn = document.getElementById('floating-btn-backward');
+            const rotLBtn = document.getElementById('floating-btn-rotate-left');
+            const rotRBtn = document.getElementById('floating-btn-rotate-right');
 
             if (dupBtn && !dupBtn._bound) {
                 dupBtn._bound = true;
@@ -665,6 +698,36 @@
                     e.stopPropagation();
                     this.sendActiveObjectBackward();
                 });
+            }
+
+            if (rotLBtn && !rotLBtn._bound) {
+                rotLBtn._bound = true;
+                rotLBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.rotateActiveObject(-90);
+                });
+            }
+
+            if (rotRBtn && !rotRBtn._bound) {
+                rotRBtn._bound = true;
+                rotRBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.rotateActiveObject(90);
+                });
+            }
+        }
+
+        rotateActiveObject(deltaDegrees) {
+            const activeObj = this.fabricCanvas ? this.fabricCanvas.getActiveObject() : null;
+            if (activeObj) {
+                const currentAngle = activeObj.angle || 0;
+                const newAngle = (currentAngle + deltaDegrees + 360) % 360;
+                activeObj.set('angle', newAngle);
+                activeObj.setCoords();
+                this.fabricCanvas.renderAll();
+                this._saveFabricState();
+                window.EditorState.pushSnapshot(`Rotate ${deltaDegrees > 0 ? '+90°' : '-90°'}`);
+                this._updateFloatingBar();
             }
         }
 
@@ -703,6 +766,10 @@
                 };
                 if (activeObj.isSignature) badgeText = 'Signature';
                 else if (activeObj.isWhiteout) badgeText = 'Whiteout';
+                else if (activeObj.isAnnotation) {
+                    badgeText = activeObj.annotType === 'underline' ? 'Underline' :
+                                activeObj.annotType === 'strike' ? 'Strikethrough' : 'Highlight';
+                }
                 else if (activeObj.type === 'i-text' || activeObj.type === 'text') badgeText = 'Text';
                 else if (activeObj.type === 'image') badgeText = 'Image';
                 else if (['rect', 'circle', 'line'].includes(activeObj.type)) badgeText = 'Shape';
@@ -730,6 +797,13 @@
             const bwdBtn = document.getElementById('floating-btn-backward');
             if (fwdBtn) fwdBtn.style.display = canReorder ? 'inline-flex' : 'none';
             if (bwdBtn) bwdBtn.style.display = canReorder ? 'inline-flex' : 'none';
+
+            const rotLBtn = document.getElementById('floating-btn-rotate-left');
+            const rotRBtn = document.getElementById('floating-btn-rotate-right');
+            const rotDiv = document.getElementById('floating-divider-rotate');
+            if (rotLBtn) rotLBtn.style.display = activeObj ? 'inline-flex' : 'none';
+            if (rotRBtn) rotRBtn.style.display = activeObj ? 'inline-flex' : 'none';
+            if (rotDiv) rotDiv.style.display = activeObj ? 'block' : 'none';
 
             bar.classList.remove('hidden');
 
@@ -770,6 +844,10 @@
                     });
                     if (activeObj.isWhiteout) cloned.isWhiteout = true;
                     if (activeObj.isSignature) cloned.isSignature = true;
+                    if (activeObj.isAnnotation) {
+                        cloned.isAnnotation = true;
+                        cloned.annotType = activeObj.annotType;
+                    }
 
                     this.fabricCanvas.add(cloned);
                     this.fabricCanvas.setActiveObject(cloned);
@@ -934,8 +1012,10 @@
                         lockUniScaling: true,
                         cornerSize: 8,
                         transparentCorners: false,
+                        hasRotatingPoint: true,
                         isSignature: currentType === 'signature',
                     });
+                    img.setControlsVisibility({ mtr: true });
                     const w = img.getScaledWidth();
                     const h = img.getScaledHeight();
                     img.set({
@@ -1198,13 +1278,17 @@
 
         addWhiteoutBox(options = {}) {
             if (!this.fabricCanvas) return;
+            const colorInput = document.getElementById('whiteout-fill-color');
+            const defaultFill = colorInput ? colorInput.value : '#ffffff';
+            const fill = options.fill || defaultFill || '#ffffff';
+            const isWhite = fill.toLowerCase() === '#ffffff' || fill.toLowerCase() === '#fff';
             const rect = new fabric.Rect({
                 left: options.left !== undefined ? options.left : 120,
                 top: options.top !== undefined ? options.top : 120,
                 width: options.width || 150,
                 height: options.height || 40,
-                fill: '#ffffff',
-                stroke: '#e2e8f0',
+                fill: fill,
+                stroke: isWhite ? '#e2e8f0' : fill,
                 strokeWidth: 1,
                 lockUniScaling: true,
                 cornerSize: 8,
@@ -1219,6 +1303,68 @@
             window.EditorState.pushSnapshot('Add Whiteout');
             this._updateFloatingBar();
             return rect;
+        }
+
+        addAnnotation(type = 'highlight', rect = null, color = null) {
+            if (!this.fabricCanvas) return;
+            const chosenColor = color || this.annotateColor || '#fef08a';
+            const defaultRect = rect || [100, 100, 180, 24];
+            const [x, y, w, h] = defaultRect;
+
+            let annotObj;
+            if (type === 'underline') {
+                annotObj = new fabric.Rect({
+                    left: x,
+                    top: y + Math.max(0, h - 3),
+                    width: Math.max(10, w),
+                    height: 3,
+                    fill: chosenColor,
+                    opacity: 0.9,
+                    lockUniScaling: false,
+                    cornerSize: 8,
+                    transparentCorners: false,
+                    isAnnotation: true,
+                    annotType: 'underline',
+                });
+            } else if (type === 'strike') {
+                annotObj = new fabric.Rect({
+                    left: x,
+                    top: y + (h / 2) - 1.5,
+                    width: Math.max(10, w),
+                    height: 3,
+                    fill: chosenColor,
+                    opacity: 0.9,
+                    lockUniScaling: false,
+                    cornerSize: 8,
+                    transparentCorners: false,
+                    isAnnotation: true,
+                    annotType: 'strike',
+                });
+            } else {
+                // Highlight (translucent color wash)
+                annotObj = new fabric.Rect({
+                    left: x,
+                    top: y,
+                    width: Math.max(10, w),
+                    height: Math.max(10, h),
+                    fill: chosenColor,
+                    opacity: 0.45,
+                    lockUniScaling: false,
+                    cornerSize: 8,
+                    transparentCorners: false,
+                    isAnnotation: true,
+                    annotType: 'highlight',
+                });
+            }
+
+            this.fabricCanvas.add(annotObj);
+            this.fabricCanvas.setActiveObject(annotObj);
+            this.fabricCanvas.renderAll();
+            this._saveFabricState();
+            const typeLabel = type === 'underline' ? 'Underline' : type === 'strike' ? 'Strikethrough' : 'Highlight';
+            window.EditorState.pushSnapshot(`Add ${typeLabel}`);
+            this._updateFloatingBar();
+            return annotObj;
         }
 
         addShape(type = 'rect', options = {}) {

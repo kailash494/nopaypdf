@@ -182,7 +182,22 @@
         window.CanvasStage.setTool('add-text');
         await new Promise(r => setTimeout(r, 100));
 
-        // Place two text boxes
+        // Test true click-to-place at custom coordinates
+        window.CanvasStage.fabricCanvas.fire('mouse:down', {
+            e: new MouseEvent('mousedown', { clientX: 200, clientY: 250 }),
+            pointer: { x: 180, y: 230 },
+        });
+        await new Promise(r => setTimeout(r, 100));
+        const activeTextObj = window.CanvasStage.fabricCanvas.getActiveObject();
+        if (!activeTextObj || (activeTextObj.type !== 'i-text' && activeTextObj.type !== 'text')) {
+            throw new Error('Click-to-place failed to create and activate active IText object');
+        }
+        if (Math.abs(activeTextObj.left - 180) > 2 || Math.abs(activeTextObj.top - 230) > 2) {
+            throw new Error(`Click-to-place coordinates mismatch: expected (180, 230), got (${activeTextObj.left}, ${activeTextObj.top})`);
+        }
+        log('✓ Click-to-place created and selected IText at exact click coordinates');
+
+        // Place additional text box
         const box1 = window.CanvasStage.addFabricText('First Added Box', { left: 150, top: 220 });
         const box2 = window.CanvasStage.addFabricText('Second Added Box', { left: 260, top: 220 });
         await new Promise(r => setTimeout(r, 150));
@@ -207,7 +222,7 @@
             throw new Error(`Floating badge is "${floatBadge.textContent}", expected "Text"`);
         }
         log('✓ Floating mini-bar visible on text box selection with "Text" badge');
-        recordFeature(2, '+ Add Text', true, 'Two text boxes placed with proportional scaling and floating mini-bar');
+        recordFeature(2, '+ Add Text', true, 'Click-to-place at custom coords, proportional scaling, and floating mini-bar verified');
 
         // ====================================================================
         // FEATURE 3: Links
@@ -324,6 +339,25 @@
             throw new Error(`Floating badge for image is "${floatBadge.textContent}", expected "Image"`);
         }
 
+        // Test mini-bar Rotate +90° and -90°
+        const rotRBtn = document.getElementById('floating-btn-rotate-right');
+        const rotLBtn = document.getElementById('floating-btn-rotate-left');
+        if (!rotRBtn || !rotLBtn) throw new Error('Rotate buttons not found on floating mini-bar');
+
+        rotRBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 100));
+        if (stampedImg.angle !== 90) {
+            throw new Error(`Rotate +90° failed: expected angle 90, got ${stampedImg.angle}`);
+        }
+        log('✓ Floating mini-bar Rotate +90° rotated image to 90 degrees');
+
+        rotLBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 100));
+        if (stampedImg.angle !== 0) {
+            throw new Error(`Rotate -90° failed: expected angle 0, got ${stampedImg.angle}`);
+        }
+        log('✓ Floating mini-bar Rotate -90° rotated image back to 0 degrees');
+
         // Test duplicate and delete image
         const imgCountBefore = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'image' && !o.isSignature).length;
         window.CanvasStage.duplicateActiveObject();
@@ -377,7 +411,50 @@
             throw new Error(`Floating badge for signature is "${floatBadge.textContent}", expected "Signature"`);
         }
         log('✓ Signature stamped with lockUniScaling: true and "Signature" mini-bar badge');
-        recordFeature(6, 'Sign', true, 'Signature ghost preview, proportional scaling, and mini-bar verified');
+
+        // Test Upload Picture in Signature Studio
+        const sigTabUploadBtn = document.getElementById('sig-tab-upload-btn');
+        const sigPaneUpload = document.getElementById('sig-pane-upload');
+        if (sigTabUploadBtn) {
+            sigTabUploadBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 100));
+            if (sigPaneUpload.classList.contains('hidden')) {
+                throw new Error('Upload Picture tab failed to show #sig-pane-upload');
+            }
+            log('✓ Signature Studio Upload Picture tab activated');
+
+            // Generate synthetic scanned paper signature (dark ink on white paper #ffffff)
+            const scanCanvas = document.createElement('canvas');
+            scanCanvas.width = 100; scanCanvas.height = 40;
+            const scanCtx = scanCanvas.getContext('2d');
+            scanCtx.fillStyle = '#ffffff'; // White paper
+            scanCtx.fillRect(0, 0, 100, 40);
+            scanCtx.fillStyle = '#111827'; // Dark ink
+            scanCtx.font = '20px cursive';
+            scanCtx.fillText('Scanned', 5, 28);
+            const scanDataUrl = scanCanvas.toDataURL('image/png');
+
+            // Feed into upload dropzone
+            const scanBlob = await (await fetch(scanDataUrl)).blob();
+            const scanFile = new File([scanBlob], 'scanned-signature.png', { type: 'image/png' });
+            const sigInput = document.getElementById('sig-upload-file-input');
+            const sigDt = new DataTransfer();
+            sigDt.items.add(scanFile);
+            sigInput.files = sigDt.files;
+            sigInput.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 200));
+
+            // Verify upload canvas has transparent background pixels (alpha = 0 for white paper)
+            const uploadCanvas = document.getElementById('sig-upload-canvas');
+            if (!uploadCanvas) throw new Error('#sig-upload-canvas not found');
+            const uctx = uploadCanvas.getContext('2d');
+            const cornerPixel = uctx.getImageData(0, 0, 1, 1).data;
+            if (cornerPixel[3] !== 0) {
+                throw new Error(`Client-side white paper removal failed: corner alpha is ${cornerPixel[3]}, expected 0`);
+            }
+            log('✓ Client-side white paper removal successfully keyed white background to alpha=0');
+        }
+        recordFeature(6, 'Sign', true, 'Signature ghost preview, proportional scaling, mini-bar, and Upload Picture background removal verified');
 
         // ====================================================
         // FEATURE 7: Whiteout
@@ -389,6 +466,14 @@
         if (!whiteoutBox || !whiteoutBox.isWhiteout || !whiteoutBox.lockUniScaling) {
             throw new Error('Whiteout box missing isWhiteout or lockUniScaling');
         }
+
+        // Test custom cream fill color
+        const creamWhiteout = window.CanvasStage.addWhiteoutBox({ left: 50, top: 520, width: 100, height: 25, fill: '#faf8f5' });
+        await new Promise(r => setTimeout(r, 100));
+        if (creamWhiteout.fill !== '#faf8f5') {
+            throw new Error(`Custom cream whiteout fill failed: expected #faf8f5, got ${creamWhiteout.fill}`);
+        }
+        log('✓ Custom cream whiteout box created with fill #faf8f5');
 
         // Duplicate whiteout
         const woBefore = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.isWhiteout).length;
@@ -406,8 +491,36 @@
         if (woAfterUndo !== woBefore) {
             throw new Error(`Whiteout 1-step undo failed: expected ${woBefore}, found ${woAfterUndo}`);
         }
-        log('✓ Whiteout created, duplicated, and cleanly undone in exactly 1 atomic step');
-        recordFeature(7, 'Whiteout', true, 'Whiteout box created, duplicated, and 1-step undone cleanly');
+        log('✓ Whiteout created, custom cream fill verified, duplicated, and cleanly undone in exactly 1 atomic step');
+        recordFeature(7, 'Whiteout', true, 'Whiteout box with default white & custom cream fill, duplicate, and 1-step undo verified');
+
+        // ====================================================
+        // FEATURE: Annotate (Highlight, Underline, Strikethrough)
+        // ====================================================
+        log('\n--- Verifying Feature: Annotate (Highlight, Underline, Strikethrough) ---');
+        window.CanvasStage.setTool('annotate');
+        const hl = window.CanvasStage.addAnnotation('highlight', [50, 200, 150, 20], '#fef08a');
+        const ul = window.CanvasStage.addAnnotation('underline', [50, 230, 150, 20], '#2563eb');
+        const st = window.CanvasStage.addAnnotation('strike', [50, 260, 150, 20], '#dc2626');
+        await new Promise(r => setTimeout(r, 150));
+
+        if (!hl || !hl.isAnnotation || hl.annotType !== 'highlight' || Math.abs(hl.opacity - 0.45) > 0.05) {
+            throw new Error('Highlight annotation creation or opacity failed');
+        }
+        if (!ul || !ul.isAnnotation || ul.annotType !== 'underline' || ul.height > 5) {
+            throw new Error('Underline annotation creation or geometry failed');
+        }
+        if (!st || !st.isAnnotation || st.annotType !== 'strike' || st.height > 5) {
+            throw new Error('Strikethrough annotation creation or geometry failed');
+        }
+
+        window.CanvasStage.fabricCanvas.setActiveObject(hl);
+        window.CanvasStage._updateFloatingBar();
+        await new Promise(r => setTimeout(r, 50));
+        if (floatBadge.textContent.toLowerCase() !== 'highlight') {
+            throw new Error(`Floating badge for highlight is "${floatBadge.textContent}", expected "Highlight"`);
+        }
+        log('✓ Annotate Highlight, Underline, and Strikethrough verified with floating badges');
 
         // ====================================================
         // FEATURE 8: Shapes
