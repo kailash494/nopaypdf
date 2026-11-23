@@ -367,6 +367,13 @@
     background-color: rgba(37, 99, 235, 0.2);
 }
 
+.link-hotspot.selected {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+    background-color: rgba(37, 99, 235, 0.25);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
 .link-badge {
     font-size: 9px;
     font-weight: 700;
@@ -396,6 +403,13 @@
 
 .form-field-hotspot:hover {
     background-color: rgba(99, 102, 241, 0.18);
+}
+
+.form-field-hotspot.selected {
+    outline: 2px solid #6366f1;
+    outline-offset: 1px;
+    background-color: rgba(99, 102, 241, 0.25);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
 }
 
 .form-field-badge {
@@ -471,3 +485,107 @@
 .sig-font-2 { font-family: 'Great Vibes', 'Allura', cursive; }
 .sig-font-3 { font-family: 'Pacifico', cursive; }
 .sig-font-4 { font-family: 'Caveat', 'Comic Sans MS', cursive; }
+
+/* ====================================================================
+   10. Placement Ghost Preview & Unified Floating Action Mini-Bar
+   ==================================================================== */
+
+.placement-ghost-preview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 50;
+    pointer-events: none;
+    user-select: none;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.15s ease-out;
+}
+
+.placement-ghost-preview.hidden {
+    display: none !important;
+}
+
+.placement-ghost-img {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    opacity: 0.65;
+    border: 2px dashed #2563eb;
+    border-radius: 4px;
+    background: rgba(239, 246, 255, 0.35);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.2);
+}
+
+.placement-ghost-box {
+    box-sizing: border-box;
+    border: 2px dashed #2563eb;
+    border-radius: 4px;
+    background: rgba(239, 246, 255, 0.4);
+    opacity: 0.75;
+}
+
+.floating-object-bar {
+    position: absolute;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #ffffff;
+    padding: 3px 6px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.08);
+    white-space: nowrap;
+    user-select: none;
+    font-size: 11px;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition: top 0.08s ease-out, left 0.08s ease-out;
+}
+
+.floating-object-bar.hidden {
+    display: none !important;
+}
+
+.floating-obj-badge {
+    font-size: 9px;
+    font-weight: 700;
+    background-color: #eff6ff;
+    color: #2563eb;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #bfdbfe;
+    text-transform: capitalize;
+}
+
+.floating-bar-divider {
+    width: 1px;
+    height: 14px;
+    background: #e2e8f0;
+    margin: 0 2px;
+}
+
+.floating-bar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+}
+
+.floating-bar-btn:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+.floating-bar-btn-danger:hover {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+

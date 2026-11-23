@@ -182,12 +182,8 @@
                 if (scannedBanner) scannedBanner.classList.add('hidden');
             }
 
-            // Initialize EditorState
-            window.EditorState.initializePages(pagesMeta, fileName, arrayBuffer);
-            // Attach extracted blocks
-            window.EditorState.pages.forEach((p, idx) => {
-                p.textBlocks = allPagesBlocks[idx] || [];
-            });
+            // Initialize EditorState with extracted blocks
+            window.EditorState.initializePages(pagesMeta, fileName, arrayBuffer, allPagesBlocks);
 
             // Update UI headers
             if (docTitleEl) docTitleEl.textContent = fileName;
@@ -319,10 +315,7 @@
                 window.CanvasStage.setTool(tool);
 
                 if (tool === 'add-text') {
-                    window.CanvasStage.addFabricText('New Text', {
-                        fontSize: parseInt(fontSizeInput?.value || '18', 10),
-                        fill: textColorInput?.value || '#1e293b',
-                    });
+                    // Click-to-place mode activated via setTool('add-text')
                 } else if (tool === 'whiteout') {
                     window.CanvasStage.addWhiteoutBox();
                 } else if (tool === 'shapes') {
@@ -342,39 +335,25 @@
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (evt) => {
-                window.CanvasStage.stampImage(evt.target.result);
+                window.CanvasStage.startPlacement('image', evt.target.result);
                 hiddenImgInput.value = '';
             };
             reader.readAsDataURL(file);
         });
 
-        function createFormFieldPrompt() {
-            const type = prompt('Choose Form Field Type: "text", "textarea", "checkbox", or "dropdown"', 'text');
-            if (!type) return;
-            const normType = type.toLowerCase().trim();
+        function createFormFieldPrompt(forcedType) {
+            let normType = forcedType;
+            if (!normType) {
+                const type = prompt('Choose Form Field Type: "text", "textarea", "checkbox", or "dropdown"', 'text');
+                if (!type) return;
+                normType = type.toLowerCase().trim();
+            }
             if (!['text', 'textarea', 'checkbox', 'dropdown'].includes(normType)) {
                 alert('Invalid field type. Choose text, textarea, checkbox, or dropdown.');
                 return;
             }
 
-            const name = prompt('Enter unique field name (e.g. fullName):', `field_${Date.now().toString(36)}`);
-            if (!name) return;
-
-            const page = window.EditorState.getActivePage();
-            if (!page) return;
-
-            page.formFields.push({
-                id: `ff-${Date.now().toString(36)}`,
-                type: normType,
-                name,
-                rect: [100, 100, normType === 'checkbox' ? 24 : 160, normType === 'checkbox' ? 24 : 32],
-                defaultValue: '',
-                checked: false,
-                options: normType === 'dropdown' ? ['Option A', 'Option B', 'Option C'] : [],
-            });
-            page.hasEdits = true;
-            window.EditorState.pushSnapshot(`Add ${normType} field`);
-            renderCurrentPage();
+            window.CanvasStage.startFormPlacement(normType);
         }
 
         // ====================================================
@@ -522,7 +501,33 @@
 
         // Keyboard Shortcuts
         window.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            const isTyping = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
+            const activeFabricObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+            const isFabricEditing = activeFabricObj && activeFabricObj.isEditing;
+
+            if (e.key === 'Escape') {
+                window.CanvasStage?.cancelPlacement();
+                if (activeFabricObj) {
+                    window.CanvasStage?.fabricCanvas?.discardActiveObject();
+                    window.CanvasStage?.fabricCanvas?.renderAll();
+                    window.CanvasStage?._hideFloatingBar();
+                }
+                if (window.CanvasStage?.selectedLink || window.CanvasStage?.selectedFormField) {
+                    window.CanvasStage.selectedLink = null;
+                    window.CanvasStage.selectedFormField = null;
+                    document.querySelectorAll('.link-hotspot').forEach(el => el.classList.remove('selected'));
+                    document.querySelectorAll('.form-field-hotspot').forEach(el => el.classList.remove('selected'));
+                    window.CanvasStage?._hideFloatingBar();
+                }
+                subToolbar?.classList.add('hidden');
+                findDrawer?.classList.add('hidden');
+                closeSigModal();
+                toolBtns.forEach(b => b.classList.toggle('active', b.dataset.tool === 'text-edit'));
+                window.CanvasStage?.setTool('text-edit');
+                return;
+            }
+
+            if (isTyping || isFabricEditing) return;
 
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
                 if (e.shiftKey) {
@@ -534,6 +539,16 @@
             } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
                 window.EditorState.redo();
                 e.preventDefault();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+                if (activeFabricObj || window.CanvasStage?.selectedLink || window.CanvasStage?.selectedFormField) {
+                    window.CanvasStage?.duplicateActiveObject();
+                    e.preventDefault();
+                }
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (activeFabricObj || window.CanvasStage?.selectedLink || window.CanvasStage?.selectedFormField) {
+                    window.CanvasStage?.deleteActiveObject();
+                    e.preventDefault();
+                }
             } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
                 findDrawer?.classList.remove('hidden');
                 findInput?.focus();
@@ -676,8 +691,8 @@
             }
 
             if (dataUrl) {
-                window.CanvasStage.stampSignature(dataUrl);
                 closeSigModal();
+                window.CanvasStage.startPlacement('signature', dataUrl);
             }
         });
 

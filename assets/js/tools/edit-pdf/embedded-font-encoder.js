@@ -1,12 +1,12 @@
 /**
  * NoPayPDF - Embedded Font Encoder Module (window.EmbeddedFontEncoder)
  *
- * Reverse font encoder for Sejda-style in-place content stream rewriting:
+ * Reverse font encoder for native in-place content stream rewriting:
  * 1. Inspects page /Resources -> /Font dictionaries in pdf-lib.
  * 2. Decompresses and parses /ToUnicode CMaps (beginbfchar and beginbfrange)
  *    to construct exact Unicode -> CID / HexCode reverse mapping tables.
  * 3. Supports simple TrueType / Type1 fonts with /WinAnsiEncoding and
- *    custom /Encoding -> /Differences arrays via Adobe Glyph List (AGL).
+ *    custom /Encoding -> /Differences arrays via Standard Glyph List (AGL).
  * 4. Determines whether modified strings can be encoded natively by the embedded font.
  * 5. Re-encodes text into exact PDF hex strings (<...>) or TJ spacing arrays.
  *
@@ -16,7 +16,7 @@
 (function (window) {
     'use strict';
 
-    // Standard Adobe Glyph List mapping for common /Differences names
+    // Standard Glyph List (AGL) mapping for common /Differences names
     const AGL_COMMON = {
         space: ' ', exclam: '!', quotedbl: '"', numbersign: '#', dollar: '$',
         percent: '%', ampersand: '&', quotesingle: "'", parenleft: '(', parenright: ')',

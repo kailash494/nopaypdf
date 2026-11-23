@@ -375,6 +375,35 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="stage-layer-fabric-wrap">
                     <canvas id="stage-fabric-canvas"></canvas>
                 </div>
+
+                <!-- Placement Ghost Preview (Cursor-Follow Stamp) -->
+                <div id="placement-ghost-preview" class="placement-ghost-preview hidden" aria-hidden="true">
+                    <img id="placement-ghost-img" class="placement-ghost-img hidden" alt="" />
+                    <div id="placement-ghost-box" class="placement-ghost-box hidden"></div>
+                </div>
+
+                <!-- Unified Floating Object Action Bar -->
+                <div id="floating-object-bar" class="floating-object-bar hidden" role="toolbar" aria-label="Selected object actions">
+                    <span id="floating-obj-badge" class="floating-obj-badge">Object</span>
+                    <div class="floating-bar-divider"></div>
+                    <button type="button" id="floating-btn-duplicate" class="floating-bar-btn" title="Duplicate (Ctrl+D)" aria-label="Duplicate">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        <span class="sr-only">Duplicate</span>
+                    </button>
+                    <button type="button" id="floating-btn-forward" class="floating-bar-btn" title="Bring Forward" aria-label="Bring Forward">
+                        <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+                        <span class="sr-only">Forward</span>
+                    </button>
+                    <button type="button" id="floating-btn-backward" class="floating-bar-btn" title="Send Backward" aria-label="Send Backward">
+                        <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+                        <span class="sr-only">Backward</span>
+                    </button>
+                    <div class="floating-bar-divider"></div>
+                    <button type="button" id="floating-btn-delete" class="floating-bar-btn floating-bar-btn-danger" title="Delete (Del)" aria-label="Delete">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        <span class="sr-only">Delete</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

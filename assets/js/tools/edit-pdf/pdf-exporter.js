@@ -158,7 +158,7 @@
                 const wasStreamRemoved = removedBlockIds.has(b.id);
 
                 if (wasInPlaceRewritten) {
-                    // Sejda-style native in-place rewriting succeeded!
+                    // Native in-place rewriting succeeded!
                     // ZERO cover rectangle, ZERO stamped fallback text! The original font, weight, and graphics state are 100% preserved natively.
                     continue;
                 }

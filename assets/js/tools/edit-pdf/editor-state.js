@@ -51,8 +51,9 @@
          * @param {Array} pagesMeta Array of { widthPt, heightPt, rotation, sourcePageIndex }
          * @param {string} fileName
          * @param {ArrayBuffer} buffer
+         * @param {Array} allPagesBlocks Array of extracted text block arrays per page
          */
-        initializePages(pagesMeta = [], fileName = 'document.pdf', buffer = null) {
+        initializePages(pagesMeta = [], fileName = 'document.pdf', buffer = null, allPagesBlocks = []) {
             this.reset();
             this.originalFileName = fileName;
             this.originalArrayBuffer = buffer;
@@ -63,7 +64,7 @@
                 widthPt: p.widthPt || 612,
                 heightPt: p.heightPt || 792,
                 rotation: p.rotation || 0,
-                textBlocks: [],
+                textBlocks: (allPagesBlocks && allPagesBlocks[idx]) ? allPagesBlocks[idx] : (p.textBlocks || []),
                 links: [],
                 formFields: [],
                 fabricJson: null,

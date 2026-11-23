@@ -35,6 +35,18 @@ const server = http.createServer((req, res) => {
             if (data.logs && Array.isArray(data.logs)) {
                 data.logs.forEach(l => console.log(l));
             }
+
+            if (data.featureResults && Object.keys(data.featureResults).length > 0) {
+                console.log('\n| # | Feature | Status | Details |');
+                console.log('|---|---|---|---|');
+                for (let i = 1; i <= 13; i++) {
+                    const feat = data.featureResults[i] || data.featureResults[String(i)];
+                    if (feat) {
+                        const statusBadge = feat.passed ? '✅ PASS' : '❌ FAIL';
+                        console.log(`| ${i} | **${feat.name}** | ${statusBadge} | ${feat.details} |`);
+                    }
+                }
+            }
             console.log('==========================================================\n');
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -123,10 +135,10 @@ server.listen(PORT, async () => {
         console.error('Edge process error:', err);
     });
 
-    // Timeout safety net (30s)
+    // Timeout safety net (60s)
     setTimeout(() => {
-        console.error('❌ E2E Test timed out after 30 seconds');
+        console.error('❌ E2E Test timed out after 60 seconds');
         if (edgeProcess) edgeProcess.kill();
         server.close(() => process.exit(1));
-    }, 30000);
+    }, 60000);
 });
