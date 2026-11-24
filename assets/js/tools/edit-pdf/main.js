@@ -101,6 +101,9 @@
         // Sub-Toolbars
         const annotateSubToolbar = document.getElementById('annotate-sub-toolbar');
         const whiteoutSubToolbar = document.getElementById('whiteout-sub-toolbar');
+        const shapesSubToolbar = document.getElementById('shapes-sub-toolbar');
+        const drawSubToolbar = document.getElementById('draw-sub-toolbar');
+        const formsSubToolbar = document.getElementById('forms-sub-toolbar');
 
         // Hidden Image Input
         const hiddenImgInput = document.getElementById('hidden-image-input');
@@ -312,6 +315,15 @@
             }
         });
 
+        function hideAllSubToolbars() {
+            subToolbar?.classList.add('hidden');
+            annotateSubToolbar?.classList.add('hidden');
+            whiteoutSubToolbar?.classList.add('hidden');
+            shapesSubToolbar?.classList.add('hidden');
+            drawSubToolbar?.classList.add('hidden');
+            formsSubToolbar?.classList.add('hidden');
+        }
+
         // ====================================================
         // Toolbar State & Tool Dispatch
         // ====================================================
@@ -322,29 +334,50 @@
                 toolBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
-                // Toggle sub-toolbars
-                annotateSubToolbar?.classList.toggle('hidden', tool !== 'annotate');
-                whiteoutSubToolbar?.classList.toggle('hidden', tool !== 'whiteout');
-                if (tool !== 'text-edit') {
-                    subToolbar?.classList.add('hidden');
+                // Cancel any pending form / ghost placement
+                window.CanvasStage.cancelPlacement();
+
+                // Toggle sub-toolbars based on active tool
+                hideAllSubToolbars();
+
+                if (tool === 'text-edit') {
+                    if (window.CanvasStage.selectedBlock || window.CanvasStage.activeFabricTextBox) {
+                        subToolbar?.classList.remove('hidden');
+                    }
+                } else if (tool === 'add-text') {
+                    subToolbar?.classList.remove('hidden');
+                    const bgGroup = document.getElementById('sub-bg-color')?.closest('.flex');
+                    if (bgGroup) bgGroup.style.display = 'none';
+                    const resetBtn = document.getElementById('sub-reset-btn');
+                    if (resetBtn) resetBtn.style.display = 'none';
+                    const fontTierPill = document.getElementById('sub-font-tier-pill');
+                    if (fontTierPill) {
+                        fontTierPill.classList.remove('hidden');
+                        fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200';
+                        fontTierPill.textContent = 'Add Text Mode';
+                    }
+                } else if (tool === 'annotate') {
+                    annotateSubToolbar?.classList.remove('hidden');
+                } else if (tool === 'whiteout') {
+                    whiteoutSubToolbar?.classList.remove('hidden');
+                } else if (tool === 'shapes') {
+                    shapesSubToolbar?.classList.remove('hidden');
+                } else if (tool === 'draw') {
+                    drawSubToolbar?.classList.remove('hidden');
+                } else if (tool === 'forms') {
+                    formsSubToolbar?.classList.remove('hidden');
+                    const activeFormTypeBtn = formsSubToolbar?.querySelector('.form-type-btn.active');
+                    const activeFormType = activeFormTypeBtn?.dataset.type || 'text';
+                    const fieldNameVal = document.getElementById('form-field-name-input')?.value;
+                    window.CanvasStage.startFormPlacement(activeFormType, fieldNameVal);
                 }
 
                 window.CanvasStage.setTool(tool);
 
-                if (tool === 'add-text') {
-                    // Click-to-place mode activated via setTool('add-text')
-                } else if (tool === 'annotate') {
-                    // Annotate mode activated via setTool('annotate')
-                } else if (tool === 'whiteout') {
-                    window.CanvasStage.addWhiteoutBox();
-                } else if (tool === 'shapes') {
-                    window.CanvasStage.addShape('rect');
-                } else if (tool === 'images') {
+                if (tool === 'images') {
                     hiddenImgInput?.click();
                 } else if (tool === 'sign') {
                     openSigModal();
-                } else if (tool === 'forms') {
-                    createFormFieldPrompt();
                 }
             });
         });
@@ -387,10 +420,10 @@
         function updateActiveWhiteoutFill(color) {
             const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
             if (activeObj && activeObj.isWhiteout) {
-                const isWhite = color.toLowerCase() === '#ffffff' || color.toLowerCase() === '#fff';
                 activeObj.set({
                     fill: color,
-                    stroke: isWhite ? '#e2e8f0' : color,
+                    stroke: null,
+                    strokeWidth: 0,
                 });
                 window.CanvasStage?.fabricCanvas?.renderAll();
                 window.CanvasStage?._saveFabricState();
@@ -416,6 +449,138 @@
             window.CanvasStage.addWhiteoutBox();
         });
 
+        // Shapes Sub-Toolbar wiring
+        const shapeTypeBtns = document.querySelectorAll('.shape-type-btn');
+        shapeTypeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                shapeTypeBtns.forEach(b => {
+                    b.classList.remove('active', 'bg-white', 'text-blue-600', 'shadow-xs');
+                    b.classList.add('text-slate-600', 'hover:text-slate-900');
+                });
+                btn.classList.add('active', 'bg-white', 'text-blue-600', 'shadow-xs');
+                btn.classList.remove('text-slate-600', 'hover:text-slate-900');
+                window.CanvasStage.shapeType = btn.dataset.type || 'rect';
+            });
+        });
+
+        const shapeStrokeColor = document.getElementById('shape-stroke-color');
+        shapeStrokeColor?.addEventListener('input', (e) => {
+            window.CanvasStage.shapeStrokeColor = e.target.value;
+            const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+            if (activeObj && !activeObj.isWhiteout && !activeObj.isSignature && !activeObj.isAnnotation) {
+                activeObj.set('stroke', e.target.value);
+                window.CanvasStage?.fabricCanvas?.renderAll();
+                window.CanvasStage?._saveFabricState();
+            }
+        });
+
+        const shapeStrokeSwatches = document.querySelectorAll('.shape-stroke-swatch');
+        shapeStrokeSwatches.forEach(sw => {
+            sw.addEventListener('click', () => {
+                const color = sw.dataset.color;
+                if (color) {
+                    window.CanvasStage.shapeStrokeColor = color;
+                    if (shapeStrokeColor) shapeStrokeColor.value = color;
+                    const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+                    if (activeObj && !activeObj.isWhiteout && !activeObj.isSignature && !activeObj.isAnnotation) {
+                        activeObj.set('stroke', color);
+                        window.CanvasStage?.fabricCanvas?.renderAll();
+                        window.CanvasStage?._saveFabricState();
+                    }
+                }
+            });
+        });
+
+        const shapeStrokeWidth = document.getElementById('shape-stroke-width');
+        shapeStrokeWidth?.addEventListener('change', () => {
+            const w = parseInt(shapeStrokeWidth.value || '2', 10);
+            window.CanvasStage.shapeStrokeWidth = w;
+            const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+            if (activeObj && !activeObj.isWhiteout && !activeObj.isSignature && !activeObj.isAnnotation) {
+                activeObj.set('strokeWidth', w);
+                window.CanvasStage?.fabricCanvas?.renderAll();
+                window.CanvasStage?._saveFabricState();
+            }
+        });
+
+        const shapeFillColor = document.getElementById('shape-fill-color');
+        const shapeFillTransparent = document.getElementById('shape-fill-transparent');
+
+        shapeFillColor?.addEventListener('input', (e) => {
+            window.CanvasStage.shapeFillColor = e.target.value;
+            if (shapeFillTransparent) shapeFillTransparent.checked = false;
+            window.CanvasStage.shapeFillTransparent = false;
+            const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+            if (activeObj && !activeObj.isWhiteout && !activeObj.isSignature && !activeObj.isAnnotation) {
+                activeObj.set('fill', e.target.value);
+                window.CanvasStage?.fabricCanvas?.renderAll();
+                window.CanvasStage?._saveFabricState();
+            }
+        });
+
+        shapeFillTransparent?.addEventListener('change', () => {
+            const isTrans = shapeFillTransparent.checked;
+            window.CanvasStage.shapeFillTransparent = isTrans;
+            const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+            if (activeObj && !activeObj.isWhiteout && !activeObj.isSignature && !activeObj.isAnnotation) {
+                activeObj.set('fill', isTrans ? 'transparent' : (shapeFillColor?.value || '#ffffff'));
+                window.CanvasStage?.fabricCanvas?.renderAll();
+                window.CanvasStage?._saveFabricState();
+            }
+        });
+
+        // Draw Sub-Toolbar wiring
+        const drawBrushColor = document.getElementById('draw-brush-color');
+        const drawBrushSize = document.getElementById('draw-brush-size');
+        const drawSwatches = document.querySelectorAll('.draw-swatch');
+
+        drawBrushColor?.addEventListener('input', (e) => {
+            if (window.CanvasStage?.fabricCanvas?.freeDrawingBrush) {
+                window.CanvasStage.fabricCanvas.freeDrawingBrush.color = e.target.value;
+            }
+        });
+
+        drawSwatches.forEach(sw => {
+            sw.addEventListener('click', () => {
+                const color = sw.dataset.color;
+                if (color) {
+                    if (drawBrushColor) drawBrushColor.value = color;
+                    if (window.CanvasStage?.fabricCanvas?.freeDrawingBrush) {
+                        window.CanvasStage.fabricCanvas.freeDrawingBrush.color = color;
+                    }
+                }
+            });
+        });
+
+        drawBrushSize?.addEventListener('change', () => {
+            if (window.CanvasStage?.fabricCanvas?.freeDrawingBrush) {
+                window.CanvasStage.fabricCanvas.freeDrawingBrush.width = parseInt(drawBrushSize.value || '3', 10);
+            }
+        });
+
+        // Forms Sub-Toolbar wiring
+        const formTypeBtns = document.querySelectorAll('.form-type-btn');
+        const formFieldNameInput = document.getElementById('form-field-name-input');
+
+        formTypeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                formTypeBtns.forEach(b => {
+                    b.classList.remove('active', 'bg-white', 'text-blue-600', 'shadow-xs');
+                    b.classList.add('text-slate-600', 'hover:text-slate-900');
+                });
+                btn.classList.add('active', 'bg-white', 'text-blue-600', 'shadow-xs');
+                btn.classList.remove('text-slate-600', 'hover:text-slate-900');
+                const formType = btn.dataset.type || 'text';
+                window.CanvasStage.startFormPlacement(formType, formFieldNameInput?.value);
+            });
+        });
+
+        formFieldNameInput?.addEventListener('input', () => {
+            const activeBtn = formsSubToolbar?.querySelector('.form-type-btn.active');
+            const formType = activeBtn?.dataset.type || 'text';
+            window.CanvasStage.startFormPlacement(formType, formFieldNameInput.value);
+        });
+
         hiddenImgInput?.addEventListener('change', (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
@@ -430,16 +595,10 @@
         function createFormFieldPrompt(forcedType) {
             let normType = forcedType;
             if (!normType) {
-                const type = prompt('Choose Form Field Type: "text", "textarea", "checkbox", or "dropdown"', 'text');
-                if (!type) return;
-                normType = type.toLowerCase().trim();
+                const activeBtn = formsSubToolbar?.querySelector('.form-type-btn.active');
+                normType = activeBtn?.dataset.type || 'text';
             }
-            if (!['text', 'textarea', 'checkbox', 'dropdown'].includes(normType)) {
-                alert('Invalid field type. Choose text, textarea, checkbox, or dropdown.');
-                return;
-            }
-
-            window.CanvasStage.startFormPlacement(normType);
+            window.CanvasStage.startFormPlacement(normType, formFieldNameInput?.value);
         }
 
         // ====================================================
@@ -482,12 +641,31 @@
             if (bgColorInput) bgColorInput.value = block.bgHex || '#ffffff';
         });
 
+        function getFontFamilyFromSelectKey(key) {
+            switch (key) {
+                case 'carlito': return 'Carlito';
+                case 'roboto': return 'Roboto';
+                case 'opensans': return 'Open Sans';
+                case 'lato': return 'Lato';
+                case 'serif': return 'Liberation Serif';
+                case 'mono': return 'Liberation Mono';
+                case 'sans':
+                default: return 'Liberation Sans';
+            }
+        }
+
         fontSelect?.addEventListener('change', () => {
             if (window.CanvasStage.selectedBlock) {
                 window.CanvasStage.selectedBlock.fontFamily = fontSelect.value;
                 window.CanvasStage.selectedBlock.modified = true;
                 window.EditorState.pushSnapshot('Change Font Family');
                 renderCurrentPage();
+            } else if (window.CanvasStage.activeFabricTextBox) {
+                const fam = getFontFamilyFromSelectKey(fontSelect.value);
+                window.CanvasStage.activeFabricTextBox.set('fontFamily', fam);
+                window.CanvasStage.fabricCanvas.renderAll();
+                window.CanvasStage._saveFabricState();
+                window.EditorState.pushSnapshot('Change Font Family');
             }
         });
 
@@ -496,6 +674,11 @@
                 window.CanvasStage.selectedBlock.fontSizePt = parseFloat(fontSizeInput.value) || 12;
                 window.CanvasStage.selectedBlock.modified = true;
                 renderCurrentPage();
+            } else if (window.CanvasStage.activeFabricTextBox) {
+                const sz = parseFloat(fontSizeInput.value) || 16;
+                window.CanvasStage.activeFabricTextBox.set('fontSize', sz);
+                window.CanvasStage.fabricCanvas.renderAll();
+                window.CanvasStage._saveFabricState();
             }
         });
 
@@ -506,6 +689,13 @@
                 boldBtn.classList.toggle('active', window.CanvasStage.selectedBlock.bold);
                 window.EditorState.pushSnapshot('Toggle Bold');
                 renderCurrentPage();
+            } else if (window.CanvasStage.activeFabricTextBox) {
+                const isB = window.CanvasStage.activeFabricTextBox.fontWeight === 'bold' || window.CanvasStage.activeFabricTextBox.fontWeight === 700 || window.CanvasStage.activeFabricTextBox.fontWeight === '700';
+                window.CanvasStage.activeFabricTextBox.set('fontWeight', isB ? 'normal' : 'bold');
+                boldBtn.classList.toggle('active', !isB);
+                window.CanvasStage.fabricCanvas.renderAll();
+                window.CanvasStage._saveFabricState();
+                window.EditorState.pushSnapshot('Toggle Bold');
             }
         });
 
@@ -516,6 +706,13 @@
                 italicBtn.classList.toggle('active', window.CanvasStage.selectedBlock.italic);
                 window.EditorState.pushSnapshot('Toggle Italic');
                 renderCurrentPage();
+            } else if (window.CanvasStage.activeFabricTextBox) {
+                const isI = window.CanvasStage.activeFabricTextBox.fontStyle === 'italic';
+                window.CanvasStage.activeFabricTextBox.set('fontStyle', isI ? 'normal' : 'italic');
+                italicBtn.classList.toggle('active', !isI);
+                window.CanvasStage.fabricCanvas.renderAll();
+                window.CanvasStage._saveFabricState();
+                window.EditorState.pushSnapshot('Toggle Italic');
             }
         });
 
@@ -524,6 +721,10 @@
                 window.CanvasStage.selectedBlock.colorHex = textColorInput.value;
                 window.CanvasStage.selectedBlock.modified = true;
                 renderCurrentPage();
+            } else if (window.CanvasStage.activeFabricTextBox) {
+                window.CanvasStage.activeFabricTextBox.set('fill', textColorInput.value);
+                window.CanvasStage.fabricCanvas.renderAll();
+                window.CanvasStage._saveFabricState();
             }
         });
 
@@ -551,6 +752,14 @@
                 window.CanvasStage.selectedBlock.deleted = true;
                 window.EditorState.pushSnapshot('Delete Text Block');
                 renderCurrentPage();
+            } else if (window.CanvasStage.activeFabricTextBox) {
+                window.CanvasStage.fabricCanvas.remove(window.CanvasStage.activeFabricTextBox);
+                window.CanvasStage.activeFabricTextBox = null;
+                window.CanvasStage.fabricCanvas.renderAll();
+                window.CanvasStage._saveFabricState();
+                window.CanvasStage._hideFloatingBar();
+                subToolbar?.classList.add('hidden');
+                window.EditorState.pushSnapshot('Delete Added Text');
             }
         });
 

@@ -127,12 +127,19 @@ server.listen(PORT, async () => {
     edgeProcess = spawn(edgePath, [
         '--headless=new',
         '--disable-gpu',
-        '--user-data-dir=' + path.join(__dirname, '.edge-real-ui-profile'),
+        '--user-data-dir=' + path.join(require('os').tmpdir(), 'nopaypdf-edge-test-' + Date.now()),
         testUrl,
     ]);
 
+    edgeProcess.stdout?.on('data', d => console.log('[EDGE-OUT]', d.toString().trim()));
+    edgeProcess.stderr?.on('data', d => console.log('[EDGE-ERR]', d.toString().trim()));
+
     edgeProcess.on('error', (err) => {
         console.error('Edge process error:', err);
+    });
+
+    edgeProcess.on('exit', (code, sig) => {
+        console.log(`[EDGE-EXIT] code: ${code}, signal: ${sig}`);
     });
 
     // Timeout safety net (60s)

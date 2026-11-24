@@ -7,9 +7,10 @@
     const logs = [];
     const featureResults = {};
 
+    const origLog = console.log;
     function log(msg) {
-        console.log('[E2E-TEST]', msg);
         logs.push(msg);
+        origLog('[E2E-TEST]', msg);
     }
 
     function recordFeature(num, name, passed, details = '') {
@@ -22,6 +23,24 @@
 
     window.addEventListener('error', e => log(`BROWSER ERROR: ${e.message} at ${e.filename}:${e.lineno}`));
     window.addEventListener('unhandledrejection', e => log(`BROWSER PROMISE REJECTION: ${e.reason?.message || e.reason}`));
+
+    const origWarn = console.warn;
+    const capturedWarnings = [];
+    console.warn = function (...args) {
+        const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        capturedWarnings.push(msg);
+        log(`CONSOLE WARN: ${msg}`);
+        origWarn.apply(console, args);
+    };
+
+    const origErr = console.error;
+    const capturedErrors = [];
+    console.error = function (...args) {
+        const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        capturedErrors.push(msg);
+        log(`CONSOLE ERROR: ${msg}`);
+        origErr.apply(console, args);
+    };
 
     async function report(status, error = null) {
         try {
@@ -222,6 +241,13 @@
             throw new Error(`Floating badge is "${floatBadge.textContent}", expected "Text"`);
         }
         log('✓ Floating mini-bar visible on text box selection with "Text" badge');
+
+        const contextSubToolbar = document.getElementById('context-sub-toolbar');
+        if (!contextSubToolbar || contextSubToolbar.classList.contains('hidden')) {
+            throw new Error('Typography sub-toolbar should be visible when text box is active/selected');
+        }
+        log('✓ Typography sub-toolbar is visible for added text box');
+
         recordFeature(2, '+ Add Text', true, 'Click-to-place at custom coords, proportional scaling, and floating mini-bar verified');
 
         // ====================================================================
@@ -279,10 +305,11 @@
         window.CanvasStage.setTool('forms');
         const formField1 = window.CanvasStage.addFormField('text', [50, 420, 140, 26], { name: 'custName' });
         const formField2 = window.CanvasStage.addFormField('checkbox', [220, 420, 24, 24], { name: 'agreeTerms', checked: true });
+        const formField3 = window.CanvasStage.addFormField('dropdown', [260, 420, 120, 26], { name: 'custCountry', options: ['USA', 'UK', 'Canada'] });
         await new Promise(r => setTimeout(r, 150));
 
-        if (activePg.formFields.length < 2) {
-            throw new Error(`Expected at least 2 form fields, found ${activePg.formFields.length}`);
+        if (activePg.formFields.length < 3) {
+            throw new Error(`Expected at least 3 form fields (text, checkbox, dropdown), found ${activePg.formFields.length}`);
         }
 
         let fieldEl = document.querySelector('.form-field-hotspot');
@@ -294,7 +321,7 @@
             throw new Error('Floating mini-bar not visible on form field selection');
         }
         log(`✓ Form field selected with mini-bar badge "${floatBadge.textContent}"`);
-        recordFeature(4, 'Forms', true, 'AcroForm text field and checkbox added and selectable with mini-bar');
+        recordFeature(4, 'Forms', true, 'AcroForm text field, checkbox, and dropdown added and selectable with mini-bar');
 
         // ====================================================
         // FEATURE 5: Images
@@ -330,6 +357,12 @@
             throw new Error('Stamped image missing lockUniScaling: true');
         }
 
+        // Verify rotation handle presence
+        if (stampedImg.hasRotatingPoint === false || !stampedImg.controls || !stampedImg.controls.mtr) {
+            throw new Error('Image rotation handle (controls.mtr) is missing or inactive');
+        }
+        log('✓ Image rotation handle confirmed present and active');
+
         window.CanvasStage.fabricCanvas.setActiveObject(stampedImg);
         window.CanvasStage.fabricCanvas.renderAll();
         window.CanvasStage._updateFloatingBar();
@@ -358,6 +391,15 @@
         }
         log('✓ Floating mini-bar Rotate -90° rotated image back to 0 degrees');
 
+        // Rotate +90° again and save state to verify rotated image export in Feature 13
+        rotRBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 100));
+        if (stampedImg.angle !== 90) {
+            throw new Error(`Rotate +90° second pass failed: expected 90, got ${stampedImg.angle}`);
+        }
+        window.CanvasStage._saveFabricState();
+        log('✓ Image rotated to 90 degrees and saved for rotated export verification');
+
         // Test duplicate and delete image
         const imgCountBefore = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'image' && !o.isSignature).length;
         window.CanvasStage.duplicateActiveObject();
@@ -373,7 +415,7 @@
             throw new Error(`Delete image failed: expected ${imgCountBefore}, found ${imgCountAfterDel}`);
         }
         log('✓ Image duplicate and delete verified via mini-bar');
-        recordFeature(5, 'Images', true, 'Cursor-follow ghost preview, proportional lock, duplicate and delete verified');
+        recordFeature(5, 'Images', true, 'Cursor-follow ghost preview, rotation handle, mini-bar ±90° rotate, proportional lock, duplicate, and delete verified');
 
         // ====================================================
         // FEATURE 6: Sign
@@ -521,6 +563,14 @@
             throw new Error(`Floating badge for highlight is "${floatBadge.textContent}", expected "Highlight"`);
         }
         log('✓ Annotate Highlight, Underline, and Strikethrough verified with floating badges');
+
+        const hlLayer = document.getElementById('stage-highlight-layer');
+        if (!hlLayer) throw new Error('#stage-highlight-layer missing from DOM');
+        const hlStyle = window.getComputedStyle(hlLayer);
+        if (hlStyle.mixBlendMode !== 'multiply') {
+            throw new Error(`Highlight layer mixBlendMode is "${hlStyle.mixBlendMode}", expected "multiply"`);
+        }
+        log('✓ Live highlight layer verified with CSS mix-blend-mode: multiply');
 
         // ====================================================
         // FEATURE 8: Shapes
@@ -695,12 +745,17 @@
 
         const form = exportedDoc.getForm();
         const formFields = form.getFields();
-        if (formFields.length < 2) {
-            throw new Error(`Exported PDF has ${formFields.length} AcroForm fields, expected at least 2`);
+        if (formFields.length < 3) {
+            throw new Error(`Exported PDF has ${formFields.length} AcroForm fields, expected at least 3 (text, checkbox, dropdown)`);
         }
-        log(`✓ Exported PDF contains ${formFields.length} native AcroForm fields`);
+        log(`✓ Exported PDF contains ${formFields.length} native AcroForm fields (text, checkbox, dropdown)`);
 
         recordFeature(13, 'Apply Changes', true, `Exported valid PDF (${exportedBytes.length} bytes) with native Link annotations and AcroForm fields`);
+
+        if (capturedWarnings.length > 0) {
+            throw new Error(`Real-UI test failed with ${capturedWarnings.length} console warning(s):\n${capturedWarnings.slice(0, 10).join('\n')}`);
+        }
+        log('✓ Verified 0 console warnings during full editing session');
 
         log('\n🎉 ALL 13 TOOLBAR FEATURES PASSED REAL-UI E2E VERIFICATION SUCCESSFULLY!');
         await report('PASSED');

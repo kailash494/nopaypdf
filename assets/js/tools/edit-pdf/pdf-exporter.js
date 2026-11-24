@@ -79,8 +79,14 @@
                 // Apply Existing-Text Edits (Mask & Redraw)
                 await this._applyTextEdits(pdfDoc, targetPage, pageState);
 
-                // Stamp Fabric.js Layer
+                // Stamp Fabric.js Layer (Shapes, Images, Signatures, Whiteout)
                 await this._stampFabricLayer(pdfDoc, targetPage, pageState);
+
+                // Stamp Vector Highlight Annotations with Multiply Blending
+                this._stampHighlightAnnotations(pdfDoc, targetPage, pageState);
+
+                // Stamp Added Vector Text Boxes with Embedded TrueType Fonts
+                await this._stampAddedVectorText(pdfDoc, targetPage, pageState);
 
                 // Add Native Links
                 this._attachNativeLinks(pdfDoc, targetPage, pageState, createdPages);
@@ -226,6 +232,17 @@
 
             await new Promise((resolve) => {
                 staticCanvas.loadFromJSON(json, () => {
+                    // Temporarily hide added text objects and highlight annotations
+                    // so vector text and vector multiply rectangles are exported cleanly without double-rendering
+                    const objs = staticCanvas.getObjects();
+                    for (const o of objs) {
+                        if (o.type === 'i-text' || o.type === 'text' || o.type === 'textbox') {
+                            o.visible = false;
+                        }
+                        if (o.isAnnotation && o.annotType === 'highlight') {
+                            o.visible = false;
+                        }
+                    }
                     staticCanvas.renderAll();
                     resolve();
                 });
@@ -235,6 +252,15 @@
                 format: 'png',
                 multiplier: 2.5,
             });
+
+            // Restore visibility right after capturing overlay PNG
+            const objs = staticCanvas.getObjects();
+            for (const o of objs) {
+                if (o.type === 'i-text' || o.type === 'text' || o.type === 'textbox' || (o.isAnnotation && o.annotType === 'highlight')) {
+                    o.visible = true;
+                }
+            }
+            staticCanvas.renderAll();
 
             const embeddedPng = await pdfDoc.embedPng(pngDataUrl);
             pdfPage.drawImage(embeddedPng, {
@@ -247,6 +273,98 @@
             // Zero out offscreen canvas
             staticCanvasEl.width = 0;
             staticCanvasEl.height = 0;
+        },
+
+        _stampHighlightAnnotations(pdfDoc, pdfPage, pageState) {
+            const json = pageState.fabricJson;
+            if (!json || !json.objects || json.objects.length === 0) return;
+
+            const scale = pageState.scale || 1.0;
+            const pageHeight = pdfPage.getHeight();
+
+            for (const o of json.objects) {
+                if (!o.isAnnotation || o.annotType !== 'highlight') continue;
+
+                const oLeft = o.left || 0;
+                const oTop = o.top || 0;
+                const oWidth = (o.width || 0) * (o.scaleX || 1);
+                const oHeight = (o.height || 0) * (o.scaleY || 1);
+
+                const pdfX = oLeft / scale;
+                const pdfWidth = oWidth / scale;
+                const pdfHeight = oHeight / scale;
+                const pdfY = pageHeight - ((oTop + oHeight) / scale);
+
+                const color = hexToRgb(o.fill || '#fef08a');
+                const drawOptions = {
+                    x: pdfX,
+                    y: pdfY,
+                    width: pdfWidth,
+                    height: pdfHeight,
+                    color,
+                    opacity: 0.45,
+                };
+
+                if (window.PDFLib && window.PDFLib.BlendMode && window.PDFLib.BlendMode.Multiply) {
+                    drawOptions.blendMode = window.PDFLib.BlendMode.Multiply;
+                }
+
+                if (o.angle) {
+                    drawOptions.rotate = window.PDFLib.degrees(-o.angle);
+                }
+
+                pdfPage.drawRectangle(drawOptions);
+            }
+        },
+
+        async _stampAddedVectorText(pdfDoc, pdfPage, pageState) {
+            const json = pageState.fabricJson;
+            if (!json || !json.objects || json.objects.length === 0) return;
+
+            const scale = pageState.scale || 1.0;
+            const pageHeight = pdfPage.getHeight();
+
+            for (const o of json.objects) {
+                if (o.type !== 'i-text' && o.type !== 'text' && o.type !== 'textbox') continue;
+                if (!o.text || !o.text.trim()) continue;
+
+                const fontSizePt = (o.fontSize * (o.scaleY || 1)) / scale;
+                const pdfX = (o.left || 0) / scale;
+                const topPdf = (o.top || 0) / scale;
+                // Baseline calculation: top + font ascent
+                const baselineY = pageHeight - topPdf - (fontSizePt * 0.82);
+
+                const blockStub = {
+                    fontFamily: o.fontFamily || 'Liberation Sans',
+                    bold: o.fontWeight === 'bold' || o.fontWeight === 700 || o.fontWeight === '700',
+                    italic: o.fontStyle === 'italic',
+                };
+
+                let font;
+                try {
+                    const embedRes = await window.FontManager.embedFontForBlock(pdfDoc, blockStub, o.text);
+                    font = embedRes.font;
+                } catch (e) {
+                    font = await pdfDoc.embedStandardFont(window.PDFLib.StandardFonts.Helvetica);
+                }
+
+                const hex = o.fill || '#1e293b';
+                const rgbColor = hexToRgb(hex);
+
+                const drawOptions = {
+                    x: pdfX,
+                    y: baselineY,
+                    size: fontSizePt,
+                    font,
+                    color: rgbColor,
+                };
+
+                if (o.angle) {
+                    drawOptions.rotate = window.PDFLib.degrees(-o.angle);
+                }
+
+                pdfPage.drawText(o.text, drawOptions);
+            }
         },
 
         _attachNativeLinks(pdfDoc, pdfPage, pageState, createdPages) {

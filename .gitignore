@@ -19,8 +19,8 @@ yarn-error.log*
 
 # Temporary files
 *.tmp
-.edge-real-ui-profile/
-scripts/.edge-real-ui-profile/
+.edge-real-ui-profile*
+scripts/.edge-real-ui-profile*
 
 # Search Console Analytics & Weekly SEO Reports
 seo-reports/

@@ -347,10 +347,113 @@ require_once __DIR__ . '/../includes/header.php';
                 <button type="button" class="whiteout-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#f1f5f9]" data-color="#f1f5f9" title="Soft Grey"></button>
                 <button type="button" class="whiteout-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#000000]" data-color="#000000" title="Blackout (Redaction)"></button>
             </div>
+            <span class="text-[11px] text-slate-500 hidden sm:inline ml-2">Click & drag over document to cover content</span>
         </div>
         <button type="button" id="btn-add-whiteout-box" class="px-3 py-1 rounded-lg bg-blue-600 text-white font-semibold text-xs hover:bg-blue-700">
             + Add Cover Box
         </button>
+    </div>
+
+    <!-- Shapes Sub-Toolbar -->
+    <div id="shapes-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
+        <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Shape:</span>
+            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                <button type="button" id="shape-type-rect" class="shape-type-btn active px-2.5 py-1 rounded-md font-semibold text-xs transition-colors bg-white text-blue-600 shadow-xs" data-type="rect">
+                    Rectangle
+                </button>
+                <button type="button" id="shape-type-circle" class="shape-type-btn px-2.5 py-1 rounded-md font-semibold text-xs transition-colors text-slate-600 hover:text-slate-900" data-type="circle">
+                    Circle
+                </button>
+                <button type="button" id="shape-type-line" class="shape-type-btn px-2.5 py-1 rounded-md font-semibold text-xs transition-colors text-slate-600 hover:text-slate-900" data-type="line">
+                    Line
+                </button>
+                <button type="button" id="shape-type-arrow" class="shape-type-btn px-2.5 py-1 rounded-md font-semibold text-xs transition-colors text-slate-600 hover:text-slate-900" data-type="arrow">
+                    Arrow
+                </button>
+            </div>
+
+            <!-- Stroke Color -->
+            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                <label for="shape-stroke-color" class="text-[10px] text-slate-500 font-semibold">Stroke:</label>
+                <input type="color" id="shape-stroke-color" value="#2563eb" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Stroke Color">
+                <button type="button" class="shape-stroke-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#2563eb]" data-color="#2563eb" title="Blue"></button>
+                <button type="button" class="shape-stroke-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#000000]" data-color="#000000" title="Black"></button>
+                <button type="button" class="shape-stroke-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#dc2626]" data-color="#dc2626" title="Red"></button>
+                <button type="button" class="shape-stroke-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#16a34a]" data-color="#16a34a" title="Green"></button>
+            </div>
+
+            <!-- Stroke Width -->
+            <div class="flex items-center gap-1 pl-2 border-l border-slate-200">
+                <label for="shape-stroke-width" class="text-[10px] text-slate-500 font-semibold">Width:</label>
+                <select id="shape-stroke-width" class="px-2 py-0.5 rounded border border-slate-200 bg-white text-xs font-medium cursor-pointer">
+                    <option value="1">1px</option>
+                    <option value="2" selected>2px</option>
+                    <option value="4">4px</option>
+                    <option value="6">6px</option>
+                </select>
+            </div>
+
+            <!-- Fill Color & Transparent Toggle -->
+            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                <label for="shape-fill-color" class="text-[10px] text-slate-500 font-semibold">Fill:</label>
+                <input type="color" id="shape-fill-color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Fill Color">
+                <label class="flex items-center gap-1 cursor-pointer text-[10px] font-medium text-slate-600 select-none">
+                    <input type="checkbox" id="shape-fill-transparent" checked class="rounded border-slate-300 text-blue-600">
+                    <span>No Fill</span>
+                </label>
+            </div>
+        </div>
+        <p class="text-[11px] text-slate-500 hidden sm:block">Click & drag on page to draw shape</p>
+    </div>
+
+    <!-- Draw Sub-Toolbar -->
+    <div id="draw-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
+        <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Freehand Ink:</span>
+            <div class="flex items-center gap-1.5">
+                <label for="draw-brush-color" class="text-[10px] text-slate-500 font-semibold">Color:</label>
+                <input type="color" id="draw-brush-color" value="#2563eb" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Ink Color">
+                <button type="button" class="draw-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#2563eb]" data-color="#2563eb" title="Blue"></button>
+                <button type="button" class="draw-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#0f172a]" data-color="#0f172a" title="Dark Slate"></button>
+                <button type="button" class="draw-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#dc2626]" data-color="#dc2626" title="Red"></button>
+                <button type="button" class="draw-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#16a34a]" data-color="#16a34a" title="Green"></button>
+            </div>
+
+            <div class="flex items-center gap-1 pl-2 border-l border-slate-200">
+                <label for="draw-brush-size" class="text-[10px] text-slate-500 font-semibold">Thickness:</label>
+                <select id="draw-brush-size" class="px-2 py-0.5 rounded border border-slate-200 bg-white text-xs font-medium cursor-pointer">
+                    <option value="1">1px (Fine)</option>
+                    <option value="3" selected>3px (Normal)</option>
+                    <option value="6">6px (Medium)</option>
+                    <option value="10">10px (Thick)</option>
+                </select>
+            </div>
+        </div>
+        <p class="text-[11px] text-slate-500 hidden sm:block">Draw directly on document with mouse or stylus</p>
+    </div>
+
+    <!-- Forms Sub-Toolbar -->
+    <div id="forms-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
+        <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">AcroForm Field:</span>
+            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                <button type="button" id="form-type-text" class="form-type-btn active px-2.5 py-1 rounded-md font-semibold text-xs transition-colors bg-white text-blue-600 shadow-xs" data-type="text">
+                    Text Field
+                </button>
+                <button type="button" id="form-type-checkbox" class="form-type-btn px-2.5 py-1 rounded-md font-semibold text-xs transition-colors text-slate-600 hover:text-slate-900" data-type="checkbox">
+                    Checkbox
+                </button>
+                <button type="button" id="form-type-dropdown" class="form-type-btn px-2.5 py-1 rounded-md font-semibold text-xs transition-colors text-slate-600 hover:text-slate-900" data-type="dropdown">
+                    Dropdown
+                </button>
+            </div>
+            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                <label for="form-field-name-input" class="text-[10px] text-slate-500 font-semibold">Field Name:</label>
+                <input type="text" id="form-field-name-input" placeholder="e.g. fullName" class="px-2 py-1 rounded border border-slate-200 bg-white text-xs w-28">
+            </div>
+        </div>
+        <p class="text-[11px] text-slate-500 hidden sm:block">Click anywhere on document to place form field</p>
     </div>
 
     <!-- Find & Replace Floating Drawer -->
@@ -417,6 +520,9 @@ require_once __DIR__ . '/../includes/header.php';
                 <!-- Layer 1: PDF.js Base Canvas -->
                 <canvas id="stage-base-canvas" class="stage-layer-base"></canvas>
                 
+                <!-- Layer 1.5: Highlight Annotation Overlay (Multiply Blending) -->
+                <div id="stage-highlight-layer" class="stage-layer-highlight"></div>
+
                 <!-- Layer 2: Interactive DOM Overlay -->
                 <div id="stage-dom-layer" class="stage-layer-dom"></div>
                 

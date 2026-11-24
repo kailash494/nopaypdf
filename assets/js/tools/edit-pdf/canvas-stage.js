@@ -18,6 +18,7 @@
             this.domLayer = null;
             this.fabricCanvasEl = null;
             this.fabricCanvas = null;
+            this.highlightLayer = null;
             this.currentPdfProxy = null;
             this.currentScale = 1.0;
             this.activeTool = 'text-edit'; // 'text-edit'|'add-text'|'links'|'forms'|'whiteout'|'annotate'|'shapes'|'draw'|'images'|'sign'
@@ -35,6 +36,17 @@
             this.annotateColor = '#fef08a';
             this.isDrawingAnnot = false;
             this.annotDrawStart = null;
+            this.shapeType = 'rect'; // 'rect'|'circle'|'line'|'arrow'
+            this.shapeStrokeColor = '#2563eb';
+            this.shapeStrokeWidth = 2;
+            this.shapeFillColor = '#ffffff';
+            this.shapeFillTransparent = true;
+            this.isDrawingShape = false;
+            this.shapeDrawStart = null;
+            this.isDrawingWhiteout = false;
+            this.whiteoutDrawStart = null;
+            this.activeFabricTextBox = null;
+            this._lastHoveredHitbox = null;
         }
 
         init(containerEl, baseCanvasEl, domLayerEl, fabricCanvasEl) {
@@ -42,6 +54,7 @@
             this.baseCanvas = baseCanvasEl;
             this.domLayer = domLayerEl;
             this.fabricCanvasEl = fabricCanvasEl;
+            this.highlightLayer = this.container ? this.container.querySelector('#stage-highlight-layer') : document.getElementById('stage-highlight-layer');
 
             // Initialize Fabric.js
             if (window.fabric && !this.fabricCanvas) {
@@ -57,6 +70,7 @@
                         this._saveFabricState();
                         window.EditorState.pushSnapshot('Modify Object');
                     }
+                    this._syncHighlightLayer();
                     this._updateFloatingBar();
                 });
 
@@ -64,12 +78,18 @@
                     if (!this._isRestoring) {
                         this._saveFabricState();
                     }
+                    this._syncHighlightLayer();
                 });
 
                 this.fabricCanvas.on('object:removed', () => {
                     if (!this._isRestoring) {
                         this._saveFabricState();
                     }
+                    this._syncHighlightLayer();
+                });
+
+                this.fabricCanvas.on('after:render', () => {
+                    this._syncHighlightLayer();
                 });
 
                 this.fabricCanvas.on('path:created', (e) => {
@@ -83,29 +103,65 @@
                 this.fabricCanvas.on('selection:created', () => this._onFabricSelection());
                 this.fabricCanvas.on('selection:updated', () => this._onFabricSelection());
                 this.fabricCanvas.on('selection:cleared', () => this._onFabricSelectionCleared());
-                this.fabricCanvas.on('object:moving', () => this._hideFloatingBar());
-                this.fabricCanvas.on('object:scaling', () => this._hideFloatingBar());
-                this.fabricCanvas.on('object:rotating', () => this._hideFloatingBar());
+                this.fabricCanvas.on('object:moving', () => {
+                    this._hideFloatingBar();
+                    this._syncHighlightLayer();
+                });
+                this.fabricCanvas.on('object:scaling', () => {
+                    this._hideFloatingBar();
+                    this._syncHighlightLayer();
+                });
+                this.fabricCanvas.on('object:rotating', () => {
+                    this._hideFloatingBar();
+                    this._syncHighlightLayer();
+                });
 
                 this.fabricCanvas.on('mouse:down', (opt) => {
-                    if (this.activeTool === 'add-text') {
-                        if (opt.target) return;
-                        const pointer = opt.pointer || this.fabricCanvas.getPointer(opt.e);
-                        const fontSize = parseInt(document.getElementById('sub-font-size')?.value || '18', 10);
-                        const fill = document.getElementById('sub-text-color')?.value || '#1e293b';
+                    const pointer = opt.pointer || this.fabricCanvas.getPointer(opt.e);
 
-                        const t = new fabric.IText('New Text', {
-                            left: pointer.x,
+                    if (this.activeTool === 'add-text') {
+                        // If clicking an existing text box, enter editing instead of spawning a duplicate
+                        if (opt.target && (opt.target.type === 'i-text' || opt.target.type === 'text')) {
+                            this.fabricCanvas.setActiveObject(opt.target);
+                            opt.target.enterEditing();
+                            return;
+                        }
+
+                        const stageW = (this.container && this.container.offsetWidth) || (this.baseCanvas ? this.baseCanvas.width : 600);
+                        
+                        // Inherit font style, size, ink color, weight from nearest page text
+                        const nearestStyle = this.getNearestTextBlockStyle(pointer.x, pointer.y);
+
+                        // Clamp left coordinate to prevent right-edge clipping
+                        const clampedLeft = Math.max(16, Math.min(stageW - 140, pointer.x));
+
+                        const t = new fabric.IText('Type here', {
+                            left: clampedLeft,
                             top: pointer.y,
-                            fontSize: fontSize,
-                            fill: fill,
-                            fontFamily: 'Liberation Sans',
+                            fontSize: nearestStyle.fontSize,
+                            fill: nearestStyle.fill,
+                            fontFamily: nearestStyle.fontFamily,
+                            fontWeight: nearestStyle.bold ? 'bold' : 'normal',
+                            fontStyle: nearestStyle.italic ? 'italic' : 'normal',
                             lockUniScaling: true,
                             hasControls: true,
                             hasBorders: true,
                             cornerSize: 8,
                             transparentCorners: false,
                         });
+
+                        t.on('editing:entered', () => {
+                            t.selectAll();
+                        });
+
+                        t.on('editing:exited', () => {
+                            if (!t.text || t.text.trim() === '' || t.text === 'Type here') {
+                                this.fabricCanvas.remove(t);
+                                this._saveFabricState();
+                                this._hideFloatingBar();
+                            }
+                        });
+
                         this.fabricCanvas.add(t);
                         this.fabricCanvas.setActiveObject(t);
                         t.enterEditing();
@@ -114,13 +170,35 @@
                         this._saveFabricState();
                         window.EditorState.pushSnapshot('Add Text');
                         this._updateFloatingBar();
+
+                        // Automatically switch back to text-edit tool so typing and navigation continue smoothly
+                        this.setTool('text-edit');
+                        const mainTextEditBtn = document.getElementById('tool-text-edit');
+                        if (mainTextEditBtn) {
+                            document.querySelectorAll('.editor-tool-btn').forEach(b => b.classList.remove('active'));
+                            mainTextEditBtn.classList.add('active');
+                        }
                         return;
                     }
 
                     if (this.activeTool === 'annotate') {
                         if (opt.target) return;
                         this.isDrawingAnnot = true;
-                        this.annotDrawStart = this.fabricCanvas.getPointer(opt.e);
+                        this.annotDrawStart = pointer;
+                        return;
+                    }
+
+                    if (this.activeTool === 'whiteout') {
+                        if (opt.target) return;
+                        this.isDrawingWhiteout = true;
+                        this.whiteoutDrawStart = pointer;
+                        return;
+                    }
+
+                    if (this.activeTool === 'shapes') {
+                        if (opt.target) return;
+                        this.isDrawingShape = true;
+                        this.shapeDrawStart = pointer;
                         return;
                     }
 
@@ -134,10 +212,32 @@
                     }
                 });
 
+                this.fabricCanvas.on('mouse:move', (opt) => {
+                    if (this.activeTool === 'text-edit' && !opt.target && opt.e) {
+                        const elements = document.elementsFromPoint(opt.e.clientX, opt.e.clientY);
+                        const hitbox = elements.find(el => el.classList.contains('text-hitbox'));
+                        if (hitbox) {
+                            this.fabricCanvas.defaultCursor = 'text';
+                            hitbox.classList.add('hovered');
+                            if (this._lastHoveredHitbox && this._lastHoveredHitbox !== hitbox) {
+                                this._lastHoveredHitbox.classList.remove('hovered');
+                            }
+                            this._lastHoveredHitbox = hitbox;
+                        } else {
+                            this.fabricCanvas.defaultCursor = 'default';
+                            if (this._lastHoveredHitbox) {
+                                this._lastHoveredHitbox.classList.remove('hovered');
+                                this._lastHoveredHitbox = null;
+                            }
+                        }
+                    }
+                });
+
                 this.fabricCanvas.on('mouse:up', (opt) => {
+                    const endPointer = opt.pointer || this.fabricCanvas.getPointer(opt.e);
+
                     if (this.activeTool === 'annotate' && this.isDrawingAnnot && this.annotDrawStart) {
                         this.isDrawingAnnot = false;
-                        const endPointer = this.fabricCanvas.getPointer(opt.e);
                         const x = Math.min(this.annotDrawStart.x, endPointer.x);
                         const y = Math.min(this.annotDrawStart.y, endPointer.y);
                         const w = Math.abs(endPointer.x - this.annotDrawStart.x);
@@ -146,6 +246,42 @@
 
                         if (w > 10 && h > 4) {
                             this.addAnnotation(this.annotateType, [x, y, w, h], this.annotateColor);
+                        }
+                    }
+
+                    if (this.activeTool === 'whiteout' && this.isDrawingWhiteout && this.whiteoutDrawStart) {
+                        this.isDrawingWhiteout = false;
+                        const x = Math.min(this.whiteoutDrawStart.x, endPointer.x);
+                        const y = Math.min(this.whiteoutDrawStart.y, endPointer.y);
+                        const w = Math.abs(endPointer.x - this.whiteoutDrawStart.x);
+                        const h = Math.abs(endPointer.y - this.whiteoutDrawStart.y);
+                        this.whiteoutDrawStart = null;
+
+                        if (w > 5 && h > 5) {
+                            this.addWhiteoutBox({ left: x, top: y, width: w, height: h });
+                        } else {
+                            this.addWhiteoutBox({ left: x, top: y, width: 140, height: 32 });
+                        }
+                    }
+
+                    if (this.activeTool === 'shapes' && this.isDrawingShape && this.shapeDrawStart) {
+                        this.isDrawingShape = false;
+                        const x = Math.min(this.shapeDrawStart.x, endPointer.x);
+                        const y = Math.min(this.shapeDrawStart.y, endPointer.y);
+                        const w = Math.abs(endPointer.x - this.shapeDrawStart.x);
+                        const h = Math.abs(endPointer.y - this.shapeDrawStart.y);
+                        this.shapeDrawStart = null;
+
+                        if (w > 5 || h > 5) {
+                            this.addShape(this.shapeType, {
+                                left: x,
+                                top: y,
+                                width: Math.max(15, w),
+                                height: Math.max(10, h),
+                                radius: Math.max(w, h) / 2,
+                            });
+                        } else {
+                            this.addShape(this.shapeType, { left: x, top: y });
                         }
                     }
                 });
@@ -166,15 +302,17 @@
             this.fabricCanvas.isDrawingMode = (tool === 'draw');
             if (tool === 'draw') {
                 this.fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(this.fabricCanvas);
-                this.fabricCanvas.freeDrawingBrush.width = 3;
-                this.fabricCanvas.freeDrawingBrush.color = '#2563eb';
+                const sizeVal = parseInt(document.getElementById('draw-brush-size')?.value || '3', 10);
+                const colorVal = document.getElementById('draw-brush-color')?.value || '#2563eb';
+                this.fabricCanvas.freeDrawingBrush.width = sizeVal;
+                this.fabricCanvas.freeDrawingBrush.color = colorVal;
             }
 
             if (tool === 'text-edit') {
                 this.fabricCanvas.defaultCursor = 'default';
-            } else if (tool === 'add-text') {
+            } else if (tool === 'add-text' || tool === 'annotate' || tool === 'whiteout' || tool === 'shapes') {
                 this.fabricCanvas.defaultCursor = 'crosshair';
-            } else if (tool === 'annotate') {
+            } else if (tool === 'links') {
                 this.fabricCanvas.defaultCursor = 'crosshair';
             } else {
                 this.fabricCanvas.defaultCursor = 'default';
@@ -184,7 +322,13 @@
         _updatePointerEvents() {
             const fabricWrap = this.container ? this.container.querySelector('.stage-layer-fabric-wrap') : null;
             if (fabricWrap) {
-                fabricWrap.classList.add('interactive');
+                if (this.activeTool === 'links') {
+                    fabricWrap.classList.remove('interactive');
+                    fabricWrap.style.pointerEvents = 'none';
+                } else {
+                    fabricWrap.classList.add('interactive');
+                    fabricWrap.style.pointerEvents = 'auto';
+                }
             }
             if (this.domLayer) {
                 this.domLayer.style.pointerEvents = 'auto';
@@ -237,13 +381,20 @@
         }
 
         async _renderBaseCanvas(pageState, viewportWidth, viewportHeight) {
+            if (this._currentRenderTask) {
+                try {
+                    this._currentRenderTask.cancel();
+                } catch (e) {}
+                this._currentRenderTask = null;
+            }
+
             const dpr = window.devicePixelRatio || 1;
             this.baseCanvas.width = viewportWidth * dpr;
             this.baseCanvas.height = viewportHeight * dpr;
             this.baseCanvas.style.width = `${viewportWidth}px`;
             this.baseCanvas.style.height = `${viewportHeight}px`;
 
-            const ctx = this.baseCanvas.getContext('2d');
+            const ctx = this.baseCanvas.getContext('2d', { willReadFrequently: true });
             ctx.scale(dpr, dpr);
 
             if (pageState.sourcePageIndex === null || !this.currentPdfProxy) {
@@ -260,10 +411,13 @@
                     rotation: pageState.rotation || 0,
                 });
 
-                await pdfPage.render({
+                const renderTask = pdfPage.render({
                     canvasContext: ctx,
                     viewport,
-                }).promise;
+                });
+                this._currentRenderTask = renderTask;
+                await renderTask.promise;
+                this._currentRenderTask = null;
 
                 // Auto-sample authoritative background & text colors from clean rendered baseCanvas using official viewport
                 if (window.TextExtractor && pageState.textBlocks.length > 0 && !pageState.textBlocks[0].sampled) {
@@ -274,6 +428,9 @@
                     window.TextExtractor.sampleBlockColors(this.baseCanvas, pageState.textBlocks, viewport);
                 }
             } catch (err) {
+                if (err && (err.name === 'RenderingCancelledException' || err.message?.includes('cancelled') || (typeof err === 'object' && Object.keys(err).length === 0))) {
+                    return; // Normal cancellation when new render task supersedes
+                }
                 console.error('Base canvas render error:', err);
             }
         }
@@ -736,10 +893,67 @@
             this.selectedFormField = null;
             document.querySelectorAll('.link-hotspot').forEach(el => el.classList.remove('selected'));
             document.querySelectorAll('.form-field-hotspot').forEach(el => el.classList.remove('selected'));
+
+            const activeObj = this.fabricCanvas ? this.fabricCanvas.getActiveObject() : null;
+            const subToolbar = document.getElementById('context-sub-toolbar');
+
+            if (activeObj && (activeObj.type === 'i-text' || activeObj.type === 'text')) {
+                this.activeFabricTextBox = activeObj;
+                if (subToolbar) {
+                    subToolbar.classList.remove('hidden');
+                    // Hide background controls for added text
+                    const bgGroup = document.getElementById('sub-bg-color')?.closest('.flex');
+                    if (bgGroup) bgGroup.style.display = 'none';
+                    const resetBtn = document.getElementById('sub-reset-btn');
+                    if (resetBtn) resetBtn.style.display = 'none';
+
+                    const fontTierPill = document.getElementById('sub-font-tier-pill');
+                    if (fontTierPill) {
+                        fontTierPill.classList.remove('hidden');
+                        fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200';
+                        fontTierPill.textContent = 'Added Vector Text';
+                    }
+
+                    const fontSelect = document.getElementById('sub-font-select');
+                    if (fontSelect && activeObj.fontFamily) {
+                        const famLower = activeObj.fontFamily.toLowerCase();
+                        if (famLower.includes('calibri') || famLower.includes('carlito')) fontSelect.value = 'carlito';
+                        else if (famLower.includes('roboto')) fontSelect.value = 'roboto';
+                        else if (famLower.includes('open sans')) fontSelect.value = 'opensans';
+                        else if (famLower.includes('lato')) fontSelect.value = 'lato';
+                        else if (famLower.includes('serif') || famLower.includes('times')) fontSelect.value = 'serif';
+                        else if (famLower.includes('mono') || famLower.includes('courier')) fontSelect.value = 'mono';
+                        else fontSelect.value = 'sans';
+                    }
+
+                    const fontSizeInput = document.getElementById('sub-font-size');
+                    if (fontSizeInput) fontSizeInput.value = Math.round(activeObj.fontSize || 16).toString();
+
+                    const textColorInput = document.getElementById('sub-text-color');
+                    if (textColorInput && activeObj.fill) textColorInput.value = activeObj.fill;
+
+                    const boldBtn = document.getElementById('sub-bold-btn');
+                    if (boldBtn) boldBtn.classList.toggle('active', activeObj.fontWeight === 'bold' || activeObj.fontWeight === 700 || activeObj.fontWeight === '700');
+
+                    const italicBtn = document.getElementById('sub-italic-btn');
+                    if (italicBtn) italicBtn.classList.toggle('active', activeObj.fontStyle === 'italic');
+                }
+            } else {
+                this.activeFabricTextBox = null;
+                if (this.activeTool !== 'add-text' && !this.selectedBlock) {
+                    subToolbar?.classList.add('hidden');
+                }
+            }
+
             this._updateFloatingBar();
         }
 
         _onFabricSelectionCleared() {
+            this.activeFabricTextBox = null;
+            if (this.activeTool !== 'add-text' && !this.selectedBlock) {
+                const subToolbar = document.getElementById('context-sub-toolbar');
+                subToolbar?.classList.add('hidden');
+            }
             if (!this.selectedLink && !this.selectedFormField) {
                 this._hideFloatingBar();
             }
@@ -1276,25 +1490,128 @@
             return t;
         }
 
-        addWhiteoutBox(options = {}) {
+        _syncHighlightLayer() {
+            if (!this.highlightLayer) {
+                this.highlightLayer = this.container ? this.container.querySelector('#stage-highlight-layer') : document.getElementById('stage-highlight-layer');
+            }
+            if (!this.highlightLayer || !this.fabricCanvas) return;
+
+            this.highlightLayer.innerHTML = '';
+            const objects = this.fabricCanvas.getObjects();
+            for (const obj of objects) {
+                if (obj.isAnnotation && obj.annotType === 'highlight') {
+                    const bound = obj.getBoundingRect(true);
+                    const div = document.createElement('div');
+                    div.className = 'annot-highlight-rect';
+                    div.style.left = `${bound.left}px`;
+                    div.style.top = `${bound.top}px`;
+                    div.style.width = `${bound.width}px`;
+                    div.style.height = `${bound.height}px`;
+                    div.style.backgroundColor = obj.fill || '#fef08a';
+                    div.style.opacity = '0.5';
+                    if (obj.angle) {
+                        div.style.transform = `rotate(${obj.angle}deg)`;
+                        div.style.transformOrigin = 'center center';
+                    }
+                    this.highlightLayer.appendChild(div);
+                }
+            }
+        }
+
+        getNearestTextBlockStyle(clickPtX, clickPtY) {
+            const defaultStyle = {
+                fontFamily: 'Liberation Sans',
+                fontSize: 16,
+                fill: '#1e293b',
+                bold: false,
+                italic: false,
+            };
+
+            const pageState = window.EditorState.getActivePage();
+            if (!pageState || !pageState.textBlocks || pageState.textBlocks.length === 0) {
+                return defaultStyle;
+            }
+
+            const scale = this.currentScale || 1.0;
+            const pageHeightPt = pageState.heightPt || 792;
+
+            let closestBlock = null;
+            let minDistance = Infinity;
+
+            for (const b of pageState.textBlocks) {
+                const baselineY = (pageHeightPt - (b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY)) * scale;
+                const ascentRatio = b.ascentRatio || 0.85;
+                const descentRatio = b.descentRatio || -0.20;
+                const fontSizePx = b.fontSizePt * scale;
+                const boxTop = baselineY - (fontSizePx * ascentRatio);
+                const boxLeft = b.pdfX * scale;
+                const boxWidth = (b.origPdfWidth || b.pdfWidth || 50) * scale;
+                const boxHeight = fontSizePx * (ascentRatio + Math.abs(descentRatio));
+
+                const centerX = boxLeft + (boxWidth / 2);
+                const centerY = boxTop + (boxHeight / 2);
+
+                const dx = Math.abs(centerX - clickPtX);
+                const dy = Math.abs(centerY - clickPtY);
+
+                // Prioritize lines in the same horizontal band
+                const weight = dy < 25 ? (dy * 1.5 + dx * 0.5) : Math.sqrt(dx * dx + dy * dy);
+
+                if (weight < minDistance) {
+                    minDistance = weight;
+                    closestBlock = b;
+                }
+            }
+
+            if (!closestBlock) return defaultStyle;
+
+            const matchedFamily = closestBlock.matched?.name || closestBlock.fontFamily || 'Liberation Sans';
+            const clampedSize = Math.max(8, Math.min(72, Math.round(closestBlock.fontSizePt || 14)));
+            const color = closestBlock.colorHex || '#1e293b';
+            const bold = Boolean(closestBlock.bold || closestBlock.isBold);
+            const italic = Boolean(closestBlock.italic || closestBlock.isItalic);
+
+            return {
+                fontFamily: matchedFamily,
+                fontSize: clampedSize,
+                fill: color,
+                bold,
+                italic,
+            };
+        }
+
+        addWhiteoutBox(coordsOrOptions = {}, fillColor = null) {
             if (!this.fabricCanvas) return;
+            let left = 120, top = 120, width = 150, height = 40, fill = fillColor;
+            let lockUniScaling = true;
+
+            if (Array.isArray(coordsOrOptions)) {
+                [left, top, width, height] = coordsOrOptions;
+            } else if (typeof coordsOrOptions === 'object' && coordsOrOptions !== null) {
+                if (coordsOrOptions.left !== undefined) left = coordsOrOptions.left;
+                if (coordsOrOptions.top !== undefined) top = coordsOrOptions.top;
+                if (coordsOrOptions.width !== undefined) width = coordsOrOptions.width;
+                if (coordsOrOptions.height !== undefined) height = coordsOrOptions.height;
+                if (coordsOrOptions.fill !== undefined) fill = coordsOrOptions.fill;
+                if (coordsOrOptions.lockUniScaling !== undefined) lockUniScaling = coordsOrOptions.lockUniScaling;
+            }
+
             const colorInput = document.getElementById('whiteout-fill-color');
             const defaultFill = colorInput ? colorInput.value : '#ffffff';
-            const fill = options.fill || defaultFill || '#ffffff';
-            const isWhite = fill.toLowerCase() === '#ffffff' || fill.toLowerCase() === '#fff';
+            fill = fill || defaultFill || '#ffffff';
+
             const rect = new fabric.Rect({
-                left: options.left !== undefined ? options.left : 120,
-                top: options.top !== undefined ? options.top : 120,
-                width: options.width || 150,
-                height: options.height || 40,
+                left,
+                top,
+                width: Math.max(10, width),
+                height: Math.max(8, height),
                 fill: fill,
-                stroke: isWhite ? '#e2e8f0' : fill,
-                strokeWidth: 1,
+                stroke: null,
+                strokeWidth: 0,
                 lockUniScaling: true,
                 cornerSize: 8,
                 transparentCorners: false,
                 isWhiteout: true,
-                ...options,
             });
             this.fabricCanvas.add(rect);
             this.fabricCanvas.setActiveObject(rect);
@@ -1309,7 +1626,28 @@
             if (!this.fabricCanvas) return;
             const chosenColor = color || this.annotateColor || '#fef08a';
             const defaultRect = rect || [100, 100, 180, 24];
-            const [x, y, w, h] = defaultRect;
+            let [x, y, w, h] = defaultRect;
+
+            // Snap height to overlapping text line if available
+            const pageState = window.EditorState.getActivePage();
+            if (pageState && pageState.textBlocks && type === 'highlight') {
+                const scale = this.currentScale || 1.0;
+                const pageHeightPt = pageState.heightPt || 792;
+                for (const block of pageState.textBlocks) {
+                    const baselineY = (pageHeightPt - (block.baselinePdfY !== undefined ? block.baselinePdfY : block.pdfY)) * scale;
+                    const ascentRatio = block.ascentRatio || 0.85;
+                    const descentRatio = block.descentRatio || -0.20;
+                    const fontSizePx = block.fontSizePt * scale;
+                    const blockTop = baselineY - (fontSizePx * ascentRatio);
+                    const blockHeight = fontSizePx * (ascentRatio + Math.abs(descentRatio));
+
+                    if (y + h > blockTop && y < blockTop + blockHeight) {
+                        y = Math.round(blockTop);
+                        h = Math.round(blockHeight);
+                        break;
+                    }
+                }
+            }
 
             let annotObj;
             if (type === 'underline') {
@@ -1341,7 +1679,7 @@
                     annotType: 'strike',
                 });
             } else {
-                // Highlight (translucent color wash)
+                // Highlight (translucent color wash with live CSS multiply blending on highlight layer)
                 annotObj = new fabric.Rect({
                     left: x,
                     top: y,
@@ -1355,11 +1693,13 @@
                     isAnnotation: true,
                     annotType: 'highlight',
                 });
+                annotObj.globalCompositeOperation = 'multiply';
             }
 
             this.fabricCanvas.add(annotObj);
             this.fabricCanvas.setActiveObject(annotObj);
             this.fabricCanvas.renderAll();
+            this._syncHighlightLayer();
             this._saveFabricState();
             const typeLabel = type === 'underline' ? 'Underline' : type === 'strike' ? 'Strikethrough' : 'Highlight';
             window.EditorState.pushSnapshot(`Add ${typeLabel}`);
@@ -1370,24 +1710,65 @@
         addShape(type = 'rect', options = {}) {
             if (!this.fabricCanvas) return;
             let shape;
+            const strokeColor = options.stroke || this.shapeStrokeColor || document.getElementById('shape-stroke-color')?.value || '#2563eb';
+            const strokeWidth = options.strokeWidth !== undefined ? options.strokeWidth : (parseInt(document.getElementById('shape-stroke-width')?.value || '2', 10));
+            const isTransparent = options.fillTransparent !== undefined ? options.fillTransparent : (document.getElementById('shape-fill-transparent')?.checked ?? true);
+            const fillColor = isTransparent ? 'transparent' : (options.fill || document.getElementById('shape-fill-color')?.value || '#ffffff');
+
             const base = {
                 left: options.left !== undefined ? options.left : 150,
                 top: options.top !== undefined ? options.top : 150,
-                fill: options.fill || 'transparent',
-                stroke: options.stroke || '#2563eb',
-                strokeWidth: options.strokeWidth || 2,
+                fill: fillColor,
+                stroke: strokeColor,
+                strokeWidth: strokeWidth,
                 lockUniScaling: true,
                 cornerSize: 8,
                 transparentCorners: false,
                 ...options,
             };
 
+            const w = options.width || 120;
+            const h = options.height || 80;
+
             if (type === 'rect') {
-                shape = new fabric.Rect({ ...base, width: options.width || 120, height: options.height || 80 });
+                shape = new fabric.Rect({ ...base, width: w, height: h });
             } else if (type === 'circle') {
-                shape = new fabric.Circle({ ...base, radius: options.radius || 50 });
+                shape = new fabric.Circle({ ...base, radius: options.radius || Math.max(w, h) / 2 });
             } else if (type === 'line') {
-                shape = new fabric.Line([50, 50, 200, 50], { ...base, strokeWidth: options.strokeWidth || 3 });
+                shape = new fabric.Line([base.left, base.top, base.left + w, base.top + h], {
+                    stroke: strokeColor,
+                    strokeWidth: strokeWidth,
+                    lockUniScaling: true,
+                    cornerSize: 8,
+                    transparentCorners: false,
+                });
+            } else if (type === 'arrow') {
+                const headLen = 14;
+                const angle = Math.atan2(h, w);
+                const toX = base.left + w;
+                const toY = base.top + h;
+                const line = new fabric.Line([base.left, base.top, toX, toY], {
+                    stroke: strokeColor,
+                    strokeWidth: strokeWidth,
+                });
+                const triangle = new fabric.Triangle({
+                    left: toX,
+                    top: toY,
+                    originX: 'center',
+                    originY: 'center',
+                    pointType: 'arrow_start',
+                    angle: (angle * 180 / Math.PI) + 90,
+                    width: headLen,
+                    height: headLen,
+                    fill: strokeColor,
+                });
+                shape = new fabric.Group([line, triangle], {
+                    left: Math.min(base.left, toX),
+                    top: Math.min(base.top, toY),
+                    lockUniScaling: true,
+                    cornerSize: 8,
+                    transparentCorners: false,
+                });
             }
 
             if (shape) {

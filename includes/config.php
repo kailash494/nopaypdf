@@ -28,7 +28,7 @@ if (!defined('SITE_DESCRIPTION')) {
 }
 
 if (!defined('APP_VERSION')) {
-    define('APP_VERSION', '2.5.0');
+    define('APP_VERSION', '2.6.0');
 }
 
 /**
