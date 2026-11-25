@@ -88,6 +88,41 @@ require_once __DIR__ . '/../includes/header.php';
 <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<script>
+    // Safeguard 2: Idempotent patch for Fabric 5.3.1 'alphabetical' CanvasTextBaseline typo
+    (function() {
+        if (window.__textBaselinePatched) return;
+        window.__textBaselinePatched = true;
+
+        if (window.fabric && window.fabric.Text && window.fabric.Text.prototype._setTextStyles) {
+            const origSetTextStyles = window.fabric.Text.prototype._setTextStyles;
+            window.fabric.Text.prototype._setTextStyles = function(ctx, charStyle, forMeasuring) {
+                origSetTextStyles.call(this, ctx, charStyle, forMeasuring);
+                ctx.textBaseline = 'alphabetic';
+            };
+        }
+
+        try {
+            const proto = CanvasRenderingContext2D.prototype;
+            const desc = Object.getOwnPropertyDescriptor(proto, 'textBaseline');
+            if (desc && desc.set && desc.get) {
+                Object.defineProperty(proto, 'textBaseline', {
+                    get: function() {
+                        return desc.get.call(this);
+                    },
+                    set: function(val) {
+                        const normalized = (val === 'alphabetical') ? 'alphabetic' : val;
+                        return desc.set.call(this, normalized);
+                    },
+                    configurable: true,
+                    enumerable: desc.enumerable,
+                });
+            }
+        } catch (e) {
+            // Non-fatal
+        }
+    })();
+</script>
 
 <!-- Editor Custom Stylesheet -->
 <link rel="stylesheet" href="/assets/css/edit-pdf.css?v=<?= APP_VERSION ?>">
@@ -523,11 +558,17 @@ require_once __DIR__ . '/../includes/header.php';
                 <!-- Layer 1.5: Highlight Annotation Overlay (Multiply Blending) -->
                 <div id="stage-highlight-layer" class="stage-layer-highlight"></div>
 
-                <!-- Layer 2: Interactive DOM Overlay -->
-                <div id="stage-dom-layer" class="stage-layer-dom"></div>
+                <!-- Layer 2A: Interactive Text Editing Layer -->
+                <div id="stage-text-layer" class="stage-layer-text"></div>
+
+                <!-- Layer 2B: Interactive Links Layer -->
+                <div id="stage-links-layer" class="stage-layer-links"></div>
+
+                <!-- Layer 2C: Interactive Forms Layer -->
+                <div id="stage-forms-layer" class="stage-layer-forms"></div>
                 
                 <!-- Layer 3: Fabric.js Interactive Vector Overlay -->
-                <div class="stage-layer-fabric-wrap">
+                <div id="stage-fabric-wrap" class="stage-layer-fabric-wrap">
                     <canvas id="stage-fabric-canvas"></canvas>
                 </div>
 

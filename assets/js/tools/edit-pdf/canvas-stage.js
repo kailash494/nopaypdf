@@ -15,7 +15,10 @@
         constructor() {
             this.container = null;
             this.baseCanvas = null;
-            this.domLayer = null;
+            this.textLayer = null;
+            this.linksLayer = null;
+            this.formsLayer = null;
+            this.fabricWrap = null;
             this.fabricCanvasEl = null;
             this.fabricCanvas = null;
             this.highlightLayer = null;
@@ -46,15 +49,27 @@
             this.isDrawingWhiteout = false;
             this.whiteoutDrawStart = null;
             this.activeFabricTextBox = null;
-            this._lastHoveredHitbox = null;
         }
 
-        init(containerEl, baseCanvasEl, domLayerEl, fabricCanvasEl) {
+        init(containerEl, baseCanvasEl, textLayerEl, linksLayerEl, formsLayerEl, fabricCanvasEl) {
             this.container = containerEl;
             this.baseCanvas = baseCanvasEl;
-            this.domLayer = domLayerEl;
-            this.fabricCanvasEl = fabricCanvasEl;
+            this.textLayer = textLayerEl || (this.container ? this.container.querySelector('#stage-text-layer') : document.getElementById('stage-text-layer'));
+            this.linksLayer = linksLayerEl || (this.container ? this.container.querySelector('#stage-links-layer') : document.getElementById('stage-links-layer'));
+            this.formsLayer = formsLayerEl || (this.container ? this.container.querySelector('#stage-forms-layer') : document.getElementById('stage-forms-layer'));
+            this.fabricCanvasEl = fabricCanvasEl || (this.container ? this.container.querySelector('#stage-fabric-canvas') : document.getElementById('stage-fabric-canvas'));
+            this.fabricWrap = this.container ? (this.container.querySelector('#stage-fabric-wrap') || this.container.querySelector('.stage-layer-fabric-wrap')) : document.getElementById('stage-fabric-wrap');
             this.highlightLayer = this.container ? this.container.querySelector('#stage-highlight-layer') : document.getElementById('stage-highlight-layer');
+
+            // Idempotent patch for Fabric 5.3.1 'alphabetical' CanvasTextBaseline typo
+            if (window.fabric && window.fabric.Text && window.fabric.Text.prototype._setTextStyles && !window.fabric.Text.prototype._setTextStyles.__patched) {
+                const origSetTextStyles = window.fabric.Text.prototype._setTextStyles;
+                window.fabric.Text.prototype._setTextStyles = function(ctx, charStyle, forMeasuring) {
+                    origSetTextStyles.call(this, ctx, charStyle, forMeasuring);
+                    ctx.textBaseline = 'alphabetic';
+                };
+                window.fabric.Text.prototype._setTextStyles.__patched = true;
+            }
 
             // Initialize Fabric.js
             if (window.fabric && !this.fabricCanvas) {
@@ -160,9 +175,18 @@
                                 this._saveFabricState();
                                 this._hideFloatingBar();
                             }
+                            if (this.activeTool === 'add-text') {
+                                this.setTool('text-edit');
+                                const mainTextEditBtn = document.getElementById('tool-text-edit');
+                                if (mainTextEditBtn) {
+                                    document.querySelectorAll('.editor-tool-btn').forEach(b => b.classList.remove('active'));
+                                    mainTextEditBtn.classList.add('active');
+                                }
+                            }
                         });
 
                         this.fabricCanvas.add(t);
+                        this.activeFabricTextBox = t;
                         this.fabricCanvas.setActiveObject(t);
                         t.enterEditing();
                         t.selectAll();
@@ -170,14 +194,6 @@
                         this._saveFabricState();
                         window.EditorState.pushSnapshot('Add Text');
                         this._updateFloatingBar();
-
-                        // Automatically switch back to text-edit tool so typing and navigation continue smoothly
-                        this.setTool('text-edit');
-                        const mainTextEditBtn = document.getElementById('tool-text-edit');
-                        if (mainTextEditBtn) {
-                            document.querySelectorAll('.editor-tool-btn').forEach(b => b.classList.remove('active'));
-                            mainTextEditBtn.classList.add('active');
-                        }
                         return;
                     }
 
@@ -201,36 +217,10 @@
                         this.shapeDrawStart = pointer;
                         return;
                     }
-
-                    // In text-edit mode, if click hits empty canvas, forward click to underlying DOM text hitbox
-                    if (this.activeTool === 'text-edit' && !opt.target && opt.e) {
-                        const elements = document.elementsFromPoint(opt.e.clientX, opt.e.clientY);
-                        const hitbox = elements.find(el => el.classList.contains('text-hitbox') || el.classList.contains('link-hotspot') || el.classList.contains('form-field-hotspot'));
-                        if (hitbox) {
-                            hitbox.dispatchEvent(new MouseEvent('click', { clientX: opt.e.clientX, clientY: opt.e.clientY, bubbles: true }));
-                        }
-                    }
                 });
 
                 this.fabricCanvas.on('mouse:move', (opt) => {
-                    if (this.activeTool === 'text-edit' && !opt.target && opt.e) {
-                        const elements = document.elementsFromPoint(opt.e.clientX, opt.e.clientY);
-                        const hitbox = elements.find(el => el.classList.contains('text-hitbox'));
-                        if (hitbox) {
-                            this.fabricCanvas.defaultCursor = 'text';
-                            hitbox.classList.add('hovered');
-                            if (this._lastHoveredHitbox && this._lastHoveredHitbox !== hitbox) {
-                                this._lastHoveredHitbox.classList.remove('hovered');
-                            }
-                            this._lastHoveredHitbox = hitbox;
-                        } else {
-                            this.fabricCanvas.defaultCursor = 'default';
-                            if (this._lastHoveredHitbox) {
-                                this._lastHoveredHitbox.classList.remove('hovered');
-                                this._lastHoveredHitbox = null;
-                            }
-                        }
-                    }
+                    // Intentionally empty for base drawing
                 });
 
                 this.fabricCanvas.on('mouse:up', (opt) => {
@@ -289,49 +279,195 @@
 
             this._setupFloatingBarEvents();
             this._setupLinkDrawing();
-            this._setupDomLayerClickDismiss();
+            this._setupClickDismiss();
+            this._applyLayerPointerEvents(this.activeTool);
         }
 
         setTool(tool) {
             this.activeTool = tool;
-            this._updatePointerEvents();
 
-            if (!this.fabricCanvas) return;
+            if (tool !== 'draw' && this.fabricCanvas) {
+                this.fabricCanvas.isDrawingMode = false;
+            }
+            if (tool !== 'shapes') {
+                this.isDrawingShape = false;
+                this.shapeDrawStart = null;
+            }
+            if (tool !== 'whiteout') {
+                this.isDrawingWhiteout = false;
+                this.whiteoutDrawStart = null;
+            }
+            if (tool !== 'annotate') {
+                this.isDrawingAnnot = false;
+                this.annotDrawStart = null;
+            }
+            if (tool !== 'images' && tool !== 'sign') {
+                this.cancelPlacement();
+            }
 
-            // Configure Fabric based on tool
-            this.fabricCanvas.isDrawingMode = (tool === 'draw');
-            if (tool === 'draw') {
-                this.fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(this.fabricCanvas);
-                const sizeVal = parseInt(document.getElementById('draw-brush-size')?.value || '3', 10);
-                const colorVal = document.getElementById('draw-brush-color')?.value || '#2563eb';
-                this.fabricCanvas.freeDrawingBrush.width = sizeVal;
-                this.fabricCanvas.freeDrawingBrush.color = colorVal;
+            if (this.fabricCanvas) {
+                // Configure Fabric based on tool
+                this.fabricCanvas.isDrawingMode = (tool === 'draw');
+                if (tool === 'draw') {
+                    this.fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(this.fabricCanvas);
+                    const sizeVal = parseInt(document.getElementById('draw-brush-size')?.value || '3', 10);
+                    const colorVal = document.getElementById('draw-brush-color')?.value || '#2563eb';
+                    this.fabricCanvas.freeDrawingBrush.width = sizeVal;
+                    this.fabricCanvas.freeDrawingBrush.color = colorVal;
+                }
+
+                if (tool === 'text-edit') {
+                    this.fabricCanvas.defaultCursor = 'default';
+                } else if (tool === 'add-text' || tool === 'annotate' || tool === 'whiteout' || tool === 'shapes' || tool === 'links') {
+                    this.fabricCanvas.defaultCursor = 'crosshair';
+                } else {
+                    this.fabricCanvas.defaultCursor = 'default';
+                }
+            }
+
+            this._applyLayerPointerEvents(tool);
+        }
+
+        _applyLayerPointerEvents(toolName) {
+            const tool = toolName || this.activeTool || 'text-edit';
+
+            // Base PDF canvas & multiply highlight layer are ALWAYS pointer-events: none
+            if (this.baseCanvas) {
+                this.baseCanvas.style.pointerEvents = 'none';
+                this.baseCanvas.style.zIndex = '10';
+            }
+            if (this.highlightLayer) {
+                this.highlightLayer.style.pointerEvents = 'none';
+                this.highlightLayer.style.zIndex = '15';
             }
 
             if (tool === 'text-edit') {
-                this.fabricCanvas.defaultCursor = 'default';
-            } else if (tool === 'add-text' || tool === 'annotate' || tool === 'whiteout' || tool === 'shapes') {
-                this.fabricCanvas.defaultCursor = 'crosshair';
-            } else if (tool === 'links') {
-                this.fabricCanvas.defaultCursor = 'crosshair';
-            } else {
-                this.fabricCanvas.defaultCursor = 'default';
-            }
-        }
-
-        _updatePointerEvents() {
-            const fabricWrap = this.container ? this.container.querySelector('.stage-layer-fabric-wrap') : null;
-            if (fabricWrap) {
-                if (this.activeTool === 'links') {
-                    fabricWrap.classList.remove('interactive');
-                    fabricWrap.style.pointerEvents = 'none';
-                } else {
-                    fabricWrap.classList.add('interactive');
-                    fabricWrap.style.pointerEvents = 'auto';
+                // Edit Text mode: Text layer is ON TOP (z-index 40)
+                if (this.textLayer) {
+                    this.textLayer.style.zIndex = '40';
+                    this.textLayer.style.pointerEvents = 'none'; // container transparent to clicks
+                    this.textLayer.querySelectorAll('.text-hitbox').forEach(el => {
+                        el.style.pointerEvents = 'auto';
+                    });
                 }
-            }
-            if (this.domLayer) {
-                this.domLayer.style.pointerEvents = 'auto';
+                if (this.linksLayer) {
+                    this.linksLayer.style.zIndex = '20';
+                    this.linksLayer.style.pointerEvents = 'none';
+                    this.linksLayer.querySelectorAll('.link-hotspot').forEach(el => {
+                        el.style.pointerEvents = 'none';
+                    });
+                }
+                if (this.formsLayer) {
+                    this.formsLayer.style.zIndex = '20';
+                    this.formsLayer.style.pointerEvents = 'none';
+                    this.formsLayer.querySelectorAll('.form-field-hotspot').forEach(el => {
+                        el.style.pointerEvents = 'none';
+                    });
+                }
+                if (this.fabricWrap) {
+                    this.fabricWrap.style.zIndex = '30';
+                    this.fabricWrap.style.pointerEvents = 'auto'; // Allows interacting with added Fabric objects without blocking .text-hitbox (z-index 40)
+                }
+                if (this.fabricCanvas) {
+                    this.fabricCanvas.isDrawingMode = false;
+                    const activeObj = this.fabricCanvas.getActiveObject();
+                    if (activeObj && !activeObj.isEditing && activeObj !== this.activeFabricTextBox) {
+                        this.fabricCanvas.discardActiveObject();
+                    }
+                    this.fabricCanvas.defaultCursor = 'default';
+                    this.fabricCanvas.renderAll();
+                }
+            } else if (tool === 'links') {
+                // Links mode: Links layer is ON TOP (z-index 40)
+                if (this.linksLayer) {
+                    this.linksLayer.style.zIndex = '40';
+                    this.linksLayer.style.pointerEvents = 'auto';
+                    this.linksLayer.querySelectorAll('.link-hotspot').forEach(el => {
+                        el.style.pointerEvents = 'auto';
+                    });
+                }
+                if (this.textLayer) {
+                    this.textLayer.style.zIndex = '20';
+                    this.textLayer.style.pointerEvents = 'none';
+                    this.textLayer.querySelectorAll('.text-hitbox').forEach(el => {
+                        el.style.pointerEvents = 'none';
+                    });
+                }
+                if (this.formsLayer) {
+                    this.formsLayer.style.zIndex = '20';
+                    this.formsLayer.style.pointerEvents = 'none';
+                    this.formsLayer.querySelectorAll('.form-field-hotspot').forEach(el => {
+                        el.style.pointerEvents = 'none';
+                    });
+                }
+                if (this.fabricWrap) {
+                    this.fabricWrap.style.zIndex = '30';
+                    this.fabricWrap.style.pointerEvents = 'none';
+                }
+                if (this.fabricCanvas) {
+                    this.fabricCanvas.isDrawingMode = false;
+                    this.fabricCanvas.discardActiveObject();
+                    this.fabricCanvas.renderAll();
+                }
+            } else if (tool === 'forms') {
+                // Forms mode: Forms layer is ON TOP (z-index 40)
+                if (this.formsLayer) {
+                    this.formsLayer.style.zIndex = '40';
+                    this.formsLayer.style.pointerEvents = 'auto';
+                    this.formsLayer.querySelectorAll('.form-field-hotspot').forEach(el => {
+                        el.style.pointerEvents = 'auto';
+                    });
+                }
+                if (this.textLayer) {
+                    this.textLayer.style.zIndex = '20';
+                    this.textLayer.style.pointerEvents = 'none';
+                    this.textLayer.querySelectorAll('.text-hitbox').forEach(el => {
+                        el.style.pointerEvents = 'none';
+                    });
+                }
+                if (this.linksLayer) {
+                    this.linksLayer.style.zIndex = '20';
+                    this.linksLayer.style.pointerEvents = 'none';
+                    this.linksLayer.querySelectorAll('.link-hotspot').forEach(el => {
+                        el.style.pointerEvents = 'none';
+                    });
+                }
+                if (this.fabricWrap) {
+                    this.fabricWrap.style.zIndex = '30';
+                    this.fabricWrap.style.pointerEvents = 'none';
+                }
+                if (this.fabricCanvas) {
+                    this.fabricCanvas.isDrawingMode = false;
+                    this.fabricCanvas.discardActiveObject();
+                    this.fabricCanvas.renderAll();
+                }
+            } else {
+                // Fabric Tools: add-text, images, sign, annotate, whiteout, shapes, draw
+                if (this.fabricWrap) {
+                    this.fabricWrap.style.zIndex = '40';
+                    this.fabricWrap.style.pointerEvents = 'auto';
+                }
+                if (this.textLayer) {
+                    this.textLayer.style.zIndex = '20';
+                    this.textLayer.style.pointerEvents = 'none';
+                    this.textLayer.querySelectorAll('.text-hitbox').forEach(el => {
+                        el.style.pointerEvents = 'none';
+                    });
+                }
+                if (this.linksLayer) {
+                    this.linksLayer.style.zIndex = '20';
+                    this.linksLayer.style.pointerEvents = 'none';
+                    this.linksLayer.querySelectorAll('.link-hotspot').forEach(el => {
+                        el.style.pointerEvents = 'none';
+                    });
+                }
+                if (this.formsLayer) {
+                    this.formsLayer.style.zIndex = '20';
+                    this.formsLayer.style.pointerEvents = 'none';
+                    this.formsLayer.querySelectorAll('.form-field-hotspot').forEach(el => {
+                        el.style.pointerEvents = 'none';
+                    });
+                }
             }
         }
 
@@ -364,20 +500,42 @@
             const viewportWidth = Math.round(widthPt * this.currentScale);
             const viewportHeight = Math.round(heightPt * this.currentScale);
 
-            // 1. Resize Stage Container
+            // 1. Resize Stage Container and all 6 Synchronized Layers
             this.container.style.width = `${viewportWidth}px`;
             this.container.style.height = `${viewportHeight}px`;
+
+            if (this.highlightLayer) {
+                this.highlightLayer.style.width = `${viewportWidth}px`;
+                this.highlightLayer.style.height = `${viewportHeight}px`;
+            }
+            if (this.textLayer) {
+                this.textLayer.style.width = `${viewportWidth}px`;
+                this.textLayer.style.height = `${viewportHeight}px`;
+            }
+            if (this.linksLayer) {
+                this.linksLayer.style.width = `${viewportWidth}px`;
+                this.linksLayer.style.height = `${viewportHeight}px`;
+            }
+            if (this.formsLayer) {
+                this.formsLayer.style.width = `${viewportWidth}px`;
+                this.formsLayer.style.height = `${viewportHeight}px`;
+            }
+            if (this.fabricWrap) {
+                this.fabricWrap.style.width = `${viewportWidth}px`;
+                this.fabricWrap.style.height = `${viewportHeight}px`;
+            }
 
             // 2. Render Layer 1: Base PDF.js Canvas
             await this._renderBaseCanvas(pageState, viewportWidth, viewportHeight);
 
-            // 3. Render Layer 2: Interactive DOM Overlay
-            this._renderDomLayer(pageState, viewportWidth, viewportHeight);
+            // 3. Render Layer 2: Dedicated Interactive Overlays (Text, Links, Forms)
+            this._renderDomLayers(pageState, viewportWidth, viewportHeight);
 
             // 4. Render Layer 3: Fabric.js Canvas
             this._renderFabricLayer(pageState, viewportWidth, viewportHeight);
 
-            this._updatePointerEvents();
+            this._syncHighlightLayer();
+            this._applyLayerPointerEvents();
         }
 
         async _renderBaseCanvas(pageState, viewportWidth, viewportHeight) {
@@ -467,8 +625,10 @@
             }
         }
 
-        _renderDomLayer(pageState, viewportWidth, viewportHeight) {
-            this.domLayer.innerHTML = '';
+        _renderDomLayers(pageState, viewportWidth, viewportHeight) {
+            if (this.textLayer) this.textLayer.innerHTML = '';
+            if (this.linksLayer) this.linksLayer.innerHTML = '';
+            if (this.formsLayer) this.formsLayer.innerHTML = '';
             const scale = this.currentScale;
             const pageHeightPt = pageState.heightPt;
             const measureCtx = this.getMeasureContext();
@@ -562,7 +722,7 @@
                     this._activateTextEdit(block, el);
                 });
 
-                this.domLayer.appendChild(el);
+                if (this.textLayer) this.textLayer.appendChild(el);
             }
 
             // B. Render Native Links
@@ -599,7 +759,7 @@
                     this._openLinkConfig(link);
                 });
 
-                this.domLayer.appendChild(linkEl);
+                if (this.linksLayer) this.linksLayer.appendChild(linkEl);
             }
 
             // C. Render AcroForm Fields
@@ -636,7 +796,7 @@
                     this._openFormFieldConfig(field);
                 });
 
-                this.domLayer.appendChild(fieldEl);
+                if (this.formsLayer) this.formsLayer.appendChild(fieldEl);
             }
         }
 
@@ -804,17 +964,20 @@
             }
         }
 
-        _setupDomLayerClickDismiss() {
-            if (!this.domLayer) return;
-            this.domLayer.addEventListener('click', (e) => {
-                if (e.target === this.domLayer) {
+        _setupClickDismiss() {
+            const dismissHandler = (e) => {
+                if (e.target === this.textLayer || e.target === this.linksLayer || e.target === this.formsLayer || e.target === this.container) {
                     this.selectedLink = null;
                     this.selectedFormField = null;
                     document.querySelectorAll('.link-hotspot').forEach(el => el.classList.remove('selected'));
                     document.querySelectorAll('.form-field-hotspot').forEach(el => el.classList.remove('selected'));
                     this._hideFloatingBar();
                 }
-            });
+            };
+            if (this.textLayer) this.textLayer.addEventListener('click', dismissHandler);
+            if (this.linksLayer) this.linksLayer.addEventListener('click', dismissHandler);
+            if (this.formsLayer) this.formsLayer.addEventListener('click', dismissHandler);
+            if (this.container) this.container.addEventListener('click', dismissHandler);
         }
 
         _setupFloatingBarEvents() {
@@ -1385,9 +1548,10 @@
         }
 
         _setupLinkDrawing() {
-            this.domLayer.addEventListener('mousedown', (e) => {
+            if (!this.linksLayer) return;
+            this.linksLayer.addEventListener('mousedown', (e) => {
                 if (this.activeTool !== 'links') return;
-                const rect = this.domLayer.getBoundingClientRect();
+                const rect = this.linksLayer.getBoundingClientRect();
                 this.isDrawingLink = true;
                 this.linkDrawStart = {
                     x: (e.clientX - rect.left) / this.currentScale,
@@ -1396,9 +1560,9 @@
             });
 
             window.addEventListener('mouseup', (e) => {
-                if (!this.isDrawingLink || this.activeTool !== 'links') return;
+                if (!this.isDrawingLink || this.activeTool !== 'links' || !this.linksLayer) return;
                 this.isDrawingLink = false;
-                const rect = this.domLayer.getBoundingClientRect();
+                const rect = this.linksLayer.getBoundingClientRect();
                 const endX = (e.clientX - rect.left) / this.currentScale;
                 const endY = (e.clientY - rect.top) / this.currentScale;
 
@@ -1482,6 +1646,7 @@
                 ...options,
             });
             this.fabricCanvas.add(t);
+            this.activeFabricTextBox = t;
             this.fabricCanvas.setActiveObject(t);
             this.fabricCanvas.renderAll();
             this._saveFabricState();

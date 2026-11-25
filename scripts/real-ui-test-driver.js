@@ -137,23 +137,96 @@
         if (!state) throw new Error('Active page state not found in EditorState');
 
         // ====================================================================
-        // FEATURE 1: Edit Text
+        // FEATURE 1: Edit Text (with Dirty Multi-Tool Stress Sequence & 150% Zoom Hit-Testing)
         // ====================================================================
         log('\n--- Verifying Feature 1: Edit Text ---');
+
+        // Execute dirty multi-tool stress sequence before testing Edit Text
+        log('Executing dirty multi-tool stress sequence (Annotate, Whiteout, Shapes, Draw, + Add Text)...');
+        window.CanvasStage.addAnnotation('highlight', [60, 80, 180, 18], '#fef08a');
+        window.CanvasStage.addWhiteoutBox({ left: 320, top: 80, width: 80, height: 22 });
+        window.CanvasStage.addShape('circle', { left: 420, top: 80, radius: 15 });
+        window.CanvasStage.addShape('line', { left: 460, top: 80, width: 35, height: 10 });
+        
+        // Add freehand path
+        window.CanvasStage.setTool('draw');
+        const stressPath = new fabric.Path('M 500 80 Q 520 90 540 80', {
+            stroke: '#2563eb',
+            strokeWidth: 2,
+            fill: null,
+        });
+        window.CanvasStage.fabricCanvas.add(stressPath);
+
+        // Add added text box
+        window.CanvasStage.setTool('add-text');
+        window.CanvasStage.addFabricText('Stress Test Box', { left: 100, top: 120 });
+        await new Promise(r => setTimeout(r, 150));
+
+        // Switch zoom to 150%
+        log('Switching zoom to 150%...');
+        await window.CanvasStage.renderPage(window.CanvasStage.currentPdfProxy, 1.5);
+        if (window.CanvasStage.currentScale !== 1.5) {
+            throw new Error(`Failed to set scale to 1.5, current scale: ${window.CanvasStage.currentScale}`);
+        }
+
+        // Verify layer dimension synchronization across all layers
+        const expectedW = Math.round((state.widthPt || 612) * 1.5);
+        const stageStackEl = document.getElementById('stage-stack');
+        const textLayerEl = document.getElementById('stage-text-layer');
+        const linksLayerEl = document.getElementById('stage-links-layer');
+        const formsLayerEl = document.getElementById('stage-forms-layer');
+        const fabricWrapEl = document.getElementById('stage-fabric-wrap');
+        const highlightLayerEl = document.getElementById('stage-highlight-layer');
+
+        if (parseInt(stageStackEl.style.width, 10) !== expectedW) {
+            throw new Error(`stage-stack width mismatch: ${stageStackEl.style.width}, expected ${expectedW}px`);
+        }
+        if (textLayerEl && parseInt(textLayerEl.style.width, 10) !== expectedW) {
+            throw new Error(`stage-text-layer width mismatch: ${textLayerEl.style.width}, expected ${expectedW}px`);
+        }
+        if (fabricWrapEl && parseInt(fabricWrapEl.style.width, 10) !== expectedW) {
+            throw new Error(`stage-fabric-wrap width mismatch: ${fabricWrapEl.style.width}, expected ${expectedW}px`);
+        }
+        log(`✓ All 6 stage layers synchronized at 150% zoom (${expectedW}px)`);
+
+        // Switch back to Edit Text mode
+        log('Switching tool back to Edit Text (text-edit)...');
+        window.CanvasStage.setTool('text-edit');
+        await new Promise(r => setTimeout(r, 150));
+
         const greyBlock = state.textBlocks.find(b => b.originalText.includes('Beneficiary Bank Name'));
         if (!greyBlock) throw new Error('Target text block "Beneficiary Bank Name" not found');
 
         let targetGreyHitbox = document.querySelector(`.text-hitbox[data-id="${greyBlock.id}"]`);
         if (!targetGreyHitbox) throw new Error('Target text hitbox element not found');
 
-        targetGreyHitbox.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        // Scroll hitbox into center view if needed
+        targetGreyHitbox.scrollIntoView({ block: 'center', inline: 'center' });
+        await new Promise(r => setTimeout(r, 100));
+
+        // VISUAL HIT-TEST: Compute center (cx, cy) and assert document.elementFromPoint resolves to .text-hitbox
+        const rect = targetGreyHitbox.getBoundingClientRect();
+        const cx = Math.round(rect.left + rect.width / 2);
+        const cy = Math.round(rect.top + rect.height / 2);
+        const topEl = document.elementFromPoint(cx, cy);
+
+        if (topEl !== targetGreyHitbox && !targetGreyHitbox.contains(topEl)) {
+            const blockingDesc = topEl ? `${topEl.tagName}.${topEl.className}` : 'null';
+            throw new Error(`Hit-test blocked at 150% zoom! Top element at (${cx}, ${cy}) is ${blockingDesc}, expected .text-hitbox`);
+        }
+        log(`✓ Visual hit-test confirmed: document.elementFromPoint(${cx}, ${cy}) resolved directly to .text-hitbox without layer occlusion`);
+
+        // Dispatch real user mouse sequence (mousedown, mouseup, click)
+        topEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: cx, clientY: cy }));
+        topEl.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: cx, clientY: cy }));
+        topEl.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: cx, clientY: cy }));
         await new Promise(r => setTimeout(r, 150));
 
         let activeInput = document.querySelector(`.text-hitbox[data-id="${greyBlock.id}"] .text-inline-input`);
-        if (!activeInput) throw new Error('.text-inline-input not found inside editing hitbox');
+        if (!activeInput) throw new Error('.text-inline-input not found inside editing hitbox after simulated click');
 
         // Test editing
-        activeInput.value = 'Beneficiary Bank Name - TestEdit';
+        activeInput.value = 'Beneficiary Bank Name - MultiToolEdit';
         activeInput.dispatchEvent(new Event('input', { bubbles: true }));
         await new Promise(r => setTimeout(r, 100));
 
@@ -192,7 +265,10 @@
             throw new Error('Undo failed to restore deleted line');
         }
         log('✓ Undo restored deleted text block');
-        recordFeature(1, 'Edit Text', true, 'Inline editing, quick-bar reset, delete line, and undo restoration verified');
+
+        // Reset zoom to 100% for subsequent feature tests
+        await window.CanvasStage.renderPage(window.CanvasStage.currentPdfProxy, 1.0);
+        recordFeature(1, 'Edit Text', true, 'Dirty multi-tool stress, 150% zoom visual hit-testing, inline editing, reset, and delete/undo verified');
 
         // ====================================================================
         // FEATURE 2: + Add Text

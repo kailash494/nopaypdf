@@ -26,7 +26,9 @@
         // Stage & Layers
         const stageStack = document.getElementById('stage-stack');
         const stageBaseCanvas = document.getElementById('stage-base-canvas');
-        const stageDomLayer = document.getElementById('stage-dom-layer');
+        const stageTextLayer = document.getElementById('stage-text-layer');
+        const stageLinksLayer = document.getElementById('stage-links-layer');
+        const stageFormsLayer = document.getElementById('stage-forms-layer');
         const stageFabricCanvas = document.getElementById('stage-fabric-canvas');
 
         // Thumbnail Rail
@@ -115,7 +117,7 @@
         let activeFindIndex = 0;
 
         // Initialize Stage
-        window.CanvasStage.init(stageStack, stageBaseCanvas, stageDomLayer, stageFabricCanvas);
+        window.CanvasStage.init(stageStack, stageBaseCanvas, stageTextLayer, stageLinksLayer, stageFormsLayer, stageFabricCanvas);
 
         // ====================================================
         // File Dropzone & Loading
