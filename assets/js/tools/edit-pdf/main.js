@@ -385,6 +385,7 @@
 
         function hideAllSubToolbars() {
             window.NoPayColorPicker?.close();
+            window.NoPayFontPicker?.close();
             window.CanvasStage?.closePropertiesPopover();
             subToolbar?.classList.add('hidden');
             annotateSubToolbar?.classList.add('hidden');
@@ -422,6 +423,14 @@
                     }
                 } else if (tool === 'add-text') {
                     subToolbar?.classList.remove('hidden');
+                    if (window.CanvasStage) {
+                        window.CanvasStage.preferredAddTextFontFamily = null;
+                    }
+                    window.NoPayFontPicker?.setAllowOriginal(false);
+                    if (fontSelect && fontSelect.value === 'original') {
+                        fontSelect.value = 'sans';
+                    }
+                    window.NoPayFontPicker?.setValue(fontSelect?.value || 'sans', { load: false });
                     const bgWrap = document.getElementById('sub-bg-color-wrap');
                     if (bgWrap) bgWrap.style.display = '';
                     const bgBinding = window.NoPayColorPicker?.bindings?.get('sub-bg-color');
@@ -702,6 +711,13 @@
             });
         }
 
+        if (window.NoPayFontPicker) {
+            window.NoPayFontPicker.bind({
+                triggerBtn: 'sub-font-picker-trigger',
+                selectEl: 'sub-font-select',
+            });
+        }
+
         // Forms Sub-Toolbar wiring
         const formTypeBtns = document.querySelectorAll('.form-type-btn');
         const formFieldNameInput = document.getElementById('form-field-name-input');
@@ -780,10 +796,12 @@
                 }
             }
 
+            const selectedKey = block.fontFamily || (block.tier === 1 ? 'original' : (block.matched?.local || 'sans'));
+            window.NoPayFontPicker?.setAllowOriginal(true);
             if (fontSelect) {
-                const selectedKey = block.fontFamily || (block.tier === 1 ? 'original' : (block.matched?.local || 'sans'));
                 fontSelect.value = selectedKey;
             }
+            window.NoPayFontPicker?.setValue(selectedKey, { load: selectedKey !== 'original' });
             if (fontSizeInput) fontSizeInput.value = (Math.round((block.fontSizePt || 12) * 100) / 100).toString();
             if (boldBtn) {
                 boldBtn.classList.toggle('active', Boolean(block.bold));
@@ -803,30 +821,61 @@
         });
 
         function getFontFamilyFromSelectKey(key) {
-            switch (key) {
-                case 'carlito': return 'Carlito';
-                case 'roboto': return 'Roboto';
-                case 'opensans': return 'Open Sans';
-                case 'lato': return 'Lato';
-                case 'serif': return 'Liberation Serif';
-                case 'mono': return 'Liberation Mono';
-                case 'sans':
-                default: return 'Liberation Sans';
+            if (window.FontManager && typeof window.FontManager.getCssFamily === 'function') {
+                return window.FontManager.getCssFamily(key);
             }
+            return 'Liberation Sans';
         }
 
-        fontSelect?.addEventListener('change', () => {
+        fontSelect?.addEventListener('change', async () => {
+            const selectedKey = fontSelect.value || 'sans';
+            window.NoPayFontPicker?.setValue(selectedKey, { load: false });
+
             if (window.CanvasStage.selectedBlock) {
-                window.CanvasStage.selectedBlock.fontFamily = fontSelect.value;
-                window.CanvasStage.selectedBlock.modified = true;
+                const targetBlock = window.CanvasStage.selectedBlock;
+                targetBlock.fontFamily = selectedKey;
+                targetBlock.modified = true;
                 window.EditorState.pushSnapshot('Change Font Family');
-                renderCurrentPage();
+                await renderCurrentPage();
+
+                if (selectedKey !== 'original' && window.FontManager?.ensureFontLoaded) {
+                    await window.FontManager.ensureFontLoaded(selectedKey, {
+                        bold: Boolean(targetBlock.bold),
+                        italic: Boolean(targetBlock.italic),
+                    });
+                    if (window.CanvasStage.selectedBlock === targetBlock || targetBlock.modified) {
+                        await renderCurrentPage();
+                    }
+                }
             } else if (window.CanvasStage.activeFabricTextBox) {
-                const fam = getFontFamilyFromSelectKey(fontSelect.value);
-                window.CanvasStage.activeFabricTextBox.set('fontFamily', fam);
+                const targetBox = window.CanvasStage.activeFabricTextBox;
+                const fam = getFontFamilyFromSelectKey(selectedKey);
+                targetBox.set('fontFamily', fam);
                 window.CanvasStage.fabricCanvas.renderAll();
                 window.CanvasStage._saveFabricState();
                 window.EditorState.pushSnapshot('Change Font Family');
+
+                if (selectedKey !== 'original' && window.FontManager?.ensureFontLoaded) {
+                    const isBold = targetBox.fontWeight === 'bold' || targetBox.fontWeight === 700 || targetBox.fontWeight === '700';
+                    const isItalic = targetBox.fontStyle === 'italic';
+                    const res = await window.FontManager.ensureFontLoaded(selectedKey, { bold: isBold, italic: isItalic });
+                    if (res && res.cssName && res.fallback) {
+                        targetBox.set('fontFamily', res.cssName);
+                    }
+                    if (window.fabric?.util?.clearFabricFontCache) {
+                        window.fabric.util.clearFabricFontCache(fam);
+                    }
+                    window.CanvasStage.fabricCanvas.requestRenderAll();
+                    window.CanvasStage._saveFabricState();
+                }
+            } else if (window.CanvasStage.activeTool === 'add-text') {
+                const fam = getFontFamilyFromSelectKey(selectedKey);
+                window.CanvasStage.preferredAddTextFontFamily = fam;
+                if (selectedKey !== 'original' && window.FontManager?.ensureFontLoaded) {
+                    const isB = Boolean(boldBtn?.classList.contains('active'));
+                    const isI = Boolean(italicBtn?.classList.contains('active'));
+                    await window.FontManager.ensureFontLoaded(selectedKey, { bold: isB, italic: isI });
+                }
             }
         });
 
@@ -843,34 +892,53 @@
             }
         });
 
-        boldBtn?.addEventListener('click', () => {
+        boldBtn?.addEventListener('click', async () => {
             if (window.CanvasStage.selectedBlock) {
-                window.CanvasStage.selectedBlock.bold = !window.CanvasStage.selectedBlock.bold;
-                window.CanvasStage.selectedBlock.modified = true;
-                boldBtn.classList.toggle('active', window.CanvasStage.selectedBlock.bold);
+                const b = window.CanvasStage.selectedBlock;
+                b.bold = !b.bold;
+                b.modified = true;
+                boldBtn.classList.toggle('active', b.bold);
                 window.EditorState.pushSnapshot('Toggle Bold');
+                if (b.fontFamily && b.fontFamily !== 'original' && window.FontManager?.ensureFontLoaded) {
+                    await window.FontManager.ensureFontLoaded(b.fontFamily, { bold: b.bold, italic: Boolean(b.italic) });
+                }
                 renderCurrentPage();
             } else if (window.CanvasStage.activeFabricTextBox) {
-                const isB = window.CanvasStage.activeFabricTextBox.fontWeight === 'bold' || window.CanvasStage.activeFabricTextBox.fontWeight === 700 || window.CanvasStage.activeFabricTextBox.fontWeight === '700';
-                window.CanvasStage.activeFabricTextBox.set('fontWeight', isB ? 'normal' : 'bold');
+                const box = window.CanvasStage.activeFabricTextBox;
+                const isB = box.fontWeight === 'bold' || box.fontWeight === 700 || box.fontWeight === '700';
+                box.set('fontWeight', isB ? 'normal' : 'bold');
                 boldBtn.classList.toggle('active', !isB);
+                if (box.fontFamily && window.FontManager?.ensureFontLoaded) {
+                    await window.FontManager.ensureFontLoaded(box.fontFamily, { bold: !isB, italic: box.fontStyle === 'italic' });
+                }
                 window.CanvasStage.fabricCanvas.renderAll();
                 window.CanvasStage._saveFabricState();
                 window.EditorState.pushSnapshot('Toggle Bold');
             }
         });
 
-        italicBtn?.addEventListener('click', () => {
+        italicBtn?.addEventListener('click', async () => {
             if (window.CanvasStage.selectedBlock) {
-                window.CanvasStage.selectedBlock.italic = !window.CanvasStage.selectedBlock.italic;
-                window.CanvasStage.selectedBlock.modified = true;
-                italicBtn.classList.toggle('active', window.CanvasStage.selectedBlock.italic);
+                const b = window.CanvasStage.selectedBlock;
+                b.italic = !b.italic;
+                b.modified = true;
+                italicBtn.classList.toggle('active', b.italic);
                 window.EditorState.pushSnapshot('Toggle Italic');
+                if (b.fontFamily && b.fontFamily !== 'original' && window.FontManager?.ensureFontLoaded) {
+                    await window.FontManager.ensureFontLoaded(b.fontFamily, { bold: Boolean(b.bold), italic: b.italic });
+                }
                 renderCurrentPage();
             } else if (window.CanvasStage.activeFabricTextBox) {
-                const isI = window.CanvasStage.activeFabricTextBox.fontStyle === 'italic';
-                window.CanvasStage.activeFabricTextBox.set('fontStyle', isI ? 'normal' : 'italic');
+                const box = window.CanvasStage.activeFabricTextBox;
+                const isI = box.fontStyle === 'italic';
+                box.set('fontStyle', isI ? 'normal' : 'italic');
                 italicBtn.classList.toggle('active', !isI);
+                if (box.fontFamily && window.FontManager?.ensureFontLoaded) {
+                    await window.FontManager.ensureFontLoaded(box.fontFamily, {
+                        bold: box.fontWeight === 'bold' || box.fontWeight === 700 || box.fontWeight === '700',
+                        italic: !isI,
+                    });
+                }
                 window.CanvasStage.fabricCanvas.renderAll();
                 window.CanvasStage._saveFabricState();
                 window.EditorState.pushSnapshot('Toggle Italic');

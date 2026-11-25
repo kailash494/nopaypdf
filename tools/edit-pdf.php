@@ -161,7 +161,8 @@ require_once __DIR__ . '/../includes/header.php';
                 id="editor-dropzone"
                 class="relative border-2 border-dashed border-slate-300 hover:border-blue-500 bg-white rounded-3xl p-8 sm:p-14 text-center transition-all cursor-pointer shadow-xs hover:shadow-md group"
             >
-                <input type="file" id="editor-file-input" class="hidden" accept=".pdf,application/pdf">
+                <label for="editor-file-input" class="sr-only">Select PDF Document</label>
+                <input type="file" id="editor-file-input" name="editor-file-input" aria-label="Select PDF Document" class="hidden" accept=".pdf,application/pdf">
 
                 <div class="flex flex-col items-center justify-center space-y-4">
                     <div class="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
@@ -287,7 +288,8 @@ require_once __DIR__ . '/../includes/header.php';
             </button>
 
             <!-- Zoom -->
-            <select id="zoom-select" class="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 cursor-pointer">
+            <label for="zoom-select" class="sr-only">Document Zoom Level</label>
+            <select id="zoom-select" name="zoom-select" aria-label="Document Zoom Level" class="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 cursor-pointer">
                 <option value="0.75">75%</option>
                 <option value="1.0" selected>100%</option>
                 <option value="1.25">125%</option>
@@ -300,21 +302,25 @@ require_once __DIR__ . '/../includes/header.php';
     <div id="context-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
         <div class="flex items-center gap-2 shrink-0 flex-nowrap">
             <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider shrink-0">Typography:</span>
-            <!-- Font Family -->
-            <select id="sub-font-select" class="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium shrink-0">
+            <!-- Searchable Font Family Picker + Synced sr-only Select -->
+            <label for="sub-font-select" class="sr-only">Font Family</label>
+            <select id="sub-font-select" name="sub-font-select" aria-label="Font Family" tabindex="-1" class="sr-only">
                 <option value="original">Original (Embedded)</option>
-                <option value="carlito">Carlito (Calibri)</option>
-                <option value="roboto">Roboto</option>
-                <option value="opensans">Open Sans (Segoe UI)</option>
-                <option value="lato">Lato</option>
-                <option value="sans">Liberation Sans (Arial / Helvetica)</option>
-                <option value="serif">Liberation Serif (Times)</option>
-                <option value="mono">Liberation Mono (Courier)</option>
+                <option value="sans" selected>Liberation Sans (Arial / Helvetica)</option>
             </select>
+            <button type="button" id="sub-font-picker-trigger" class="nopay-font-trigger shrink-0" aria-haspopup="listbox" aria-expanded="false" aria-label="Choose Font Family">
+                <span class="nopay-font-trigger-label">Liberation Sans</span>
+                <svg id="sub-font-loading-spinner" class="hidden w-3.5 h-3.5 animate-spin text-blue-600 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+            </button>
             <span id="sub-font-tier-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hidden shrink-0"></span>
 
             <!-- Font Size -->
-            <input type="number" id="sub-font-size" value="12" min="4" max="144" step="0.1" class="w-14 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium text-center shrink-0">
+            <label for="sub-font-size" class="sr-only">Font Size (pt)</label>
+            <input type="number" id="sub-font-size" name="sub-font-size" aria-label="Font Size" value="12" min="4" max="144" step="0.1" class="w-14 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium text-center shrink-0">
 
             <!-- Bold / Italic -->
             <button type="button" id="sub-bold-btn" class="px-2.5 py-1 rounded-md border border-slate-200 font-extrabold hover:bg-slate-100 shrink-0">B</button>
@@ -323,7 +329,7 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Unified Colors -->
             <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
                 <span class="text-[10px] text-slate-500 font-semibold">Text:</span>
-                <input type="hidden" id="sub-text-color" value="#1e293b">
+                <input type="hidden" id="sub-text-color" name="sub-text-color" value="#1e293b">
                 <button type="button" id="sub-text-color-trigger" class="nopay-color-trigger" title="Text Color" aria-label="Text Color">
                     <span class="nopay-trigger-chip" style="background-color: #1e293b;"></span>
                     <span class="nopay-trigger-label">#1E293B</span>
@@ -333,7 +339,7 @@ require_once __DIR__ . '/../includes/header.php';
 
             <div id="sub-bg-color-wrap" class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
                 <span class="text-[10px] text-slate-500 font-semibold">Bg:</span>
-                <input type="hidden" id="sub-bg-color" value="#ffffff">
+                <input type="hidden" id="sub-bg-color" name="sub-bg-color" value="#ffffff">
                 <button type="button" id="sub-bg-color-trigger" class="nopay-color-trigger" title="Background Color" aria-label="Background Color">
                     <span class="nopay-trigger-chip" style="background-color: #ffffff;"></span>
                     <span class="nopay-trigger-label">Auto</span>
@@ -370,7 +376,7 @@ require_once __DIR__ . '/../includes/header.php';
 
             <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
                 <span class="text-[10px] text-slate-500 font-semibold">Color:</span>
-                <input type="hidden" id="annot-color-picker" value="#fef08a">
+                <input type="hidden" id="annot-color-picker" name="annot-color-picker" value="#fef08a">
                 <button type="button" id="annot-color-trigger" class="nopay-color-trigger" title="Annotation Color" aria-label="Annotation Color">
                     <span class="nopay-trigger-chip" style="background-color: #fef08a;"></span>
                     <span class="nopay-trigger-label">#FEF08A</span>
@@ -386,7 +392,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="flex items-center gap-2 shrink-0 flex-nowrap">
             <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider shrink-0">Whiteout Fill:</span>
             <div class="flex items-center gap-1.5 shrink-0">
-                <input type="hidden" id="whiteout-fill-color" value="#ffffff">
+                <input type="hidden" id="whiteout-fill-color" name="whiteout-fill-color" value="#ffffff">
                 <button type="button" id="whiteout-color-trigger" class="nopay-color-trigger" title="Cover Fill Color" aria-label="Whiteout Fill Color">
                     <span class="nopay-trigger-chip" style="background-color: #ffffff;"></span>
                     <span class="nopay-trigger-label">#FFFFFF</span>
@@ -422,7 +428,7 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Stroke Color -->
             <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
                 <span class="text-[10px] text-slate-500 font-semibold">Stroke:</span>
-                <input type="hidden" id="shape-stroke-color" value="#2563eb">
+                <input type="hidden" id="shape-stroke-color" name="shape-stroke-color" value="#2563eb">
                 <button type="button" id="shape-stroke-trigger" class="nopay-color-trigger" title="Stroke Color" aria-label="Shape Stroke Color">
                     <span class="nopay-trigger-chip" style="background-color: #2563eb;"></span>
                     <span class="nopay-trigger-label">#2563EB</span>
@@ -433,7 +439,7 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Stroke Width -->
             <div class="flex items-center gap-1 pl-2 border-l border-slate-200 shrink-0">
                 <label for="shape-stroke-width" class="text-[10px] text-slate-500 font-semibold">Width:</label>
-                <select id="shape-stroke-width" class="px-2 py-0.5 rounded border border-slate-200 bg-white text-xs font-medium cursor-pointer">
+                <select id="shape-stroke-width" name="shape-stroke-width" class="px-2 py-0.5 rounded border border-slate-200 bg-white text-xs font-medium cursor-pointer">
                     <option value="1">1px</option>
                     <option value="2" selected>2px</option>
                     <option value="4">4px</option>
@@ -444,8 +450,9 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Fill Color & No Fill via Unified Picker -->
             <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
                 <span class="text-[10px] text-slate-500 font-semibold">Fill:</span>
-                <input type="hidden" id="shape-fill-color" value="#ffffff">
-                <input type="checkbox" id="shape-fill-transparent" checked class="sr-only">
+                <input type="hidden" id="shape-fill-color" name="shape-fill-color" value="#ffffff">
+                <label for="shape-fill-transparent" class="sr-only">Transparent Shape Fill</label>
+                <input type="checkbox" id="shape-fill-transparent" name="shape-fill-transparent" aria-label="Transparent Shape Fill" checked class="sr-only">
                 <button type="button" id="shape-fill-trigger" class="nopay-color-trigger" title="Fill Color" aria-label="Shape Fill Color">
                     <span class="nopay-trigger-chip is-clear"></span>
                     <span class="nopay-trigger-label">No Fill</span>
@@ -462,7 +469,7 @@ require_once __DIR__ . '/../includes/header.php';
             <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider shrink-0">Freehand Ink:</span>
             <div class="flex items-center gap-1.5 shrink-0">
                 <span class="text-[10px] text-slate-500 font-semibold">Color:</span>
-                <input type="hidden" id="draw-brush-color" value="#2563eb">
+                <input type="hidden" id="draw-brush-color" name="draw-brush-color" value="#2563eb">
                 <button type="button" id="draw-color-trigger" class="nopay-color-trigger" title="Ink Color" aria-label="Draw Ink Color">
                     <span class="nopay-trigger-chip" style="background-color: #2563eb;"></span>
                     <span class="nopay-trigger-label">#2563EB</span>
@@ -472,7 +479,7 @@ require_once __DIR__ . '/../includes/header.php';
 
             <div class="flex items-center gap-1 pl-2 border-l border-slate-200 shrink-0">
                 <label for="draw-brush-size" class="text-[10px] text-slate-500 font-semibold">Thickness:</label>
-                <select id="draw-brush-size" class="px-2 py-0.5 rounded border border-slate-200 bg-white text-xs font-medium cursor-pointer">
+                <select id="draw-brush-size" name="draw-brush-size" class="px-2 py-0.5 rounded border border-slate-200 bg-white text-xs font-medium cursor-pointer">
                     <option value="1">1px (Fine)</option>
                     <option value="3" selected>3px (Normal)</option>
                     <option value="6">6px (Medium)</option>
@@ -500,7 +507,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
                 <label for="form-field-name-input" class="text-[10px] text-slate-500 font-semibold">Field Name:</label>
-                <input type="text" id="form-field-name-input" placeholder="e.g. fullName" class="px-2 py-1 rounded border border-slate-200 bg-white text-xs w-28">
+                <input type="text" id="form-field-name-input" name="form-field-name-input" placeholder="e.g. fullName" class="px-2 py-1 rounded border border-slate-200 bg-white text-xs w-28">
             </div>
         </div>
         <p class="text-[11px] text-slate-500 hidden lg:block shrink-0">Click on document to place field • Double-click field to edit properties</p>
@@ -511,11 +518,13 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="flex items-center gap-3 flex-1 max-w-2xl">
             <div class="flex items-center gap-1.5 flex-1">
                 <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400"></i>
-                <input type="text" id="find-query-input" placeholder="Find text..." class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <label for="find-query-input" class="sr-only">Find text</label>
+                <input type="text" id="find-query-input" name="find-query-input" aria-label="Find text" placeholder="Find text..." class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500">
             </div>
             <div class="flex items-center gap-1.5 flex-1">
                 <i data-lucide="replace" class="w-3.5 h-3.5 text-slate-400"></i>
-                <input type="text" id="replace-query-input" placeholder="Replace with..." class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <label for="replace-query-input" class="sr-only">Replace text with</label>
+                <input type="text" id="replace-query-input" name="replace-query-input" aria-label="Replace with" placeholder="Replace with..." class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500">
             </div>
             <span id="find-count-label" class="text-slate-500 font-medium whitespace-nowrap">0 found</span>
         </div>
@@ -641,7 +650,8 @@ require_once __DIR__ . '/../includes/header.php';
 </section>
 
 <!-- Modals & Hidden Elements -->
-<input type="file" id="hidden-image-input" class="hidden" accept="image/png,image/jpeg,image/webp">
+<label for="hidden-image-input" class="sr-only">Insert Image File</label>
+<input type="file" id="hidden-image-input" name="hidden-image-input" aria-label="Insert Image File" class="hidden" accept="image/png,image/jpeg,image/webp">
 
 <!-- Signatures Studio Modal -->
 <div id="signature-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -670,7 +680,8 @@ require_once __DIR__ . '/../includes/header.php';
 
         <!-- Type Pane -->
         <div id="sig-pane-type" class="hidden space-y-3">
-            <input type="text" id="sig-type-input" value="Jane Doe" placeholder="Type name..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+            <label for="sig-type-input" class="sr-only">Type Signature Name</label>
+            <input type="text" id="sig-type-input" name="sig-type-input" aria-label="Signature Name" value="Jane Doe" placeholder="Type name..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
             <div class="p-4 border border-slate-200 rounded-xl text-center text-3xl text-slate-800 font-serif italic" style="font-family: 'Brush Script MT', cursive;">
                 Jane Doe
             </div>
@@ -682,7 +693,8 @@ require_once __DIR__ . '/../includes/header.php';
                 <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto text-slate-400 mb-2"></i>
                 <p class="text-xs font-semibold text-slate-700">Click or drag photo/scan of signature</p>
                 <p class="text-[11px] text-slate-400 mt-0.5">PNG, JPG, JPEG, WEBP up to 10MB</p>
-                <input type="file" id="sig-upload-file-input" class="hidden" accept="image/png,image/jpeg,image/webp">
+                <label for="sig-upload-file-input" class="sr-only">Upload Signature Image</label>
+                <input type="file" id="sig-upload-file-input" name="sig-upload-file-input" aria-label="Upload Signature Image" class="hidden" accept="image/png,image/jpeg,image/webp">
             </div>
 
             <!-- Preview canvas -->
@@ -691,8 +703,8 @@ require_once __DIR__ . '/../includes/header.php';
                     <canvas id="sig-upload-canvas" class="max-h-28 max-w-full object-contain"></canvas>
                 </div>
                 <div class="flex items-center justify-between pt-1">
-                    <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 select-none">
-                        <input type="checkbox" id="sig-remove-bg-toggle" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <label for="sig-remove-bg-toggle" class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 select-none">
+                        <input type="checkbox" id="sig-remove-bg-toggle" name="sig-remove-bg-toggle" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                         <span>Remove white paper background</span>
                     </label>
                     <button type="button" id="btn-clear-sig-upload" class="text-xs text-rose-600 hover:text-rose-700 font-semibold">Remove</button>
@@ -721,21 +733,21 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Output Filename -->
             <div>
                 <label for="export-filename-input" class="block text-xs font-semibold text-slate-700 mb-1">Output Filename</label>
-                <input type="text" id="export-filename-input" value="document-edited.pdf" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="export-filename-input" name="export-filename-input" value="document-edited.pdf" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
 
             <!-- Export Options -->
             <div class="space-y-3 pt-2">
-                <label class="flex items-start gap-2.5 cursor-pointer">
-                    <input type="checkbox" id="opt-flatten-forms" class="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                <label for="opt-flatten-forms" class="flex items-start gap-2.5 cursor-pointer">
+                    <input type="checkbox" id="opt-flatten-forms" name="opt-flatten-forms" class="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                     <div>
                         <span class="text-xs font-bold text-slate-800">Flatten Form Fields</span>
                         <p class="text-[11px] text-slate-500">Locks editable inputs and converts them into read-only vector text.</p>
                     </div>
                 </label>
 
-                <label class="flex items-start gap-2.5 cursor-pointer">
-                    <input type="checkbox" id="opt-flatten-redact" class="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                <label for="opt-flatten-redact" class="flex items-start gap-2.5 cursor-pointer">
+                    <input type="checkbox" id="opt-flatten-redact" name="opt-flatten-redact" class="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                     <div>
                         <span class="text-xs font-bold text-slate-800">Flatten Edited Pages for Irreversible Redaction</span>
                         <p class="text-[11px] text-slate-500">Rasterizes pages with whiteout covers or edited text so underlying data cannot be extracted.</p>
@@ -795,35 +807,35 @@ require_once __DIR__ . '/../includes/header.php';
     <div id="prop-form-fields" class="space-y-2 hidden">
         <div>
             <label for="prop-field-name" class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Field Name</label>
-            <input type="text" id="prop-field-name" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none">
+            <input type="text" id="prop-field-name" name="prop-field-name" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none">
         </div>
         <div id="prop-default-wrap">
             <label for="prop-field-default" class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Default / Placeholder Value</label>
-            <input type="text" id="prop-field-default" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none">
+            <input type="text" id="prop-field-default" name="prop-field-default" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none">
         </div>
         <div id="prop-checked-wrap" class="hidden">
-            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
-                <input type="checkbox" id="prop-field-checked" class="rounded border-slate-300 text-blue-600">
+            <label for="prop-field-checked" class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
+                <input type="checkbox" id="prop-field-checked" name="prop-field-checked" class="rounded border-slate-300 text-blue-600">
                 <span>Checked by default</span>
             </label>
         </div>
         <div id="prop-options-wrap" class="hidden">
             <label for="prop-field-options" class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Options (comma separated)</label>
-            <textarea id="prop-field-options" rows="2" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none"></textarea>
+            <textarea id="prop-field-options" name="prop-field-options" rows="2" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none"></textarea>
         </div>
     </div>
 
     <div id="prop-link-fields" class="space-y-2 hidden">
         <div>
             <label for="prop-link-type" class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Destination Type</label>
-            <select id="prop-link-type" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md bg-white">
+            <select id="prop-link-type" name="prop-link-type" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md bg-white">
                 <option value="url">External Website URL</option>
                 <option value="page">Jump to Page #</option>
             </select>
         </div>
         <div>
             <label for="prop-link-target" class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">URL or Page Number</label>
-            <input type="text" id="prop-link-target" placeholder="https://example.com" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none">
+            <input type="text" id="prop-link-target" name="prop-link-target" placeholder="https://example.com" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none">
         </div>
     </div>
 
@@ -860,6 +872,7 @@ require_once __DIR__ . '/../includes/header.php';
 <script src="/assets/js/tools/edit-pdf/embedded-font-encoder.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/content-stream-editor.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/color-picker.js?v=<?= APP_VERSION ?>"></script>
+<script src="/assets/js/tools/edit-pdf/font-picker.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/canvas-stage.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/pdf-exporter.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/main.js?v=<?= APP_VERSION ?>"></script>

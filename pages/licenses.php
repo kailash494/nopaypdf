@@ -136,6 +136,14 @@ $libraries = [
         'url' => 'https://github.com/google/fonts/tree/main/ofl/lato',
     ],
     [
+        'name' => 'Google Fonts Extended Static Typography Collection (33 Families)',
+        'version' => 'CURATED-STATIC-TTF',
+        'license' => 'SIL Open Font License 1.1 / Apache License 2.0',
+        'author' => 'Respective Foundry & Open Font Authors (Google Fonts, JetBrains, Julieta Ulanovsky, Paul D. Hunt, Eben Sorkin, Anton Koovit, Vernon Adams)',
+        'purpose' => 'Expanded client-side static TrueType typography catalog (Caladea, Gelasio, Tinos, Montserrat, Poppins, Titillium Web, DM Sans, PT Sans, Fira Sans, IBM Plex Sans/Mono, Noto Sans/Serif, Barlow, Merriweather, Spectral, PT Serif, Libre Baskerville, Zilla Slab, Cardo, Volkhov, JetBrains Mono, Fira Code, Inconsolata, Cousine, Courier Prime, Space Mono, Pacifico, Great Vibes, Sacramento, Satisfy, Bebas Neue, DM Serif Display) lazy-loaded via jsDelivr for browser preview and subset PDF embedding.',
+        'url' => 'https://github.com/google/fonts',
+    ],
+    [
         'name' => '@pdf-lib/fontkit',
         'version' => '1.1.1',
         'license' => 'MIT License',

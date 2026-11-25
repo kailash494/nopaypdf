@@ -305,7 +305,7 @@
                     width: pdfWidth,
                     height: pdfHeight,
                     color,
-                    opacity: o.opacity !== undefined ? o.opacity : 0.35,
+                    opacity: o.opacity !== undefined ? o.opacity : 0.28,
                 };
 
                 if (window.PDFLib && window.PDFLib.BlendMode && window.PDFLib.BlendMode.Multiply) {

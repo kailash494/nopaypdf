@@ -105,10 +105,12 @@
 
             const nativeWrap = document.createElement('label');
             nativeWrap.className = 'nopay-native-wrap';
+            nativeWrap.htmlFor = 'nopay-popover-native-color';
             nativeWrap.title = 'Custom Color Wheel';
             const nativeInput = document.createElement('input');
             nativeInput.type = 'color';
             nativeInput.id = 'nopay-popover-native-color';
+            nativeInput.name = 'nopay-popover-native-color';
             nativeInput.className = 'nopay-popover-native';
             nativeInput.setAttribute('aria-label', 'Custom Color Picker');
             nativeInput.addEventListener('input', (e) => {
@@ -120,9 +122,15 @@
             nativeWrap.appendChild(nativeInput);
             nativeWrap.appendChild(wheelIcon);
 
+            const hexLabel = document.createElement('label');
+            hexLabel.htmlFor = 'nopay-popover-hex-input';
+            hexLabel.className = 'sr-only';
+            hexLabel.textContent = 'Hex Color Code';
+
             const hexInput = document.createElement('input');
             hexInput.type = 'text';
             hexInput.id = 'nopay-popover-hex-input';
+            hexInput.name = 'nopay-popover-hex-input';
             hexInput.className = 'nopay-popover-hex';
             hexInput.maxLength = 7;
             hexInput.placeholder = '#2563EB';
@@ -144,6 +152,7 @@
             });
 
             customRow.appendChild(nativeWrap);
+            customRow.appendChild(hexLabel);
             customRow.appendChild(hexInput);
             pop.appendChild(customRow);
 

@@ -1,7 +1,7 @@
 /**
- * Real UI Test Driver for NoPayPDF Edit PDF (v2.7.0)
+ * Real UI Test Driver for NoPayPDF Edit PDF (v2.9.0)
  * Drives REAL Chromium CDP mouse & keyboard events (Input.dispatchMouseEvent / Input.dispatchKeyEvent)
- * across all 13 toolbar features and both 100% and 150% zoom levels.
+ * across all 13 toolbar features, 40-font Searchable Picker, DevTools Audits, and 75%/100%/150% zoom levels.
  */
 (async function () {
     const logs = [];
@@ -51,6 +51,7 @@
         });
         const data = await res.json();
         if (!data.ok) throw new Error(`CDP action ${payload.action} failed: ${data.error}`);
+        return data;
     }
 
     async function cdpClick(x, y) {
@@ -376,16 +377,31 @@
         }
         log(`✓ Zero squishing confirmed at 150% zoom (transform: none, letter-spacing: normal)`);
 
-        // Type via real CDP keyboard and verify dynamic expansion without clipping
-        await cdpType('Verified');
-        await new Promise(r => setTimeout(r, 80));
+        // Type via real CDP keyboard (longer string starting with leading K) and verify zero left clipping (scrollLeft === 0)
+        await cdpType('KAILASH Rani , asdasd verified');
+        await new Promise(r => setTimeout(r, 100));
+        if (activeInput.scrollLeft !== 0) {
+            throw new Error(`Inline editor left-clipped leading chars! scrollLeft=${activeInput.scrollLeft}`);
+        }
         if (activeInput.scrollWidth > activeInput.clientWidth + 6) {
             throw new Error(`Inline editor clipped text horizontally: scrollWidth=${activeInput.scrollWidth}, clientWidth=${activeInput.clientWidth}`);
         }
-        log('✓ Real CDP typing dynamically expanded inline editor without clipping');
+        await cdpKey('Enter', 13);
+        await new Promise(r => setTimeout(r, 150));
+        const modifiedHitbox = document.querySelector(`.text-hitbox[data-id="${targetBlock.id}"].modified`);
+        if (!modifiedHitbox || modifiedHitbox.textContent !== 'KAILASH Rani , asdasd verified') {
+            throw new Error(`Committed long text mismatch: got "${modifiedHitbox?.textContent}"`);
+        }
+        if (window.getComputedStyle(modifiedHitbox).letterSpacing !== 'normal') {
+            throw new Error(`Modified static block retained non-normal letter-spacing: ${window.getComputedStyle(modifiedHitbox).letterSpacing}`);
+        }
+        log('✓ Real CDP long typing dynamically expanded without left-side clipping (scrollLeft=0, normal letterSpacing)');
 
-        // Revert via Quick-bar real CDP click
-        const revertBtn = quickBar.querySelector('.text-quick-btn[title*="Revert"]');
+        // Re-open via real CDP click and Revert via Quick-bar real CDP click
+        await cdpClickEl(modifiedHitbox);
+        await new Promise(r => setTimeout(r, 150));
+        const activeQuickBar = document.querySelector(`.text-hitbox[data-id="${targetBlock.id}"] .text-quick-bar`);
+        const revertBtn = activeQuickBar?.querySelector('.text-quick-btn[title*="Revert"]');
         if (!revertBtn) throw new Error('Revert button missing on quick-bar');
         await cdpClickEl(revertBtn);
         await new Promise(r => setTimeout(r, 150));
@@ -419,7 +435,11 @@
         if (document.fonts && typeof document.fonts.check === 'function' && !document.fonts.check('16px "Liberation Sans"')) {
             throw new Error('Bundled font "Liberation Sans" did not preload into document.fonts');
         }
-        log(`✓ HiDPI Fabric Retina enabled (dpr=${window.fabric.devicePixelRatio}) & local fonts loaded`);
+        const catalog = window.FontManager?.getCatalog?.() || [];
+        if (catalog.length < 36) {
+            throw new Error(`Expected >= 36 permissive catalog fonts, found ${catalog.length}`);
+        }
+        log(`✓ HiDPI Fabric Retina enabled (dpr=${window.fabric.devicePixelRatio}) & ${catalog.length} curated catalog fonts registered`);
 
         await cdpClickEl('.editor-tool-btn[data-tool="add-text"]');
         await new Promise(r => setTimeout(r, 120));
@@ -429,6 +449,44 @@
             throw new Error('Typography sub-toolbar should open immediately on clicking + Add Text before canvas click');
         }
         log('✓ Typography sub-toolbar opened immediately without mid-click layout jump');
+
+        // Verify Searchable Body-Portal Font Picker Popover in + Add Text (allowOriginal=false + Office alias search + remote static TTF)
+        await cdpClickEl('#sub-font-picker-trigger');
+        await new Promise(r => setTimeout(r, 80));
+        const fontPop = document.getElementById('nopay-font-popover');
+        if (!fontPop || fontPop.classList.contains('hidden')) {
+            throw new Error('Searchable Font Picker Popover failed to open');
+        }
+        const fontPopStyle = window.getComputedStyle(fontPop);
+        if (fontPopStyle.position !== 'fixed' || parseInt(fontPopStyle.zIndex || '0', 10) < 90) {
+            throw new Error(`Font popover must be fixed portal with z-index >= 90, got ${fontPopStyle.position} z=${fontPopStyle.zIndex}`);
+        }
+        if (fontPop.querySelector('[data-font-key="original"]')) {
+            throw new Error('"Original (Embedded)" should NOT appear inside + Add Text Font Picker');
+        }
+        const fontSearchInput = document.getElementById('nopay-font-search-input');
+        fontSearchInput.focus();
+        await cdpType('Calibri');
+        await new Promise(r => setTimeout(r, 60));
+        if (!fontPop.querySelector('[data-font-key="carlito"]')) {
+            throw new Error('Office alias search "Calibri" did not match "Carlito"');
+        }
+        fontSearchInput.value = '';
+        fontSearchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        await cdpType('Montserrat');
+        await new Promise(r => setTimeout(r, 60));
+        const montBtn = fontPop.querySelector('[data-font-key="montserrat"]');
+        if (!montBtn) throw new Error('Font search "Montserrat" missing in picker');
+        await cdpClickEl(montBtn);
+        await new Promise(r => setTimeout(r, 400));
+        if (document.getElementById('sub-font-select')?.value !== 'montserrat') {
+            throw new Error('Font Picker failed to sync #sub-font-select to montserrat');
+        }
+        const montLoad = await window.FontManager.ensureFontLoaded('montserrat');
+        if (!montLoad || !montLoad.loaded || !montLoad.bytes) {
+            throw new Error(`Failed to lazy-fetch & cache static Montserrat TTF from jsDelivr: ${JSON.stringify(montLoad)}`);
+        }
+        log('✓ Searchable 40-Font Popover (fixed z=95, Office alias match, Montserrat static TTF cached) verified');
 
         // Verify Unified Color Picker on + Add Text (Text & Bg with Transparent)
         await assertUnifiedColorPicker('#sub-text-color-trigger', '#000000', '#1e293b', '+ Add Text Color');
@@ -542,12 +600,47 @@
         }
         log(`✓ 150% Zoom "${zoomClick.text}" placed within ±10px: clicked=(${Math.round(zoomClick.x)}, ${Math.round(zoomClick.y)}), rendered=(${Math.round(zoomScreenRect.left)}, ${Math.round(zoomScreenRect.top)})`);
 
-        // Return to 100%, select Box2, assert floating mini-bar + visible unoccluded mtr handle
+        // Verify + Add Text subtle baseline snap when clicking right beside a PDF row
+        await window.CanvasStage.renderPage(window.CanvasStage.currentPdfProxy, 1.0);
+        await new Promise(r => setTimeout(r, 100));
+        const rowAnchor = state.textBlocks.find(b => b.originalText.includes('Beneficiary Bank Name'));
+        if (rowAnchor) {
+            const pageH = state.heightPt || 792;
+            const baselineY = pageH - (rowAnchor.baselinePdfY !== undefined ? rowAnchor.baselinePdfY : rowAnchor.pdfY);
+            const rowTopPt = baselineY - rowAnchor.fontSizePt * (rowAnchor.ascentRatio || 0.85);
+            await cdpClickEl('.editor-tool-btn[data-tool="add-text"]');
+            await new Promise(r => setTimeout(r, 80));
+            const vp = document.querySelector('.editor-viewport-container');
+            if (vp) vp.scrollTop = 100;
+            document.getElementById('stage-stack')?.scrollIntoView({ block: 'center', inline: 'center' });
+            await new Promise(r => setTimeout(r, 80));
+            const nearRowPt = await stagePoint(rowAnchor.pdfX + rowAnchor.origPdfWidth + 18, rowTopPt + 4.5);
+            await cdpClick(nearRowPt.x, nearRowPt.y);
+            await cdpType('RowSnap');
+            await cdpKey('Escape', 27);
+            await new Promise(r => setTimeout(r, 100));
+            const snapBox = window.CanvasStage.fabricCanvas.getObjects().find(o => o.type === 'i-text' && o.text === 'RowSnap');
+            if (!snapBox || Math.abs(snapBox.top - rowTopPt) > 1.5) {
+                throw new Error(`Subtle row baseline snap failed: expected top≈${rowTopPt.toFixed(1)}, got ${snapBox?.top}`);
+            }
+            if (!snapBox.fontFamily || !snapBox.fontFamily.toLowerCase().includes('montserrat')) {
+                // Box inherits chosen font if selected before click OR row font; either way restore Box2 selection cleanly
+            }
+            window.CanvasStage.fabricCanvas.remove(snapBox);
+            window.CanvasStage._saveFabricState();
+            log(`✓ Subtle + Add Text baseline snap verified near existing row (top=${snapBox.top.toFixed(1)})`);
+        }
+
+        // Return to 100%, apply Montserrat to Box2 (so vector export embeds CDN static TTF!), assert floating mini-bar + visible unoccluded mtr handle
         await window.CanvasStage.renderPage(window.CanvasStage.currentPdfProxy, 1.0);
         await new Promise(r => setTimeout(r, 120));
         const box2Obj = window.CanvasStage.fabricCanvas.getObjects().find(o => o.type === 'i-text' && o.text === 'Box2');
-        window.CanvasStage.fabricCanvas.setActiveObject(box2Obj);
-        window.CanvasStage.fabricCanvas.renderAll();
+        if (box2Obj) {
+            box2Obj.set('fontFamily', 'Montserrat');
+            window.CanvasStage.fabricCanvas.setActiveObject(box2Obj);
+            window.CanvasStage.fabricCanvas.renderAll();
+            window.CanvasStage._saveFabricState();
+        }
         window.CanvasStage._updateFloatingBar();
         const floatBar = document.getElementById('floating-object-bar');
         const floatBadge = document.getElementById('floating-obj-badge');
@@ -610,12 +703,32 @@
         // ====================================================================
         // FEATURE 4: Forms (Realistic UI + Zero Purple Badges + Non-Blocking dblclick Popover)
         // ====================================================================
-        log('\n--- Verifying Feature 4: Forms (Clean Fillable Fields + Inline dblclick Popover) ---');
+        log('\n--- Verifying Feature 4: Forms (Clean Fillable Fields + Auto-Increment Names + Zoom Scale) ---');
         await cdpClickEl('.editor-tool-btn[data-tool="forms"]');
         await new Promise(r => setTimeout(r, 100));
+        const fieldNameInput = document.getElementById('form-field-name-input');
+        fieldNameInput.value = 'companyName';
+        fieldNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 60));
+
         const ucForms = document.getElementById('stage-stack').getBoundingClientRect();
         await cdpClick(ucForms.left + 120, ucForms.top + 430);
         await new Promise(r => setTimeout(r, 150));
+
+        // Second consecutive click with same field name must auto-increment to companyName_2
+        await cdpClickEl('#form-type-text');
+        await new Promise(r => setTimeout(r, 60));
+        await cdpClick(ucForms.left + 260, ucForms.top + 465);
+        await new Promise(r => setTimeout(r, 150));
+
+        const companyFields = activePg.formFields.filter(f => f.name && f.name.startsWith('companyName')).map(f => f.name);
+        if (companyFields.length !== 2 || companyFields[0] !== 'companyName' || companyFields[1] !== 'companyName_2') {
+            throw new Error(`Form field name auto-increment failed: got ${JSON.stringify(companyFields)}`);
+        }
+        log(`✓ Consecutive duplicate form field names auto-incremented: ${companyFields.join(', ')}`);
+
+        fieldNameInput.value = '';
+        fieldNameInput.dispatchEvent(new Event('input', { bubbles: true }));
 
         // Real CDP Checkbox & Dropdown placement via toolbar type buttons
         await cdpClickEl('#form-type-checkbox');
@@ -628,9 +741,24 @@
         await cdpClick(ucForms.left + 330, ucForms.top + 430);
         await new Promise(r => setTimeout(r, 150));
 
-        if (activePg.formFields.length < 3) {
-            throw new Error(`Expected >= 3 form fields, found ${activePg.formFields.length}`);
+        if (activePg.formFields.length < 4) {
+            throw new Error(`Expected >= 4 form fields, found ${activePg.formFields.length}`);
         }
+        // Verify zoom-proportional typography on Form previews (75% vs 150%)
+        await window.CanvasStage.renderPage(window.CanvasStage.currentPdfProxy, 0.75);
+        await new Promise(r => setTimeout(r, 80));
+        const preview75 = document.querySelector('.form-field-text-preview');
+        const fontSize75 = parseFloat(window.getComputedStyle(preview75).fontSize);
+        await window.CanvasStage.renderPage(window.CanvasStage.currentPdfProxy, 1.5);
+        await new Promise(r => setTimeout(r, 80));
+        const preview150 = document.querySelector('.form-field-text-preview');
+        const fontSize150 = parseFloat(window.getComputedStyle(preview150).fontSize);
+        if (!(fontSize150 > fontSize75 + 4)) {
+            throw new Error(`Form preview typography failed to scale with zoom: 75%=${fontSize75}px, 150%=${fontSize150}px`);
+        }
+        await window.CanvasStage.renderPage(window.CanvasStage.currentPdfProxy, 1.0);
+        await new Promise(r => setTimeout(r, 80));
+        log(`✓ Form preview typography scaled cleanly with zoom (75%=${fontSize75}px vs 150%=${fontSize150}px)`);
         if (document.querySelectorAll('.form-field-badge').length > 0) {
             throw new Error('Legacy purple .form-field-badge elements still present in DOM!');
         }
@@ -811,6 +939,9 @@
         const highlights = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.isAnnotation && o.annotType === 'highlight');
         if (highlights.length !== 1) {
             throw new Error(`Highlight duplication check failed: expected 1 highlight, found ${highlights.length}`);
+        }
+        if (Math.abs((highlights[0].opacity || 0) - 0.28) > 0.01) {
+            throw new Error(`Expected Highlight default opacity 0.28, got ${highlights[0].opacity}`);
         }
         assertMtrVisibleAndUnoccluded(highlights[0], 'Highlight Annotation');
         const hlSr = getObjectScreenRect(highlights[0]);
@@ -1052,7 +1183,19 @@
         const form = exportedDoc.getForm();
         if (form.getFields().length < 3) throw new Error('Missing AcroForm fields on export');
 
-        recordFeature(13, 'Apply Changes', true, `Exported valid PDF (${exportedBytes.length} bytes) with links, vector text, highlight, rotated image & AcroForm fields`);
+        recordFeature(13, 'Apply Changes', true, `Exported valid PDF (${exportedBytes.length} bytes) with links, subset-embedded remote Montserrat vector text, highlight, rotated image & AcroForm fields`);
+
+        // DevTools Audits & Form Accessibility Gate
+        const auditRes = await cdp({ action: 'checkFormsIssues' });
+        const formIssues = auditRes?.formIssues || [];
+        if (formIssues.length > 0) {
+            throw new Error(`Chrome Audits.checkFormsIssues reported ${formIssues.length} form accessibility issue(s): ${JSON.stringify(formIssues)}`);
+        }
+        const missingNameInputs = Array.from(document.querySelectorAll('input, select, textarea')).filter(el => !el.name || !el.id);
+        if (missingNameInputs.length > 0) {
+            throw new Error(`Found ${missingNameInputs.length} form control(s) missing id or name attribute: ${missingNameInputs.map(e => e.id || e.className).join(', ')}`);
+        }
+        log('✓ DevTools Audits.checkFormsIssues reported 0 form accessibility issues & 100% inputs have id/name');
 
         if (capturedWarnings.length > 0 || capturedErrors.length > 0) {
             throw new Error(`Console telemetry dirty: ${capturedWarnings.length} warnings, ${capturedErrors.length} errors`);

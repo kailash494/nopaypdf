@@ -286,7 +286,10 @@
     line-height: 1;
     letter-spacing: normal !important;
     transform: none !important;
+    text-indent: 0;
+    text-align: left;
     display: block;
+    box-sizing: border-box;
 }
 
 /* Floating Quick-Action Bar above focused text block */
@@ -866,6 +869,175 @@
 
 .inline-properties-popover.hidden {
     display: none !important;
+}
+
+/* ====================================================================
+   13. Searchable Typography Font Picker Popover
+   ==================================================================== */
+
+.nopay-font-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 150px;
+    max-width: 215px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background-color: #f8fafc;
+    color: #1e293b;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.nopay-font-trigger:hover {
+    background-color: #ffffff;
+    border-color: #94a3b8;
+}
+
+.nopay-font-trigger:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+}
+
+.nopay-font-trigger-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    flex: 1;
+}
+
+.nopay-font-popover {
+    position: fixed;
+    z-index: 95;
+    width: 292px;
+    max-width: calc(100vw - 16px);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.nopay-font-popover.hidden {
+    display: none !important;
+}
+
+.nopay-font-search-wrap {
+    padding: 8px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #ffffff;
+}
+
+.nopay-font-search-input {
+    width: 100%;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.nopay-font-search-input:focus {
+    background: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.nopay-font-list {
+    max-height: 296px;
+    overflow-y: auto;
+    padding: 4px 0 6px;
+}
+
+.nopay-font-category-hdr {
+    padding: 6px 12px 3px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    background: #f8fafc;
+    border-top: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
+    margin-top: 2px;
+}
+
+.nopay-font-category-hdr:first-child {
+    margin-top: 0;
+    border-top: none;
+}
+
+.nopay-font-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+}
+
+.nopay-font-option:hover,
+.nopay-font-option.is-highlighted {
+    background: #eff6ff;
+}
+
+.nopay-font-option.active {
+    background: #dbeafe;
+}
+
+.nopay-font-option-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.nopay-font-option-name {
+    font-size: 13px;
+    color: #0f172a;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nopay-font-option-alias {
+    font-size: 10px;
+    color: #64748b;
+    line-height: 1.2;
+}
+
+.nopay-font-option-check {
+    width: 16px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #2563eb;
+    flex-shrink: 0;
+}
+
+.nopay-font-empty {
+    padding: 18px 12px;
+    text-align: center;
+    font-size: 12px;
+    color: #64748b;
 }
 
 

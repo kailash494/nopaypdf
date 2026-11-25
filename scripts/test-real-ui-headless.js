@@ -28,6 +28,7 @@ let edgeProcess = null;
 
 const DEBUG_PORT = 9235;
 const cdpLogs = [];
+const cdpIssues = [];
 let cdpConnected = false;
 let cdpWs = null;
 let cdpMsgId = 10;
@@ -98,6 +99,8 @@ async function connectCDP() {
                     ws.send(JSON.stringify({ id: 2, method: 'Runtime.enable' }));
                     ws.send(JSON.stringify({ id: 3, method: 'Page.enable' }));
                     ws.send(JSON.stringify({ id: 4, method: 'Log.startViolationsReport', params: { config: [{ name: 'handler', threshold: 250 }] } }));
+                    ws.send(JSON.stringify({ id: 5, method: 'DOM.enable' }));
+                    ws.send(JSON.stringify({ id: 6, method: 'Audits.enable' }));
                 });
                 ws.addEventListener('message', (event) => {
                     try {
@@ -141,6 +144,10 @@ async function connectCDP() {
                         } else if (msg.method === 'Runtime.exceptionThrown') {
                             const text = msg.params.exceptionDetails?.text || 'Uncaught exception';
                             cdpLogs.push({ level: 'error', text, source: 'Runtime.exceptionThrown' });
+                        } else if (msg.method === 'Audits.issueAdded') {
+                            if (msg.params && msg.params.issue) {
+                                cdpIssues.push(msg.params.issue);
+                            }
                         }
                     } catch (e) {
                         console.warn('[CDP-MSG-PARSE-ERR]', e.message);
@@ -226,6 +233,13 @@ const server = http.createServer((req, res) => {
                     });
                 } else if (payload.action === 'setNextDialog') {
                     nextDialogPromptText = payload.acceptText || 'https://nopaypdf.com';
+                } else if (payload.action === 'checkFormsIssues') {
+                    const auditRes = await sendCDP('Audits.checkFormsIssues');
+                    finished = true;
+                    clearTimeout(slowTimer);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ ok: true, formIssues: auditRes?.formIssues || [] }));
+                    return;
                 }
                 finished = true;
                 clearTimeout(slowTimer);
@@ -271,10 +285,17 @@ const server = http.createServer((req, res) => {
             const cdpErrors = cdpLogs.filter(l => l.level === 'error');
             const trackingNotices = cdpLogs.filter(l => l.level === 'warning' && l.text.includes('Tracking Prevention blocked access to storage'));
             const appWarnings = cdpLogs.filter(l => l.level === 'warning' && !l.text.includes('Tracking Prevention blocked access to storage'));
+            const ownAuditIssues = cdpIssues.filter(iss => {
+                const serialized = JSON.stringify(iss);
+                return !serialized.includes('googlesyndication') && !serialized.includes('doubleclick') && !serialized.includes('adtrafficquality');
+            });
 
-            console.log(`CDP Engine Telemetry: ${cdpErrors.length} errors, ${appWarnings.length} app/engine warnings, ${canvasWarnings.length} CanvasTextBaseline warnings (${trackingNotices.length} Edge Tracking Prevention storage notices)`);
+            console.log(`CDP Engine Telemetry: ${cdpErrors.length} errors, ${appWarnings.length} app/engine warnings, ${canvasWarnings.length} CanvasTextBaseline warnings, ${ownAuditIssues.length} own-origin Audits issues (${trackingNotices.length} Edge Tracking Prevention storage notices)`);
             if (cdpErrors.length > 0 || appWarnings.length > 0) {
                 [...cdpErrors, ...appWarnings].forEach(l => console.log(`  [CDP-${l.level.toUpperCase()}] (${l.source}) ${l.text}`));
+            }
+            if (ownAuditIssues.length > 0) {
+                ownAuditIssues.forEach(iss => console.log(`  [CDP-AUDIT-ISSUE] ${JSON.stringify(iss)}`));
             }
 
             let cdpPassed = true;
@@ -284,6 +305,10 @@ const server = http.createServer((req, res) => {
             }
             if (cdpErrors.length > 0) {
                 console.error(`❌ FAIL: CDP detected ${cdpErrors.length} browser engine error(s)!`);
+                cdpPassed = false;
+            }
+            if (ownAuditIssues.length > 0) {
+                console.error(`❌ FAIL: CDP detected ${ownAuditIssues.length} own-origin DevTools Audits issue(s)!`);
                 cdpPassed = false;
             }
 

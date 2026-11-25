@@ -162,6 +162,7 @@
             const activeObj = this.fabricCanvas ? this.fabricCanvas.getActiveObject() : null;
             const domEditing = Boolean(document.querySelector('.text-hitbox.editing'));
             const colorOpen = Boolean(window.NoPayColorPicker && window.NoPayColorPicker.isOpen());
+            const fontOpen = Boolean(window.NoPayFontPicker && window.NoPayFontPicker.isOpen());
             return Boolean(
                 activeObj ||
                 (this.activeFabricTextBox && this.activeFabricTextBox.isEditing) ||
@@ -169,7 +170,8 @@
                 this.selectedLink ||
                 this.selectedFormField ||
                 this._isPropertiesPopoverOpen() ||
-                colorOpen
+                colorOpen ||
+                fontOpen
             );
         }
 
@@ -177,6 +179,10 @@
             let changed = false;
             if (window.NoPayColorPicker && window.NoPayColorPicker.isOpen()) {
                 window.NoPayColorPicker.close();
+                changed = true;
+            }
+            if (window.NoPayFontPicker && window.NoPayFontPicker.isOpen()) {
+                window.NoPayFontPicker.close();
                 changed = true;
             }
             if (this._isPropertiesPopoverOpen()) {
@@ -240,6 +246,28 @@
                     ctx.textBaseline = 'alphabetic';
                 };
                 window.fabric.Text.prototype._setTextStyles.__patched = true;
+            }
+
+            // Ensure Fabric IText hidden textarea always has id, name, and aria-label for zero DevTools form accessibility issues
+            if (window.fabric && window.fabric.IText && window.fabric.IText.prototype.initHiddenTextarea && !window.fabric.IText.prototype.initHiddenTextarea.__patched) {
+                const origInitHidden = window.fabric.IText.prototype.initHiddenTextarea;
+                let hiddenTaSeq = 0;
+                window.fabric.IText.prototype.initHiddenTextarea = function() {
+                    origInitHidden.apply(this, arguments);
+                    if (this.hiddenTextarea) {
+                        hiddenTaSeq += 1;
+                        if (!this.hiddenTextarea.id) {
+                            this.hiddenTextarea.id = `fabric-itext-input-${hiddenTaSeq}`;
+                        }
+                        if (!this.hiddenTextarea.name) {
+                            this.hiddenTextarea.name = this.hiddenTextarea.id;
+                        }
+                        if (!this.hiddenTextarea.getAttribute('aria-label')) {
+                            this.hiddenTextarea.setAttribute('aria-label', 'Canvas text editor input');
+                        }
+                    }
+                };
+                window.fabric.IText.prototype.initHiddenTextarea.__patched = true;
             }
 
             // Initialize Fabric.js with HiDPI Retina scaling and crisp custom mtr handle
@@ -351,12 +379,18 @@
                         const pageW = (pageState && pageState.widthPt) || 612;
                         const pageH = (pageState && pageState.heightPt) || 792;
 
-                        // Inherit font style, size, ink color, weight from nearest page text
+                        // Inherit font style, size, ink color, weight from nearest page text (or pre-chosen Add Text font)
                         const nearestStyle = this.getNearestTextBlockStyle(pointer.x, pointer.y);
+                        const chosenFontFamily = this.preferredAddTextFontFamily || nearestStyle.fontFamily;
 
-                        // Anchor cleanly within scene bounds without shifting clicks in content area
+                        // Subtle horizontal row-baseline alignment only when clicking very close to an existing row
+                        const targetTop = (nearestStyle.snappedBoxTop !== null && Math.abs(nearestStyle.dyToNearest) <= 6)
+                            ? nearestStyle.snappedBoxTop
+                            : pointer.y;
+
+                        // Anchor cleanly within scene bounds without jumping open-space clicks
                         const clampedLeft = Math.max(8, Math.min(pageW - 36, pointer.x));
-                        const clampedTop = Math.max(8, Math.min(pageH - 24, pointer.y));
+                        const clampedTop = Math.max(8, Math.min(pageH - 24, targetTop));
 
                         const initBg = (this.addTextBgColor && this.addTextBgColor !== 'transparent')
                             ? this.addTextBgColor
@@ -368,7 +402,7 @@
                             fontSize: nearestStyle.fontSize,
                             fill: nearestStyle.fill,
                             textBackgroundColor: initBg,
-                            fontFamily: nearestStyle.fontFamily,
+                            fontFamily: chosenFontFamily,
                             fontWeight: nearestStyle.bold ? 'bold' : 'normal',
                             fontStyle: nearestStyle.italic ? 'italic' : 'normal',
                             lockUniScaling: true,
@@ -599,6 +633,12 @@
             this.closePropertiesPopover();
             if (window.NoPayColorPicker) {
                 window.NoPayColorPicker.close();
+            }
+            if (window.NoPayFontPicker) {
+                window.NoPayFontPicker.close();
+            }
+            if (tool !== 'add-text') {
+                this.preferredAddTextFontFamily = null;
             }
             if (prevTool !== tool) {
                 this.selectedBlock = null;
@@ -1013,10 +1053,18 @@
                 el.style.fontStyle = block.italic ? 'italic' : 'normal';
                 el.style.color = block.colorHex || '#1e293b';
 
-                // Calibrate subtle letter-spacing on static display without ever squishing characters
+                // Calibrate subtle letter-spacing on static display for unedited text; modified/custom-font lines use natural metrics
                 let letterSpacingPx = 0;
+                const isCustomOrModified = Boolean(block.modified || (block.fontFamily && block.fontFamily !== 'original'));
+                if (block.fontFamily && block.fontFamily !== 'original') {
+                    window.FontManager?.ensureFontLoaded?.(block.fontFamily, {
+                        bold: Boolean(block.bold),
+                        italic: Boolean(block.italic),
+                        silent: true,
+                    });
+                }
                 const expectedOrigPx = (block.origPdfWidth || block.pdfWidth) * scale;
-                if (block.originalText && block.originalText.length > 1 && measureCtx) {
+                if (!isCustomOrModified && block.originalText && block.originalText.length > 1 && measureCtx) {
                     measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${fontSizePx}px ${cssFontFamily}`;
                     const measuredW = measureCtx.measureText(block.originalText).width;
                     if (measuredW > 0) {
@@ -1026,7 +1074,7 @@
                     }
                 }
                 block.letterSpacingPx = letterSpacingPx;
-                el.style.letterSpacing = `${letterSpacingPx.toFixed(2)}px`;
+                el.style.letterSpacing = isCustomOrModified ? 'normal' : `${letterSpacingPx.toFixed(2)}px`;
                 el.style.transform = 'none';
 
                 if (block.deleted) {
@@ -1089,7 +1137,13 @@
                 if (this.linksLayer) this.linksLayer.appendChild(linkEl);
             }
 
-            // C. Render Realistic Fillable AcroForm Fields
+            // C. Render Realistic Fillable AcroForm Fields (Zoom-Proportional Typography & Geometry)
+            const scaledFontPx = Math.max(8, Math.round(11 * scale));
+            const scaledCheckPx = Math.max(9, Math.round(13 * scale));
+            const scaledCaretPx = Math.max(7, Math.round(10 * scale));
+            const scaledPadX = Math.max(3, Math.round(6 * scale));
+            const scaledRadiusPx = Math.max(2, Math.round(4 * scale));
+
             for (const field of pageState.formFields) {
                 const [fx, fy, fw, fh] = field.rect.map(v => v * scale);
                 const fieldEl = document.createElement('div');
@@ -1105,10 +1159,15 @@
                 fieldEl.style.top = `${fy}px`;
                 fieldEl.style.width = `${fw}px`;
                 fieldEl.style.height = `${fh}px`;
+                fieldEl.style.borderRadius = `${field.type === 'checkbox' ? Math.max(2, Math.round(3 * scale)) : scaledRadiusPx}px`;
+                if (field.type !== 'checkbox') {
+                    fieldEl.style.padding = `0 ${scaledPadX}px`;
+                }
 
                 if (field.type === 'checkbox') {
                     const mark = document.createElement('span');
                     mark.className = 'form-field-checkbox-mark';
+                    mark.style.fontSize = `${scaledCheckPx}px`;
                     mark.textContent = field.checked ? '✓' : '';
                     fieldEl.appendChild(mark);
                 } else if (field.type === 'dropdown') {
@@ -1116,9 +1175,12 @@
                     const previewText = field.defaultValue || opts[0] || field.name || 'Select...';
                     const textSpan = document.createElement('span');
                     textSpan.className = 'form-field-text-preview';
+                    textSpan.style.fontSize = `${scaledFontPx}px`;
                     textSpan.textContent = previewText;
                     const caret = document.createElement('span');
                     caret.className = 'form-field-dropdown-caret';
+                    caret.style.fontSize = `${scaledCaretPx}px`;
+                    caret.style.marginLeft = `${Math.max(2, Math.round(4 * scale))}px`;
                     caret.textContent = '▾';
                     fieldEl.appendChild(textSpan);
                     fieldEl.appendChild(caret);
@@ -1126,6 +1188,7 @@
                     const hasDefault = Boolean(field.defaultValue && field.defaultValue.trim());
                     const textSpan = document.createElement('span');
                     textSpan.className = `form-field-text-preview ${hasDefault ? '' : 'is-placeholder'}`;
+                    textSpan.style.fontSize = `${scaledFontPx}px`;
                     textSpan.textContent = hasDefault ? field.defaultValue : (field.name || 'Text field');
                     fieldEl.appendChild(textSpan);
                 }
@@ -1167,6 +1230,36 @@
             }
         }
 
+        _measureInlineTextWidth(textVal, styleSource, block) {
+            const fontSizePx = (block?.fontSizePt || 12) * this.currentScale;
+            let canvasW = 0;
+            const measureCtx = this.getMeasureContext();
+            if (measureCtx) {
+                measureCtx.font = `${block?.italic ? 'italic ' : ''}${block?.bold ? '700 ' : '400 '}${fontSizePx}px ${styleSource.style.fontFamily}`;
+                canvasW = measureCtx.measureText(textVal || '').width;
+            }
+
+            let domW = 0;
+            try {
+                if (!this._domMeasureSpan) {
+                    const span = document.createElement('span');
+                    span.setAttribute('aria-hidden', 'true');
+                    span.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;white-space:pre;pointer-events:none;line-height:1;letter-spacing:normal;margin:0;padding:0;';
+                    document.body.appendChild(span);
+                    this._domMeasureSpan = span;
+                }
+                const s = this._domMeasureSpan;
+                s.style.fontFamily = styleSource.style.fontFamily;
+                s.style.fontSize = styleSource.style.fontSize || `${fontSizePx}px`;
+                s.style.fontWeight = styleSource.style.fontWeight || '400';
+                s.style.fontStyle = styleSource.style.fontStyle || 'normal';
+                s.textContent = textVal || '';
+                domW = s.getBoundingClientRect().width;
+            } catch (e) {}
+
+            return Math.max(canvasW, domW);
+        }
+
         _activateTextEdit(block, el) {
             this.selectedBlock = block;
             el.classList.add('editing');
@@ -1178,9 +1271,13 @@
                 : (block.autoBgHex || '#ffffff');
             el.style.backgroundColor = effectiveBg;
 
+            const fontSizePx = (block.fontSizePt || 12) * this.currentScale;
             const input = document.createElement('input');
             input.type = 'text';
+            input.id = `inline-edit-${block.id}`;
+            input.name = `inline-edit-${block.id}`;
             input.className = 'text-inline-input';
+            input.setAttribute('aria-label', `Edit text: ${block.originalText || 'line'}`);
             input.value = block.currentText;
             input.style.color = block.colorHex || '#1e293b';
             input.style.fontFamily = el.style.fontFamily;
@@ -1191,13 +1288,18 @@
             input.style.transform = 'none';
 
             const updateExpandedWidth = (textVal) => {
-                const measureCtx = this.getMeasureContext();
-                if (!measureCtx) return;
-                measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${block.fontSizePt * this.currentScale}px ${input.style.fontFamily}`;
-                const measuredW = measureCtx.measureText(textVal || '').width;
+                const textW = this._measureInlineTextWidth(textVal, input, block);
                 const origW = Math.max(8, (block.origPdfWidth || block.pdfWidth) * this.currentScale);
-                const newW = Math.max(origW, measuredW + 16);
+                const headroom = Math.max(24, fontSizePx * 1.25);
+                const newW = Math.max(origW, textW + headroom);
                 el.style.width = `${newW}px`;
+                input.style.width = `${newW}px`;
+            };
+
+            const resetScrollLeft = () => {
+                if (input.scrollWidth <= input.clientWidth + 4 || document.activeElement !== input) {
+                    input.scrollLeft = 0;
+                }
             };
 
             // Create Floating Quick-Action Bar above active text box
@@ -1249,13 +1351,24 @@
             updateExpandedWidth(input.value);
             input.focus();
             input.select();
+            input.scrollLeft = 0;
+            requestAnimationFrame(() => {
+                updateExpandedWidth(input.value);
+                input.scrollLeft = 0;
+            });
 
             // Real-time subset coverage check and dynamic width expansion on typing
             input.addEventListener('input', () => {
                 const val = input.value;
                 const covered = window.FontManager.checkEmbeddedCoverage(block.embeddedBytes, val);
                 const matchedName = block.matched?.name || 'Liberation Sans';
-                if (covered) {
+                if (block.fontFamily && block.fontFamily !== 'original' && window.FontManager?.getCssFamily) {
+                    const customFam = window.FontManager.getCssFamily(block.fontFamily);
+                    block.tier = 2;
+                    fontPill.className = 'text-quick-pill tier2';
+                    fontPill.textContent = `Font: ${customFam}`;
+                    input.style.fontFamily = `"${customFam}", "Liberation Sans", sans-serif`;
+                } else if (covered) {
                     block.tier = 1;
                     fontPill.className = 'text-quick-pill';
                     fontPill.textContent = `Original: ${displayName}`;
@@ -1273,20 +1386,23 @@
                 }
 
                 updateExpandedWidth(val);
+                resetScrollLeft();
+                requestAnimationFrame(resetScrollLeft);
+            });
+
+            ['keyup', 'click', 'focus'].forEach(evt => {
+                input.addEventListener(evt, resetScrollLeft);
             });
 
             const finishEdit = () => {
+                input.scrollLeft = 0;
                 const newVal = input.value;
                 if (newVal !== block.currentText) {
                     block.currentText = newVal;
                     block.modified = true;
-                    const measureCtx = this.getMeasureContext();
-                    if (measureCtx) {
-                        measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${block.fontSizePt * this.currentScale}px ${el.style.fontFamily}`;
-                        const measuredW = measureCtx.measureText(newVal).width;
-                        if (measuredW > 0) {
-                            block.pdfWidth = Math.max(block.origPdfWidth || block.pdfWidth, measuredW / this.currentScale);
-                        }
+                    const textW = this._measureInlineTextWidth(newVal, input, block);
+                    if (textW > 0) {
+                        block.pdfWidth = Math.max(block.origPdfWidth || block.pdfWidth, textW / this.currentScale);
                     }
                     const page = window.EditorState.getActivePage();
                     if (page) page.hasEdits = true;
@@ -1342,7 +1458,7 @@
 
         _setupClickDismiss() {
             const dismissHandler = (e) => {
-                if (e.target && e.target.closest && e.target.closest('#inline-properties-popover, #nopay-color-popover, #floating-object-bar')) {
+                if (e.target && e.target.closest && e.target.closest('#inline-properties-popover, #nopay-color-popover, #nopay-font-popover, #floating-object-bar')) {
                     return;
                 }
                 if (e.target === this.textLayer || e.target === this.linksLayer || e.target === this.formsLayer || e.target === this.container) {
@@ -1467,16 +1583,14 @@
                     }
 
                     const fontSelect = document.getElementById('sub-font-select');
-                    if (fontSelect && activeObj.fontFamily) {
-                        const famLower = activeObj.fontFamily.toLowerCase();
-                        if (famLower.includes('calibri') || famLower.includes('carlito')) fontSelect.value = 'carlito';
-                        else if (famLower.includes('roboto')) fontSelect.value = 'roboto';
-                        else if (famLower.includes('open sans')) fontSelect.value = 'opensans';
-                        else if (famLower.includes('lato')) fontSelect.value = 'lato';
-                        else if (famLower.includes('serif') || famLower.includes('times')) fontSelect.value = 'serif';
-                        else if (famLower.includes('mono') || famLower.includes('courier')) fontSelect.value = 'mono';
-                        else fontSelect.value = 'sans';
+                    const resolvedFontKey = (activeObj.fontFamily && window.FontManager?.resolveFontKey)
+                        ? window.FontManager.resolveFontKey(activeObj.fontFamily)
+                        : 'sans';
+                    if (fontSelect) {
+                        fontSelect.value = resolvedFontKey === 'original' ? 'sans' : resolvedFontKey;
                     }
+                    window.NoPayFontPicker?.setAllowOriginal(false);
+                    window.NoPayFontPicker?.setValue(resolvedFontKey === 'original' ? 'sans' : resolvedFontKey, { load: false });
 
                     const fontSizeInput = document.getElementById('sub-font-size');
                     if (fontSizeInput) fontSizeInput.value = (Math.round((activeObj.fontSize || 16) * 10) / 10).toString();
@@ -1688,8 +1802,10 @@
                 const clonedField = {
                     id: `field-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
                     type: orig.type,
-                    name: `${orig.name}_copy`,
+                    name: this._generateUniqueFormFieldName(orig.name, orig.type),
                     rect: [orig.rect[0] + 16, orig.rect[1] + 16, orig.rect[2], orig.rect[3]],
+                    defaultValue: orig.defaultValue || '',
+                    checked: Boolean(orig.checked),
                     options: orig.options ? [...orig.options] : [],
                 };
                 page.formFields.push(clonedField);
@@ -1874,6 +1990,27 @@
             }
         }
 
+        _generateUniqueFormFieldName(baseName = '', formType = 'text') {
+            const pages = window.EditorState?.pages || [];
+            const used = new Set();
+            for (const p of pages) {
+                for (const f of (p.formFields || [])) {
+                    if (f && f.name) used.add(f.name);
+                }
+            }
+            const cleaned = (baseName || '').trim();
+            if (cleaned) {
+                if (!used.has(cleaned)) return cleaned;
+                let idx = 2;
+                while (used.has(`${cleaned}_${idx}`)) idx++;
+                return `${cleaned}_${idx}`;
+            }
+            const activePage = window.EditorState?.getActivePage();
+            let idx = (activePage?.formFields?.length || 0) + 1;
+            while (used.has(`${formType}_${idx}`)) idx++;
+            return `${formType}_${idx}`;
+        }
+
         startFormPlacement(type = 'text', customName = '') {
             this.cancelPlacement();
             this._exitActiveInteraction();
@@ -1907,7 +2044,7 @@
 
             this._onPlacementClick = (e) => {
                 if (!this.formPlacementType) return;
-                if (e.target && e.target.closest && e.target.closest('.form-field-hotspot, #inline-properties-popover, #nopay-color-popover, #floating-object-bar')) {
+                if (e.target && e.target.closest && e.target.closest('.form-field-hotspot, #inline-properties-popover, #nopay-color-popover, #nopay-font-popover, #floating-object-bar')) {
                     return;
                 }
                 const rect = this.container.getBoundingClientRect();
@@ -1936,10 +2073,11 @@
 
                 const page = window.EditorState.getActivePage();
                 if (page) {
+                    const uniqueName = this._generateUniqueFormFieldName(customFieldName, formType);
                     const newField = {
                         id: `ff-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
                         type: formType,
-                        name: customFieldName || `${formType}_${page.formFields.length + 1}`,
+                        name: uniqueName,
                         rect: [clickX - (fw / 2), clickY - (fh / 2), fw, fh],
                         defaultValue: '',
                         checked: false,
@@ -1969,10 +2107,11 @@
             if (!page) return null;
             const isCb = type === 'checkbox';
             const defaultRect = rect || [100, 100, isCb ? 18 : 140, isCb ? 18 : 28];
+            const uniqueName = this._generateUniqueFormFieldName(options.name, type);
             const newField = {
                 id: `ff-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
                 type,
-                name: options.name || `${type}_${page.formFields.length + 1}`,
+                name: uniqueName,
                 rect: defaultRect,
                 defaultValue: options.defaultValue || '',
                 checked: !!options.checked,
@@ -1991,7 +2130,7 @@
             if (!this.linksLayer) return;
             this.linksLayer.addEventListener('mousedown', (e) => {
                 if (this.activeTool !== 'links') return;
-                if (e.target && e.target.closest && e.target.closest('.link-hotspot, #inline-properties-popover, #nopay-color-popover, #floating-object-bar')) {
+                if (e.target && e.target.closest && e.target.closest('.link-hotspot, #inline-properties-popover, #nopay-color-popover, #nopay-font-popover, #floating-object-bar')) {
                     return;
                 }
                 // 2-Click Exit-Before-Create guard
@@ -2272,6 +2411,8 @@
                 fill: '#1e293b',
                 bold: false,
                 italic: false,
+                snappedBoxTop: null,
+                dyToNearest: Infinity,
             };
 
             const pageState = window.EditorState.getActivePage();
@@ -2284,6 +2425,8 @@
 
             let closestBlock = null;
             let minDistance = Infinity;
+            let closestBoxTop = null;
+            let closestDy = Infinity;
 
             for (const b of pageState.textBlocks) {
                 const baselineY = pageHeightPt - (b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY);
@@ -2307,6 +2450,8 @@
                 if (weight < minDistance) {
                     minDistance = weight;
                     closestBlock = b;
+                    closestBoxTop = boxTop;
+                    closestDy = dy;
                 }
             }
 
@@ -2327,6 +2472,8 @@
                 fill: color,
                 bold,
                 italic,
+                snappedBoxTop: closestBoxTop,
+                dyToNearest: closestDy,
             };
         }
 
@@ -2440,7 +2587,7 @@
                     width: Math.max(10, w),
                     height: Math.max(10, h),
                     fill: chosenColor,
-                    opacity: 0.35,
+                    opacity: 0.28,
                     lockUniScaling: false,
                     isAnnotation: true,
                     annotType: 'highlight',
