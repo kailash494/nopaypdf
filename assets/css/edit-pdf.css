@@ -222,6 +222,7 @@
     overflow: visible;
     user-select: none;
     isolation: isolate;
+    transform: none !important;
 }
 
 .text-hitbox:hover {
@@ -236,6 +237,8 @@
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
     z-index: 50;
     overflow: visible;
+    transform: none !important;
+    letter-spacing: normal !important;
 }
 
 /* Outward bleeding cover mask for modified and active editing blocks */
@@ -268,6 +271,7 @@
 
 .text-inline-input {
     width: 100%;
+    min-width: 100%;
     height: 100%;
     border: none;
     outline: none;
@@ -280,7 +284,8 @@
     font-weight: inherit;
     font-style: inherit;
     line-height: 1;
-    letter-spacing: inherit;
+    letter-spacing: normal !important;
+    transform: none !important;
     display: block;
 }
 
@@ -299,7 +304,12 @@
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
     white-space: nowrap;
     user-select: none;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 11px;
+    font-weight: 500;
+    font-style: normal;
+    letter-spacing: normal !important;
+    transform: none !important;
     pointer-events: auto;
 }
 
@@ -628,25 +638,6 @@
 .draw-swatch:hover {
     transform: scale(1.15);
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4);
-}
-
-/* Layer 1.5: Highlight Annotation Overlay with Live CSS Multiply Blending */
-.stage-layer-highlight {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    mix-blend-mode: multiply;
-    z-index: 15;
-    overflow: hidden;
-}
-
-.annot-highlight-rect {
-    position: absolute;
-    pointer-events: none;
-    border-radius: 1px;
 }
 
 /* Hover bridge for text hitboxes */

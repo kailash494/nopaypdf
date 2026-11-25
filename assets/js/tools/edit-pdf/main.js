@@ -336,6 +336,12 @@
                 toolBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
+                // Commit any active inline Fabric text editing before switching tools
+                const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+                if (activeObj && activeObj.isEditing) {
+                    activeObj.exitEditing();
+                }
+
                 // Cancel any pending form / ghost placement
                 window.CanvasStage.cancelPlacement();
 
@@ -375,6 +381,7 @@
                 }
 
                 window.CanvasStage.setTool(tool);
+                window.CanvasStage.syncCanvasOffset();
 
                 if (tool === 'images') {
                     hiddenImgInput?.click();
@@ -611,10 +618,15 @@
             const block = e.detail?.block;
             if (!block) {
                 subToolbar?.classList.add('hidden');
+                window.CanvasStage?.syncCanvasOffset();
                 return;
             }
 
             subToolbar?.classList.remove('hidden');
+            const bgGroup = document.getElementById('sub-bg-color')?.closest('.flex');
+            if (bgGroup) bgGroup.style.display = '';
+            const resetBtn = document.getElementById('sub-reset-btn');
+            if (resetBtn) resetBtn.style.display = '';
             const fontTierPill = document.getElementById('sub-font-tier-pill');
             if (fontTierPill) {
                 fontTierPill.classList.remove('hidden');
@@ -641,6 +653,7 @@
             }
             if (textColorInput) textColorInput.value = block.colorHex || '#1e293b';
             if (bgColorInput) bgColorInput.value = block.bgHex || '#ffffff';
+            window.CanvasStage?.syncCanvasOffset();
         });
 
         function getFontFamilyFromSelectKey(key) {
@@ -805,9 +818,13 @@
             if (e.key === 'Escape') {
                 window.CanvasStage?.cancelPlacement();
                 if (activeFabricObj) {
+                    if (isFabricEditing) activeFabricObj.exitEditing();
                     window.CanvasStage?.fabricCanvas?.discardActiveObject();
                     window.CanvasStage?.fabricCanvas?.renderAll();
                     window.CanvasStage?._hideFloatingBar();
+                }
+                if (document.activeElement && document.activeElement !== document.body && typeof document.activeElement.blur === 'function') {
+                    document.activeElement.blur();
                 }
                 if (window.CanvasStage?.selectedLink || window.CanvasStage?.selectedFormField) {
                     window.CanvasStage.selectedLink = null;
@@ -816,13 +833,12 @@
                     document.querySelectorAll('.form-field-hotspot').forEach(el => el.classList.remove('selected'));
                     window.CanvasStage?._hideFloatingBar();
                 }
-                subToolbar?.classList.add('hidden');
-                annotateSubToolbar?.classList.add('hidden');
-                whiteoutSubToolbar?.classList.add('hidden');
+                hideAllSubToolbars();
                 findDrawer?.classList.add('hidden');
                 closeSigModal();
                 toolBtns.forEach(b => b.classList.toggle('active', b.dataset.tool === 'text-edit'));
                 window.CanvasStage?.setTool('text-edit');
+                window.CanvasStage?.syncCanvasOffset();
                 return;
             }
 
@@ -996,7 +1012,7 @@
             }
             sigUploadCanvas.width = w;
             sigUploadCanvas.height = h;
-            const ctx = sigUploadCanvas.getContext('2d');
+            const ctx = sigUploadCanvas.getContext('2d', { willReadFrequently: true });
             ctx.clearRect(0, 0, w, h);
             ctx.drawImage(img, 0, 0, w, h);
 

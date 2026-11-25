@@ -21,7 +21,6 @@
             this.fabricWrap = null;
             this.fabricCanvasEl = null;
             this.fabricCanvas = null;
-            this.highlightLayer = null;
             this.currentPdfProxy = null;
             this.currentScale = 1.0;
             this.activeTool = 'text-edit'; // 'text-edit'|'add-text'|'links'|'forms'|'whiteout'|'annotate'|'shapes'|'draw'|'images'|'sign'
@@ -59,7 +58,6 @@
             this.formsLayer = formsLayerEl || (this.container ? this.container.querySelector('#stage-forms-layer') : document.getElementById('stage-forms-layer'));
             this.fabricCanvasEl = fabricCanvasEl || (this.container ? this.container.querySelector('#stage-fabric-canvas') : document.getElementById('stage-fabric-canvas'));
             this.fabricWrap = this.container ? (this.container.querySelector('#stage-fabric-wrap') || this.container.querySelector('.stage-layer-fabric-wrap')) : document.getElementById('stage-fabric-wrap');
-            this.highlightLayer = this.container ? this.container.querySelector('#stage-highlight-layer') : document.getElementById('stage-highlight-layer');
 
             // Idempotent patch for Fabric 5.3.1 'alphabetical' CanvasTextBaseline typo
             if (window.fabric && window.fabric.Text && window.fabric.Text.prototype._setTextStyles && !window.fabric.Text.prototype._setTextStyles.__patched) {
@@ -80,12 +78,15 @@
                     stopContextMenu: true,
                 });
 
-                this.fabricCanvas.on('object:modified', () => {
+                this.fabricCanvas.on('object:modified', (opt) => {
+                    if (opt && opt.target && opt.target._skipNextObjectModified) {
+                        opt.target._skipNextObjectModified = false;
+                        return;
+                    }
                     if (!this._isRestoring) {
                         this._saveFabricState();
                         window.EditorState.pushSnapshot('Modify Object');
                     }
-                    this._syncHighlightLayer();
                     this._updateFloatingBar();
                 });
 
@@ -93,18 +94,12 @@
                     if (!this._isRestoring) {
                         this._saveFabricState();
                     }
-                    this._syncHighlightLayer();
                 });
 
                 this.fabricCanvas.on('object:removed', () => {
                     if (!this._isRestoring) {
                         this._saveFabricState();
                     }
-                    this._syncHighlightLayer();
-                });
-
-                this.fabricCanvas.on('after:render', () => {
-                    this._syncHighlightLayer();
                 });
 
                 this.fabricCanvas.on('path:created', (e) => {
@@ -120,39 +115,42 @@
                 this.fabricCanvas.on('selection:cleared', () => this._onFabricSelectionCleared());
                 this.fabricCanvas.on('object:moving', () => {
                     this._hideFloatingBar();
-                    this._syncHighlightLayer();
                 });
                 this.fabricCanvas.on('object:scaling', () => {
                     this._hideFloatingBar();
-                    this._syncHighlightLayer();
                 });
                 this.fabricCanvas.on('object:rotating', () => {
                     this._hideFloatingBar();
-                    this._syncHighlightLayer();
                 });
 
                 this.fabricCanvas.on('mouse:down', (opt) => {
-                    const pointer = opt.pointer || this.fabricCanvas.getPointer(opt.e);
+                    const pointer = (opt.e && typeof opt.e.clientX === 'number')
+                        ? this.clientToCanvasPoint(opt.e.clientX, opt.e.clientY)
+                        : this.fabricCanvas.getPointer(opt.e);
 
                     if (this.activeTool === 'add-text') {
-                        // If clicking an existing text box, enter editing instead of spawning a duplicate
+                        // If clicking an existing added text box, focus/edit it instead of spawning a duplicate
                         if (opt.target && (opt.target.type === 'i-text' || opt.target.type === 'text')) {
                             this.fabricCanvas.setActiveObject(opt.target);
                             opt.target.enterEditing();
+                            this._updateFloatingBar();
                             return;
                         }
 
-                        const stageW = (this.container && this.container.offsetWidth) || (this.baseCanvas ? this.baseCanvas.width : 600);
-                        
+                        const pageState = window.EditorState.getActivePage();
+                        const pageW = (pageState && pageState.widthPt) || 612;
+                        const pageH = (pageState && pageState.heightPt) || 792;
+
                         // Inherit font style, size, ink color, weight from nearest page text
                         const nearestStyle = this.getNearestTextBlockStyle(pointer.x, pointer.y);
 
-                        // Clamp left coordinate to prevent right-edge clipping
-                        const clampedLeft = Math.max(16, Math.min(stageW - 140, pointer.x));
+                        // Anchor cleanly within scene bounds without shifting clicks in content area
+                        const clampedLeft = Math.max(8, Math.min(pageW - 36, pointer.x));
+                        const clampedTop = Math.max(8, Math.min(pageH - 24, pointer.y));
 
-                        const t = new fabric.IText('Type here', {
+                        const t = new fabric.IText('', {
                             left: clampedLeft,
-                            top: pointer.y,
+                            top: clampedTop,
                             fontSize: nearestStyle.fontSize,
                             fill: nearestStyle.fill,
                             fontFamily: nearestStyle.fontFamily,
@@ -161,38 +159,55 @@
                             lockUniScaling: true,
                             hasControls: true,
                             hasBorders: true,
+                            borderColor: '#2563eb',
+                            editingBorderColor: '#2563eb',
+                            padding: 4,
                             cornerSize: 8,
                             transparentCorners: false,
                         });
+                        t._isPendingNewText = true;
+                        t._textBeforeEdit = '';
 
                         t.on('editing:entered', () => {
-                            t.selectAll();
+                            t._textBeforeEdit = t.text || '';
+                        });
+
+                        t.on('changed', () => {
+                            this.fabricCanvas.renderAll();
+                            this._updateFloatingBar();
                         });
 
                         t.on('editing:exited', () => {
-                            if (!t.text || t.text.trim() === '' || t.text === 'Type here') {
+                            if (!t.text || t.text.trim() === '') {
+                                this._isRestoring = true;
                                 this.fabricCanvas.remove(t);
+                                this._isRestoring = false;
                                 this._saveFabricState();
                                 this._hideFloatingBar();
+                                return;
                             }
-                            if (this.activeTool === 'add-text') {
-                                this.setTool('text-edit');
-                                const mainTextEditBtn = document.getElementById('tool-text-edit');
-                                if (mainTextEditBtn) {
-                                    document.querySelectorAll('.editor-tool-btn').forEach(b => b.classList.remove('active'));
-                                    mainTextEditBtn.classList.add('active');
-                                }
+                            if (t._isPendingNewText) {
+                                t._isPendingNewText = false;
+                                t._skipNextObjectModified = true;
+                                this._saveFabricState();
+                                window.EditorState.pushSnapshot('Add Text');
+                            } else if (t.text !== t._textBeforeEdit) {
+                                t._skipNextObjectModified = true;
+                                this._saveFabricState();
+                                window.EditorState.pushSnapshot('Edit Added Text');
                             }
                         });
 
+                        this._isRestoring = true;
                         this.fabricCanvas.add(t);
+                        this._isRestoring = false;
                         this.activeFabricTextBox = t;
                         this.fabricCanvas.setActiveObject(t);
                         t.enterEditing();
-                        t.selectAll();
+                        if (t.hiddenTextarea) {
+                            t.hiddenTextarea.focus();
+                        }
                         this.fabricCanvas.renderAll();
-                        this._saveFabricState();
-                        window.EditorState.pushSnapshot('Add Text');
                         this._updateFloatingBar();
                         return;
                     }
@@ -219,12 +234,14 @@
                     }
                 });
 
-                this.fabricCanvas.on('mouse:move', (opt) => {
-                    // Intentionally empty for base drawing
+                this.fabricCanvas.on('mouse:move', () => {
+                    // Cursor tracking handled explicitly per placement tool
                 });
 
                 this.fabricCanvas.on('mouse:up', (opt) => {
-                    const endPointer = opt.pointer || this.fabricCanvas.getPointer(opt.e);
+                    const endPointer = (opt.e && typeof opt.e.clientX === 'number')
+                        ? this.clientToCanvasPoint(opt.e.clientX, opt.e.clientY)
+                        : this.fabricCanvas.getPointer(opt.e);
 
                     if (this.activeTool === 'annotate' && this.isDrawingAnnot && this.annotDrawStart) {
                         this.isDrawingAnnot = false;
@@ -234,7 +251,11 @@
                         const h = Math.abs(endPointer.y - this.annotDrawStart.y);
                         this.annotDrawStart = null;
 
-                        if (w > 10 && h > 4) {
+                        if (this.annotateType === 'underline' || this.annotateType === 'strike') {
+                            if (w > 10) {
+                                this.addAnnotation(this.annotateType, [x, y, w, h], this.annotateColor);
+                            }
+                        } else if (w > 10 && h > 4) {
                             this.addAnnotation(this.annotateType, [x, y, w, h], this.annotateColor);
                         }
                     }
@@ -256,31 +277,95 @@
 
                     if (this.activeTool === 'shapes' && this.isDrawingShape && this.shapeDrawStart) {
                         this.isDrawingShape = false;
-                        const x = Math.min(this.shapeDrawStart.x, endPointer.x);
-                        const y = Math.min(this.shapeDrawStart.y, endPointer.y);
-                        const w = Math.abs(endPointer.x - this.shapeDrawStart.x);
-                        const h = Math.abs(endPointer.y - this.shapeDrawStart.y);
+                        let x1 = this.shapeDrawStart.x;
+                        let y1 = this.shapeDrawStart.y;
+                        let x2 = endPointer.x;
+                        let y2 = endPointer.y;
                         this.shapeDrawStart = null;
 
-                        if (w > 5 || h > 5) {
-                            this.addShape(this.shapeType, {
-                                left: x,
-                                top: y,
-                                width: Math.max(15, w),
-                                height: Math.max(10, h),
-                                radius: Math.max(w, h) / 2,
-                            });
+                        if (this.shapeType === 'line' || this.shapeType === 'arrow') {
+                            const dist = Math.hypot(x2 - x1, y2 - y1);
+                            if (dist <= 5) {
+                                x2 = x1 + 120;
+                                y2 = y1;
+                            } else if (opt.e && opt.e.shiftKey) {
+                                const angle = Math.atan2(y2 - y1, x2 - x1);
+                                const snapped = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+                                x2 = x1 + Math.cos(snapped) * dist;
+                                y2 = y1 + Math.sin(snapped) * dist;
+                            } else if (Math.abs(y2 - y1) < 8) {
+                                y2 = y1;
+                            }
+                            this.addShape(this.shapeType, { x1, y1, x2, y2 });
                         } else {
-                            this.addShape(this.shapeType, { left: x, top: y });
+                            const x = Math.min(x1, x2);
+                            const y = Math.min(y1, y2);
+                            const w = Math.abs(x2 - x1);
+                            const h = Math.abs(y2 - y1);
+
+                            if (w > 5 || h > 5) {
+                                this.addShape(this.shapeType, {
+                                    left: x,
+                                    top: y,
+                                    width: Math.max(15, w),
+                                    height: Math.max(10, h),
+                                    radius: Math.max(w, h) / 2,
+                                });
+                            } else {
+                                this.addShape(this.shapeType, { left: x, top: y });
+                            }
                         }
                     }
                 });
+            }
+
+            if (!this._viewportOffsetBound) {
+                this._viewportOffsetBound = true;
+                window.addEventListener('resize', () => this.syncCanvasOffset());
+                const scrollViewport = document.querySelector('.editor-viewport-container');
+                if (scrollViewport) {
+                    scrollViewport.addEventListener('scroll', () => {
+                        this.syncCanvasOffset();
+                    }, { passive: true });
+                }
             }
 
             this._setupFloatingBarEvents();
             this._setupLinkDrawing();
             this._setupClickDismiss();
             this._applyLayerPointerEvents(this.activeTool);
+        }
+
+        /**
+         * Recompute Fabric.js canvas offset immediately after DOM or viewport changes.
+         */
+        syncCanvasOffset() {
+            if (this.fabricCanvas && typeof this.fabricCanvas.calcOffset === 'function') {
+                this.fabricCanvas.calcOffset();
+            }
+        }
+
+        /**
+         * Single source-of-truth coordinate converter from DOM client pixels to Fabric scene coordinates.
+         * @param {number} clientX
+         * @param {number} clientY
+         * @returns {{ x: number, y: number }}
+         */
+        clientToCanvasPoint(clientX, clientY) {
+            const upperCanvas = this.fabricCanvas?.upperCanvasEl || this.fabricCanvasEl || this.baseCanvas || this.container;
+            if (!upperCanvas) return { x: clientX, y: clientY };
+            const rect = upperCanvas.getBoundingClientRect();
+            const canvasW = this.fabricCanvas ? this.fabricCanvas.getWidth() : (rect.width || 1);
+            const canvasH = this.fabricCanvas ? this.fabricCanvas.getHeight() : (rect.height || 1);
+            const vx = rect.width > 0 ? (clientX - rect.left) * (canvasW / rect.width) : (clientX - rect.left);
+            const vy = rect.height > 0 ? (clientY - rect.top) * (canvasH / rect.height) : (clientY - rect.top);
+            const vpt = (this.fabricCanvas && this.fabricCanvas.viewportTransform) || [1, 0, 0, 1, 0, 0];
+            const zoomX = vpt[0] || this.currentScale || 1;
+            const zoomY = vpt[3] || this.currentScale || 1;
+            return {
+                x: (vx - (vpt[4] || 0)) / zoomX,
+                y: (vy - (vpt[5] || 0)) / zoomY,
+            };
         }
 
         setTool(tool) {
@@ -301,7 +386,7 @@
                 this.isDrawingAnnot = false;
                 this.annotDrawStart = null;
             }
-            if (tool !== 'images' && tool !== 'sign') {
+            if (tool !== 'images' && tool !== 'sign' && tool !== 'forms') {
                 this.cancelPlacement();
             }
 
@@ -331,14 +416,10 @@
         _applyLayerPointerEvents(toolName) {
             const tool = toolName || this.activeTool || 'text-edit';
 
-            // Base PDF canvas & multiply highlight layer are ALWAYS pointer-events: none
+            // Base PDF canvas is ALWAYS pointer-events: none
             if (this.baseCanvas) {
                 this.baseCanvas.style.pointerEvents = 'none';
                 this.baseCanvas.style.zIndex = '10';
-            }
-            if (this.highlightLayer) {
-                this.highlightLayer.style.pointerEvents = 'none';
-                this.highlightLayer.style.zIndex = '15';
             }
 
             if (tool === 'text-edit') {
@@ -469,6 +550,7 @@
                     });
                 }
             }
+            this.syncCanvasOffset();
         }
 
         _saveFabricState() {
@@ -500,14 +582,10 @@
             const viewportWidth = Math.round(widthPt * this.currentScale);
             const viewportHeight = Math.round(heightPt * this.currentScale);
 
-            // 1. Resize Stage Container and all 6 Synchronized Layers
+            // 1. Resize Stage Container and all Synchronized Layers
             this.container.style.width = `${viewportWidth}px`;
             this.container.style.height = `${viewportHeight}px`;
 
-            if (this.highlightLayer) {
-                this.highlightLayer.style.width = `${viewportWidth}px`;
-                this.highlightLayer.style.height = `${viewportHeight}px`;
-            }
             if (this.textLayer) {
                 this.textLayer.style.width = `${viewportWidth}px`;
                 this.textLayer.style.height = `${viewportHeight}px`;
@@ -534,8 +612,8 @@
             // 4. Render Layer 3: Fabric.js Canvas
             this._renderFabricLayer(pageState, viewportWidth, viewportHeight);
 
-            this._syncHighlightLayer();
             this._applyLayerPointerEvents();
+            this.syncCanvasOffset();
         }
 
         async _renderBaseCanvas(pageState, viewportWidth, viewportHeight) {
@@ -687,7 +765,7 @@
                 el.style.fontStyle = block.italic ? 'italic' : 'normal';
                 el.style.color = block.colorHex || '#1e293b';
 
-                // Calibrate letter-spacing to match original PDF character advances
+                // Calibrate subtle letter-spacing on static display without ever squishing characters
                 let letterSpacingPx = 0;
                 const expectedOrigPx = (block.origPdfWidth || block.pdfWidth) * scale;
                 if (block.originalText && block.originalText.length > 1 && measureCtx) {
@@ -695,12 +773,13 @@
                     const measuredW = measureCtx.measureText(block.originalText).width;
                     if (measuredW > 0) {
                         letterSpacingPx = (expectedOrigPx - measuredW) / (block.originalText.length - 1);
-                        letterSpacingPx = Math.max(-2.0, Math.min(3.5, letterSpacingPx));
+                        letterSpacingPx = Math.max(-0.35, Math.min(2.5, letterSpacingPx));
                         block.widthRatio = expectedOrigPx / measuredW;
                     }
                 }
                 block.letterSpacingPx = letterSpacingPx;
                 el.style.letterSpacing = `${letterSpacingPx.toFixed(2)}px`;
+                el.style.transform = 'none';
 
                 if (block.deleted) {
                     el.classList.add('deleted');
@@ -803,6 +882,8 @@
         _activateTextEdit(block, el) {
             this.selectedBlock = block;
             el.classList.add('editing');
+            el.style.letterSpacing = 'normal';
+            el.style.transform = 'none';
             el.innerHTML = '';
             const effectiveBg = (block.bgHex && block.bgHex !== 'transparent')
                 ? block.bgHex
@@ -818,7 +899,18 @@
             input.style.fontSize = el.style.fontSize;
             input.style.fontWeight = el.style.fontWeight;
             input.style.fontStyle = el.style.fontStyle;
-            input.style.letterSpacing = el.style.letterSpacing;
+            input.style.letterSpacing = 'normal';
+            input.style.transform = 'none';
+
+            const updateExpandedWidth = (textVal) => {
+                const measureCtx = this.getMeasureContext();
+                if (!measureCtx) return;
+                measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${block.fontSizePt * this.currentScale}px ${input.style.fontFamily}`;
+                const measuredW = measureCtx.measureText(textVal || '').width;
+                const origW = Math.max(8, (block.origPdfWidth || block.pdfWidth) * this.currentScale);
+                const newW = Math.max(origW, measuredW + 16);
+                el.style.width = `${newW}px`;
+            };
 
             // Create Floating Quick-Action Bar above active text box
             const quickBar = document.createElement('div');
@@ -866,6 +958,7 @@
 
             el.appendChild(quickBar);
             el.appendChild(input);
+            updateExpandedWidth(input.value);
             input.focus();
             input.select();
 
@@ -891,15 +984,7 @@
                     window.FontManager.loadWebFont(block.matched);
                 }
 
-                // Dynamically expand element width if typed text exceeds original width
-                const measureCtx = this.getMeasureContext();
-                if (measureCtx) {
-                    measureCtx.font = `${block.italic ? 'italic ' : ''}${block.bold ? '700 ' : '400 '}${block.fontSizePt * this.currentScale}px ${input.style.fontFamily}`;
-                    const measuredW = measureCtx.measureText(val).width;
-                    const origW = Math.max(8, (block.origPdfWidth || block.pdfWidth) * this.currentScale);
-                    const newW = Math.max(origW, measuredW + 8);
-                    el.style.width = `${newW}px`;
-                }
+                updateExpandedWidth(val);
             });
 
             const finishEdit = () => {
@@ -1134,7 +1219,7 @@
 
             if (activeObj) {
                 canReorder = true;
-                const bound = activeObj.getBoundingRect(true);
+                const bound = activeObj.getBoundingRect(false);
                 targetRect = {
                     left: bound.left,
                     top: bound.top,
@@ -1371,8 +1456,9 @@
                     return;
                 }
 
-                const clickX = (e.clientX - rect.left) / this.currentScale;
-                const clickY = (e.clientY - rect.top) / this.currentScale;
+                const pt = this.clientToCanvasPoint(e.clientX, e.clientY);
+                const clickX = pt.x;
+                const clickY = pt.y;
 
                 const currentType = this.placementMode.type;
                 const currentDataUrl = this.placementMode.dataUrl;
@@ -1413,8 +1499,8 @@
 
             window.addEventListener('pointermove', this._onPlacementMove);
             setTimeout(() => {
-                if (this.placementMode) {
-                    window.addEventListener('click', this._onPlacementClick, { once: true });
+                if (this.placementMode && this._onPlacementClick) {
+                    window.addEventListener('click', this._onPlacementClick);
                 }
             }, 50);
         }
@@ -1444,9 +1530,10 @@
             }
         }
 
-        startFormPlacement(type = 'text') {
+        startFormPlacement(type = 'text', customName = '') {
             this.cancelPlacement();
             this.formPlacementType = type;
+            this.customFormName = (customName || '').trim();
 
             const ghost = document.getElementById('placement-ghost-preview');
             const ghostImg = document.getElementById('placement-ghost-img');
@@ -1483,10 +1570,12 @@
                     return;
                 }
 
-                const clickX = (e.clientX - rect.left) / this.currentScale;
-                const clickY = (e.clientY - rect.top) / this.currentScale;
+                const pt = this.clientToCanvasPoint(e.clientX, e.clientY);
+                const clickX = pt.x;
+                const clickY = pt.y;
 
                 const formType = this.formPlacementType;
+                const customFieldName = this.customFormName;
                 const isCb = formType === 'checkbox';
                 const fw = isCb ? 24 : 140;
                 const fh = isCb ? 24 : 28;
@@ -1496,7 +1585,7 @@
                     const newField = {
                         id: `ff-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
                         type: formType,
-                        name: `${formType}_${page.formFields.length + 1}`,
+                        name: customFieldName || `${formType}_${page.formFields.length + 1}`,
                         rect: [clickX - (fw / 2), clickY - (fh / 2), fw, fh],
                         defaultValue: '',
                         checked: false,
@@ -1511,15 +1600,12 @@
                 }
 
                 this.cancelPlacement();
-                this.setTool('text-edit');
-                const toolBtns = document.querySelectorAll('.tool-btn');
-                toolBtns.forEach(b => b.classList.toggle('active', b.dataset.tool === 'text-edit'));
             };
 
             window.addEventListener('pointermove', this._onPlacementMove);
             setTimeout(() => {
-                if (this.formPlacementType) {
-                    window.addEventListener('click', this._onPlacementClick, { once: true });
+                if (this.formPlacementType && this._onPlacementClick) {
+                    window.addEventListener('click', this._onPlacementClick);
                 }
             }, 50);
         }
@@ -1551,25 +1637,20 @@
             if (!this.linksLayer) return;
             this.linksLayer.addEventListener('mousedown', (e) => {
                 if (this.activeTool !== 'links') return;
-                const rect = this.linksLayer.getBoundingClientRect();
+                const pt = this.clientToCanvasPoint(e.clientX, e.clientY);
                 this.isDrawingLink = true;
-                this.linkDrawStart = {
-                    x: (e.clientX - rect.left) / this.currentScale,
-                    y: (e.clientY - rect.top) / this.currentScale,
-                };
+                this.linkDrawStart = { x: pt.x, y: pt.y };
             });
 
             window.addEventListener('mouseup', (e) => {
                 if (!this.isDrawingLink || this.activeTool !== 'links' || !this.linksLayer) return;
                 this.isDrawingLink = false;
-                const rect = this.linksLayer.getBoundingClientRect();
-                const endX = (e.clientX - rect.left) / this.currentScale;
-                const endY = (e.clientY - rect.top) / this.currentScale;
+                const endPt = this.clientToCanvasPoint(e.clientX, e.clientY);
 
-                const x = Math.min(this.linkDrawStart.x, endX);
-                const y = Math.min(this.linkDrawStart.y, endY);
-                const w = Math.abs(endX - this.linkDrawStart.x);
-                const h = Math.abs(endY - this.linkDrawStart.y);
+                const x = Math.min(this.linkDrawStart.x, endPt.x);
+                const y = Math.min(this.linkDrawStart.y, endPt.y);
+                const w = Math.abs(endPt.x - this.linkDrawStart.x);
+                const h = Math.abs(endPt.y - this.linkDrawStart.y);
 
                 if (w > 15 && h > 10) {
                     this._createLinkPrompt([x, y, w, h]);
@@ -1655,34 +1736,6 @@
             return t;
         }
 
-        _syncHighlightLayer() {
-            if (!this.highlightLayer) {
-                this.highlightLayer = this.container ? this.container.querySelector('#stage-highlight-layer') : document.getElementById('stage-highlight-layer');
-            }
-            if (!this.highlightLayer || !this.fabricCanvas) return;
-
-            this.highlightLayer.innerHTML = '';
-            const objects = this.fabricCanvas.getObjects();
-            for (const obj of objects) {
-                if (obj.isAnnotation && obj.annotType === 'highlight') {
-                    const bound = obj.getBoundingRect(true);
-                    const div = document.createElement('div');
-                    div.className = 'annot-highlight-rect';
-                    div.style.left = `${bound.left}px`;
-                    div.style.top = `${bound.top}px`;
-                    div.style.width = `${bound.width}px`;
-                    div.style.height = `${bound.height}px`;
-                    div.style.backgroundColor = obj.fill || '#fef08a';
-                    div.style.opacity = '0.5';
-                    if (obj.angle) {
-                        div.style.transform = `rotate(${obj.angle}deg)`;
-                        div.style.transformOrigin = 'center center';
-                    }
-                    this.highlightLayer.appendChild(div);
-                }
-            }
-        }
-
         getNearestTextBlockStyle(clickPtX, clickPtY) {
             const defaultStyle = {
                 fontFamily: 'Liberation Sans',
@@ -1697,21 +1750,21 @@
                 return defaultStyle;
             }
 
-            const scale = this.currentScale || 1.0;
+            // Compare in unscaled PDF scene points matching clientToCanvasPoint()
             const pageHeightPt = pageState.heightPt || 792;
 
             let closestBlock = null;
             let minDistance = Infinity;
 
             for (const b of pageState.textBlocks) {
-                const baselineY = (pageHeightPt - (b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY)) * scale;
+                const baselineY = pageHeightPt - (b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY);
                 const ascentRatio = b.ascentRatio || 0.85;
                 const descentRatio = b.descentRatio || -0.20;
-                const fontSizePx = b.fontSizePt * scale;
-                const boxTop = baselineY - (fontSizePx * ascentRatio);
-                const boxLeft = b.pdfX * scale;
-                const boxWidth = (b.origPdfWidth || b.pdfWidth || 50) * scale;
-                const boxHeight = fontSizePx * (ascentRatio + Math.abs(descentRatio));
+                const fontSizePt = b.fontSizePt || 12;
+                const boxTop = baselineY - (fontSizePt * ascentRatio);
+                const boxLeft = b.pdfX;
+                const boxWidth = b.origPdfWidth || b.pdfWidth || 50;
+                const boxHeight = fontSizePt * (ascentRatio + Math.abs(descentRatio));
 
                 const centerX = boxLeft + (boxWidth / 2);
                 const centerY = boxTop + (boxHeight / 2);
@@ -1791,38 +1844,22 @@
             if (!this.fabricCanvas) return;
             const chosenColor = color || this.annotateColor || '#fef08a';
             const defaultRect = rect || [100, 100, 180, 24];
-            let [x, y, w, h] = defaultRect;
-
-            // Snap height to overlapping text line if available
-            const pageState = window.EditorState.getActivePage();
-            if (pageState && pageState.textBlocks && type === 'highlight') {
-                const scale = this.currentScale || 1.0;
-                const pageHeightPt = pageState.heightPt || 792;
-                for (const block of pageState.textBlocks) {
-                    const baselineY = (pageHeightPt - (block.baselinePdfY !== undefined ? block.baselinePdfY : block.pdfY)) * scale;
-                    const ascentRatio = block.ascentRatio || 0.85;
-                    const descentRatio = block.descentRatio || -0.20;
-                    const fontSizePx = block.fontSizePt * scale;
-                    const blockTop = baselineY - (fontSizePx * ascentRatio);
-                    const blockHeight = fontSizePx * (ascentRatio + Math.abs(descentRatio));
-
-                    if (y + h > blockTop && y < blockTop + blockHeight) {
-                        y = Math.round(blockTop);
-                        h = Math.round(blockHeight);
-                        break;
-                    }
-                }
-            }
+            const [x, y, w, h] = defaultRect;
 
             let annotObj;
             if (type === 'underline') {
                 annotObj = new fabric.Rect({
                     left: x,
-                    top: y + Math.max(0, h - 3),
+                    top: h > 4 ? (y + h - 3) : y,
                     width: Math.max(10, w),
                     height: 3,
+                    angle: 0,
                     fill: chosenColor,
                     opacity: 0.9,
+                    padding: 8,
+                    hasBorders: true,
+                    hasControls: true,
+                    perPixelTargetFind: false,
                     lockUniScaling: false,
                     cornerSize: 8,
                     transparentCorners: false,
@@ -1832,11 +1869,16 @@
             } else if (type === 'strike') {
                 annotObj = new fabric.Rect({
                     left: x,
-                    top: y + (h / 2) - 1.5,
+                    top: h > 4 ? (y + (h / 2) - 1.5) : y,
                     width: Math.max(10, w),
                     height: 3,
+                    angle: 0,
                     fill: chosenColor,
                     opacity: 0.9,
+                    padding: 8,
+                    hasBorders: true,
+                    hasControls: true,
+                    perPixelTargetFind: false,
                     lockUniScaling: false,
                     cornerSize: 8,
                     transparentCorners: false,
@@ -1844,27 +1886,25 @@
                     annotType: 'strike',
                 });
             } else {
-                // Highlight (translucent color wash with live CSS multiply blending on highlight layer)
+                // Single crisp Highlight Rect rendered directly on Fabric canvas (zero DOM duplication)
                 annotObj = new fabric.Rect({
                     left: x,
                     top: y,
                     width: Math.max(10, w),
                     height: Math.max(10, h),
                     fill: chosenColor,
-                    opacity: 0.45,
+                    opacity: 0.35,
                     lockUniScaling: false,
                     cornerSize: 8,
                     transparentCorners: false,
                     isAnnotation: true,
                     annotType: 'highlight',
                 });
-                annotObj.globalCompositeOperation = 'multiply';
             }
 
             this.fabricCanvas.add(annotObj);
             this.fabricCanvas.setActiveObject(annotObj);
             this.fabricCanvas.renderAll();
-            this._syncHighlightLayer();
             this._saveFabricState();
             const typeLabel = type === 'underline' ? 'Underline' : type === 'strike' ? 'Strikethrough' : 'Highlight';
             window.EditorState.pushSnapshot(`Add ${typeLabel}`);
@@ -1892,33 +1932,45 @@
                 ...options,
             };
 
-            const w = options.width || 120;
-            const h = options.height || 80;
+            const w = options.width !== undefined ? options.width : 120;
+            const h = options.height !== undefined ? options.height : ((type === 'line' || type === 'arrow') ? 0 : 80);
 
             if (type === 'rect') {
                 shape = new fabric.Rect({ ...base, width: w, height: h });
             } else if (type === 'circle') {
                 shape = new fabric.Circle({ ...base, radius: options.radius || Math.max(w, h) / 2 });
             } else if (type === 'line') {
-                shape = new fabric.Line([base.left, base.top, base.left + w, base.top + h], {
+                const x1 = options.x1 !== undefined ? options.x1 : base.left;
+                const y1 = options.y1 !== undefined ? options.y1 : base.top;
+                const x2 = options.x2 !== undefined ? options.x2 : (x1 + w);
+                const y2 = options.y2 !== undefined ? options.y2 : (y1 + h);
+                shape = new fabric.Line([x1, y1, x2, y2], {
                     stroke: strokeColor,
                     strokeWidth: strokeWidth,
+                    strokeLineCap: 'round',
                     lockUniScaling: true,
+                    hasBorders: true,
+                    hasControls: true,
+                    perPixelTargetFind: false,
+                    padding: 8,
                     cornerSize: 8,
                     transparentCorners: false,
                 });
             } else if (type === 'arrow') {
+                const x1 = options.x1 !== undefined ? options.x1 : base.left;
+                const y1 = options.y1 !== undefined ? options.y1 : base.top;
+                const x2 = options.x2 !== undefined ? options.x2 : (x1 + w);
+                const y2 = options.y2 !== undefined ? options.y2 : (y1 + h);
                 const headLen = 14;
-                const angle = Math.atan2(h, w);
-                const toX = base.left + w;
-                const toY = base.top + h;
-                const line = new fabric.Line([base.left, base.top, toX, toY], {
+                const angle = Math.atan2(y2 - y1, x2 - x1);
+                const line = new fabric.Line([x1, y1, x2, y2], {
                     stroke: strokeColor,
                     strokeWidth: strokeWidth,
+                    strokeLineCap: 'round',
                 });
                 const triangle = new fabric.Triangle({
-                    left: toX,
-                    top: toY,
+                    left: x2,
+                    top: y2,
                     originX: 'center',
                     originY: 'center',
                     pointType: 'arrow_start',
@@ -1928,9 +1980,11 @@
                     fill: strokeColor,
                 });
                 shape = new fabric.Group([line, triangle], {
-                    left: Math.min(base.left, toX),
-                    top: Math.min(base.top, toY),
                     lockUniScaling: true,
+                    hasBorders: true,
+                    hasControls: true,
+                    perPixelTargetFind: false,
+                    padding: 8,
                     cornerSize: 8,
                     transparentCorners: false,
                 });

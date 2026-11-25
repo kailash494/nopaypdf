@@ -24,6 +24,24 @@ let edgeProcess = null;
 const DEBUG_PORT = 9235;
 const cdpLogs = [];
 let cdpConnected = false;
+let cdpWs = null;
+let cdpMsgId = 10;
+const pendingCdp = new Map();
+let nextDialogPromptText = 'https://nopaypdf.com';
+
+async function sendCDP(method, params = {}) {
+    for (let i = 0; i < 40 && !cdpConnected; i++) {
+        await new Promise(r => setTimeout(r, 100));
+    }
+    if (!cdpWs || !cdpConnected) {
+        throw new Error(`CDP WebSocket not connected when calling ${method}`);
+    }
+    return new Promise((resolve, reject) => {
+        const id = ++cdpMsgId;
+        pendingCdp.set(id, { resolve, reject });
+        cdpWs.send(JSON.stringify({ id, method, params }));
+    });
+}
 
 async function connectCDP() {
     let connecting = false;
@@ -39,40 +57,71 @@ async function connectCDP() {
                 }).on('error', reject);
             });
             const targets = JSON.parse(listData);
-            const pageTarget = targets.find(t => t.type === 'page' && t.webSocketDebuggerUrl) || targets[0];
+            const pageTarget = targets.find(t => t.type === 'page' && t.url && t.url.includes('edit-pdf') && t.webSocketDebuggerUrl) ||
+                               targets.find(t => t.type === 'page' && t.webSocketDebuggerUrl);
             if (pageTarget && pageTarget.webSocketDebuggerUrl && !connecting) {
                 connecting = true;
-                console.log(`Connected CDP to tab: ${pageTarget.title || pageTarget.url}`);
+                console.log(`Connecting CDP to tab: ${pageTarget.title || pageTarget.url}`);
                 const ws = new WebSocket(pageTarget.webSocketDebuggerUrl);
-                ws.on('open', () => {
+                cdpWs = ws;
+                ws.addEventListener('error', (err) => {
+                    console.error('[CDP-WS-ERR]', err.message || err.type || err);
+                });
+                ws.addEventListener('open', () => {
                     cdpConnected = true;
+                    console.log('✓ CDP WebSocket opened successfully');
                     ws.send(JSON.stringify({ id: 1, method: 'Log.enable' }));
                     ws.send(JSON.stringify({ id: 2, method: 'Runtime.enable' }));
+                    ws.send(JSON.stringify({ id: 3, method: 'Page.enable' }));
                 });
-                ws.on('message', (raw) => {
+                ws.addEventListener('message', (event) => {
                     try {
+                        const raw = typeof event.data === 'string' ? event.data : event.data.toString();
                         const msg = JSON.parse(raw);
-                        if (msg.method === 'Log.entryAdded') {
+                        if (msg.id && pendingCdp.has(msg.id)) {
+                            const { resolve, reject } = pendingCdp.get(msg.id);
+                            pendingCdp.delete(msg.id);
+                            if (msg.error) reject(new Error(msg.error.message || 'CDP error'));
+                            else resolve(msg.result);
+                            return;
+                        }
+                        if (msg.method === 'Page.javascriptDialogOpening') {
+                            const dialogParams = { accept: true };
+                            if (msg.params && msg.params.type === 'prompt') {
+                                dialogParams.promptText = nextDialogPromptText || 'https://nopaypdf.com';
+                            }
+                            ws.send(JSON.stringify({
+                                id: ++cdpMsgId,
+                                method: 'Page.handleJavaScriptDialog',
+                                params: dialogParams,
+                            }));
+                        } else if (msg.method === 'Log.entryAdded') {
                             const entry = msg.params.entry;
                             if (entry.level === 'warning' || entry.level === 'error') {
                                 cdpLogs.push({ level: entry.level, text: entry.text, source: 'Log.entryAdded' });
                             }
                         } else if (msg.method === 'Runtime.consoleAPICalled') {
                             const params = msg.params;
-                            if (params.type === 'warning' || params.type === 'error') {
-                                const text = params.args.map(a => a.value || a.description || '').join(' ');
+                            const text = params.args.map(a => a.value || a.description || '').join(' ');
+                            if (params.type === 'log' && text.includes('[E2E-TEST]')) {
+                                console.log('  [LIVE]', text);
+                            } else if (params.type === 'warning' || params.type === 'error') {
                                 cdpLogs.push({ level: params.type, text, source: 'Runtime.consoleAPICalled' });
                             }
                         } else if (msg.method === 'Runtime.exceptionThrown') {
                             const text = msg.params.exceptionDetails?.text || 'Uncaught exception';
                             cdpLogs.push({ level: 'error', text, source: 'Runtime.exceptionThrown' });
                         }
-                    } catch (e) {}
+                    } catch (e) {
+                        console.warn('[CDP-MSG-PARSE-ERR]', e.message);
+                    }
                 });
                 return;
             }
         } catch (e) {
-            // Wait for Edge to bind port
+            if (e && e.code !== 'ECONNREFUSED') {
+                console.warn('[CDP-CONNECT-ERR]', e.message || e);
+            }
         }
     }
     console.warn('[CDP] Could not attach CDP session within timeout');
@@ -81,6 +130,66 @@ async function connectCDP() {
 const server = http.createServer((req, res) => {
     const parsedUrl = new URL(req.url, `http://localhost:${PORT}`);
     const pathname = parsedUrl.pathname;
+
+    // Real Chromium CDP Input dispatch bridge
+    if (pathname === '/cdp-action' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', async () => {
+            try {
+                const payload = JSON.parse(body);
+                if (payload.action === 'move') {
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mouseMoved', x: payload.x, y: payload.y });
+                } else if (payload.action === 'click') {
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mouseMoved', x: payload.x, y: payload.y });
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mousePressed', x: payload.x, y: payload.y, button: 'left', clickCount: 1 });
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mouseReleased', x: payload.x, y: payload.y, button: 'left', clickCount: 1 });
+                } else if (payload.action === 'drag') {
+                    const steps = payload.steps || 10;
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mouseMoved', x: payload.x1, y: payload.y1 });
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mousePressed', x: payload.x1, y: payload.y1, button: 'left', clickCount: 1 });
+                    for (let i = 1; i <= steps; i++) {
+                        const t = i / steps;
+                        const mx = payload.x1 + (payload.x2 - payload.x1) * t;
+                        const my = payload.y1 + (payload.y2 - payload.y1) * t;
+                        await sendCDP('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mx, y: my, buttons: 1 });
+                    }
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mouseReleased', x: payload.x2, y: payload.y2, button: 'left', clickCount: 1 });
+                } else if (payload.action === 'type') {
+                    const text = payload.text || '';
+                    for (const ch of text) {
+                        const code = ch.toUpperCase().charCodeAt(0);
+                        await sendCDP('Input.dispatchKeyEvent', { type: 'keyDown', text: ch, unmodifiedText: ch, key: ch, windowsVirtualKeyCode: code });
+                        await sendCDP('Input.dispatchKeyEvent', { type: 'keyUp', key: ch, windowsVirtualKeyCode: code });
+                    }
+                } else if (payload.action === 'key') {
+                    const modifiers = payload.modifiers || 0;
+                    await sendCDP('Input.dispatchKeyEvent', {
+                        type: modifiers ? 'rawKeyDown' : 'keyDown',
+                        key: payload.key,
+                        code: payload.code || payload.key,
+                        windowsVirtualKeyCode: payload.windowsVirtualKeyCode || 0,
+                        modifiers,
+                    });
+                    await sendCDP('Input.dispatchKeyEvent', {
+                        type: 'keyUp',
+                        key: payload.key,
+                        code: payload.code || payload.key,
+                        windowsVirtualKeyCode: payload.windowsVirtualKeyCode || 0,
+                        modifiers,
+                    });
+                } else if (payload.action === 'setNextDialog') {
+                    nextDialogPromptText = payload.acceptText || 'https://nopaypdf.com';
+                }
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true }));
+            } catch (err) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: err.message }));
+            }
+        });
+        return;
+    }
 
     // Report endpoint
     if (pathname === '/report-e2e-result' && req.method === 'POST') {
@@ -205,6 +314,9 @@ server.listen(PORT, async () => {
         '--disable-gpu',
         '--window-size=1400,1000',
         `--remote-debugging-port=${DEBUG_PORT}`,
+        '--remote-allow-origins=*',
+        '--no-first-run',
+        '--no-default-browser-check',
         '--user-data-dir=' + path.join(require('os').tmpdir(), 'nopaypdf-edge-test-' + Date.now()),
         testUrl,
     ]);
@@ -222,10 +334,10 @@ server.listen(PORT, async () => {
         console.log(`[EDGE-EXIT] code: ${code}, signal: ${sig}`);
     });
 
-    // Timeout safety net (60s)
+    // Timeout safety net (90s)
     setTimeout(() => {
-        console.error('❌ E2E Test timed out after 60 seconds');
+        console.error('❌ E2E Test timed out after 90 seconds');
         if (edgeProcess) edgeProcess.kill();
         server.close(() => process.exit(1));
-    }, 60000);
+    }, 90000);
 });

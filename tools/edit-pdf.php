@@ -554,9 +554,6 @@ require_once __DIR__ . '/../includes/header.php';
             <div id="stage-stack" class="stage-stack">
                 <!-- Layer 1: PDF.js Base Canvas -->
                 <canvas id="stage-base-canvas" class="stage-layer-base"></canvas>
-                
-                <!-- Layer 1.5: Highlight Annotation Overlay (Multiply Blending) -->
-                <div id="stage-highlight-layer" class="stage-layer-highlight"></div>
 
                 <!-- Layer 2A: Interactive Text Editing Layer -->
                 <div id="stage-text-layer" class="stage-layer-text"></div>

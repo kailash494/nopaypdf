@@ -135,9 +135,14 @@
 
         pushSnapshot(description = '') {
             // Clone state representation
+            const clonedPages = JSON.parse(JSON.stringify(this.pages));
+            const top = this.undoStack[this.undoStack.length - 1];
+            if (top && JSON.stringify(top.pages) === JSON.stringify(clonedPages) && top.activePageIndex === this.activePageIndex) {
+                return;
+            }
             const snapshot = {
                 desc: description,
-                pages: JSON.parse(JSON.stringify(this.pages)),
+                pages: clonedPages,
                 activePageIndex: this.activePageIndex,
             };
 
