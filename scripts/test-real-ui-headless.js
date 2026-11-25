@@ -12,8 +12,13 @@ const MIME_TYPES = {
     '.js': 'application/javascript',
     '.css': 'text/css',
     '.json': 'application/json',
+    '.webmanifest': 'application/manifest+json',
+    '.svg': 'image/svg+xml',
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
+    '.ttf': 'font/ttf',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
     '.wasm': 'application/wasm',
     '.xml': 'application/xml',
     '.txt': 'text/plain',
@@ -38,7 +43,22 @@ async function sendCDP(method, params = {}) {
     }
     return new Promise((resolve, reject) => {
         const id = ++cdpMsgId;
-        pendingCdp.set(id, { resolve, reject });
+        const sentAt = Date.now();
+        const timer = setTimeout(() => {
+            if (pendingCdp.has(id)) {
+                pendingCdp.delete(id);
+                reject(new Error(`CDP timeout waiting for response to ${method} (${JSON.stringify(params)})`));
+            }
+        }, 8000);
+        pendingCdp.set(id, {
+            resolve: (v) => {
+                clearTimeout(timer);
+                const dt = Date.now() - sentAt;
+                if (dt > 1000) console.log(`  [CDP-WAIT] id=${id} ${method} ${params.type || ''} took ${dt}ms`);
+                resolve(v);
+            },
+            reject: (e) => { clearTimeout(timer); reject(e); },
+        });
         cdpWs.send(JSON.stringify({ id, method, params }));
     });
 }
@@ -67,12 +87,17 @@ async function connectCDP() {
                 ws.addEventListener('error', (err) => {
                     console.error('[CDP-WS-ERR]', err.message || err.type || err);
                 });
+                ws.addEventListener('close', (ev) => {
+                    console.error(`[CDP-WS-CLOSE] code=${ev.code} reason=${ev.reason || ''}`);
+                    cdpConnected = false;
+                });
                 ws.addEventListener('open', () => {
                     cdpConnected = true;
                     console.log('✓ CDP WebSocket opened successfully');
                     ws.send(JSON.stringify({ id: 1, method: 'Log.enable' }));
                     ws.send(JSON.stringify({ id: 2, method: 'Runtime.enable' }));
                     ws.send(JSON.stringify({ id: 3, method: 'Page.enable' }));
+                    ws.send(JSON.stringify({ id: 4, method: 'Log.startViolationsReport', params: { config: [{ name: 'handler', threshold: 250 }] } }));
                 });
                 ws.addEventListener('message', (event) => {
                     try {
@@ -86,6 +111,11 @@ async function connectCDP() {
                             return;
                         }
                         if (msg.method === 'Page.javascriptDialogOpening') {
+                            cdpLogs.push({
+                                level: 'error',
+                                text: `Unexpected native blocking dialog opened (${msg.params?.type}): ${msg.params?.message || ''}`,
+                                source: 'Page.javascriptDialogOpening',
+                            });
                             const dialogParams = { accept: true };
                             if (msg.params && msg.params.type === 'prompt') {
                                 dialogParams.promptText = nextDialogPromptText || 'https://nopaypdf.com';
@@ -98,7 +128,7 @@ async function connectCDP() {
                         } else if (msg.method === 'Log.entryAdded') {
                             const entry = msg.params.entry;
                             if (entry.level === 'warning' || entry.level === 'error') {
-                                cdpLogs.push({ level: entry.level, text: entry.text, source: 'Log.entryAdded' });
+                                cdpLogs.push({ level: entry.level, text: entry.text, source: `Log.entryAdded:${entry.source || ''}` });
                             }
                         } else if (msg.method === 'Runtime.consoleAPICalled') {
                             const params = msg.params;
@@ -133,19 +163,33 @@ const server = http.createServer((req, res) => {
 
     // Real Chromium CDP Input dispatch bridge
     if (pathname === '/cdp-action' && req.method === 'POST') {
+        const reqStart = Date.now();
+        let finished = false;
+        const slowTimer = setTimeout(() => {
+            if (!finished) console.error(`  [CDP-HTTP-STALL] POST /cdp-action stalled > 5s!`);
+        }, 5000);
         let body = '';
         req.on('data', chunk => body += chunk);
         req.on('end', async () => {
+            let actionName = 'unknown';
             try {
                 const payload = JSON.parse(body);
+                actionName = payload.action;
                 if (payload.action === 'move') {
                     await sendCDP('Input.dispatchMouseEvent', { type: 'mouseMoved', x: payload.x, y: payload.y });
                 } else if (payload.action === 'click') {
                     await sendCDP('Input.dispatchMouseEvent', { type: 'mouseMoved', x: payload.x, y: payload.y });
                     await sendCDP('Input.dispatchMouseEvent', { type: 'mousePressed', x: payload.x, y: payload.y, button: 'left', clickCount: 1 });
                     await sendCDP('Input.dispatchMouseEvent', { type: 'mouseReleased', x: payload.x, y: payload.y, button: 'left', clickCount: 1 });
+                } else if (payload.action === 'dblclick') {
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mouseMoved', x: payload.x, y: payload.y });
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mousePressed', x: payload.x, y: payload.y, button: 'left', clickCount: 1 });
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mouseReleased', x: payload.x, y: payload.y, button: 'left', clickCount: 1 });
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mousePressed', x: payload.x, y: payload.y, button: 'left', clickCount: 2 });
+                    await sendCDP('Input.dispatchMouseEvent', { type: 'mouseReleased', x: payload.x, y: payload.y, button: 'left', clickCount: 2 });
                 } else if (payload.action === 'drag') {
-                    const steps = payload.steps || 10;
+                    const t0 = Date.now();
+                    const steps = Math.min(payload.steps || 5, 6);
                     await sendCDP('Input.dispatchMouseEvent', { type: 'mouseMoved', x: payload.x1, y: payload.y1 });
                     await sendCDP('Input.dispatchMouseEvent', { type: 'mousePressed', x: payload.x1, y: payload.y1, button: 'left', clickCount: 1 });
                     for (let i = 1; i <= steps; i++) {
@@ -155,6 +199,8 @@ const server = http.createServer((req, res) => {
                         await sendCDP('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mx, y: my, buttons: 1 });
                     }
                     await sendCDP('Input.dispatchMouseEvent', { type: 'mouseReleased', x: payload.x2, y: payload.y2, button: 'left', clickCount: 1 });
+                    const dt = Date.now() - t0;
+                    if (dt > 2000) console.log(`  [CDP-SLOW] drag took ${dt}ms`);
                 } else if (payload.action === 'type') {
                     const text = payload.text || '';
                     for (const ch of text) {
@@ -181,9 +227,14 @@ const server = http.createServer((req, res) => {
                 } else if (payload.action === 'setNextDialog') {
                     nextDialogPromptText = payload.acceptText || 'https://nopaypdf.com';
                 }
+                finished = true;
+                clearTimeout(slowTimer);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ ok: true }));
             } catch (err) {
+                finished = true;
+                clearTimeout(slowTimer);
+                console.error(`  [CDP-FAIL] ${actionName} (${Date.now() - reqStart}ms): ${err.message}`);
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ ok: false, error: err.message }));
             }
@@ -215,18 +266,20 @@ const server = http.createServer((req, res) => {
             }
             console.log('==========================================================\n');
 
-            // CDP Verification Check
+            // CDP Verification Check: Fail on ANY browser engine error, console warning, manifest error, violation, or native dialog
             const canvasWarnings = cdpLogs.filter(l => l.text.includes('CanvasTextBaseline') || l.text.includes('alphabetical'));
             const cdpErrors = cdpLogs.filter(l => l.level === 'error');
+            const trackingNotices = cdpLogs.filter(l => l.level === 'warning' && l.text.includes('Tracking Prevention blocked access to storage'));
+            const appWarnings = cdpLogs.filter(l => l.level === 'warning' && !l.text.includes('Tracking Prevention blocked access to storage'));
 
-            console.log(`CDP Engine Telemetry: ${cdpLogs.length} total entries captured (${cdpErrors.length} errors, ${canvasWarnings.length} CanvasTextBaseline warnings)`);
-            if (cdpLogs.length > 0) {
-                cdpLogs.forEach(l => console.log(`  [CDP-${l.level.toUpperCase()}] (${l.source}) ${l.text}`));
+            console.log(`CDP Engine Telemetry: ${cdpErrors.length} errors, ${appWarnings.length} app/engine warnings, ${canvasWarnings.length} CanvasTextBaseline warnings (${trackingNotices.length} Edge Tracking Prevention storage notices)`);
+            if (cdpErrors.length > 0 || appWarnings.length > 0) {
+                [...cdpErrors, ...appWarnings].forEach(l => console.log(`  [CDP-${l.level.toUpperCase()}] (${l.source}) ${l.text}`));
             }
 
             let cdpPassed = true;
-            if (canvasWarnings.length > 0) {
-                console.error(`❌ FAIL: CDP detected ${canvasWarnings.length} CanvasTextBaseline engine warning(s)!`);
+            if (appWarnings.length > 0 || canvasWarnings.length > 0) {
+                console.error(`❌ FAIL: CDP detected ${appWarnings.length} engine/app warning(s) (${canvasWarnings.length} CanvasTextBaseline)!`);
                 cdpPassed = false;
             }
             if (cdpErrors.length > 0) {
@@ -277,9 +330,10 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(localPath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-    // If serving edit-pdf/index.html with ?test_mode=1, inject test driver
+    // If serving edit-pdf/index.html with ?test_mode=1, inject test driver and skip third-party ad network scripts in local test mode
     if (pathname.includes('/edit-pdf') && ext === '.html' && parsedUrl.searchParams.has('test_mode')) {
         let html = fs.readFileSync(localPath, 'utf8');
+        html = html.replace(/<script[^>]*pagead2\.googlesyndication\.com[^>]*>\s*<\/script>/gi, '');
         html = html.replace('</body>', '<script src="/scripts/real-ui-test-driver.js"></script></body>');
         res.writeHead(200, {
             'Content-Type': 'text/html',
@@ -297,27 +351,35 @@ const server = http.createServer((req, res) => {
     fs.createReadStream(localPath).pipe(res);
 });
 
-server.listen(PORT, async () => {
-    console.log(`Real-UI test server running at http://localhost:${PORT}`);
+server.keepAliveTimeout = 60000;
+server.headersTimeout = 65000;
 
+server.listen(PORT, '127.0.0.1', async () => {
+    console.log(`Real-UI test server running at http://127.0.0.1:${PORT}`);
+
+    const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
     const edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-    if (!fs.existsSync(edgePath)) {
-        console.error('Edge executable not found at:', edgePath);
+    const useEdge = process.env.E2E_BROWSER === 'edge' || !fs.existsSync(chromePath);
+    const browserPath = useEdge ? edgePath : chromePath;
+    if (!fs.existsSync(browserPath)) {
+        console.error('No Chromium browser executable found at Chrome or Edge paths.');
         process.exit(1);
     }
 
-    const testUrl = `http://localhost:${PORT}/edit-pdf/?test_mode=1`;
-    console.log(`Launching headless Edge opening REAL UI at: ${testUrl}...`);
+    const testUrl = `http://127.0.0.1:${PORT}/edit-pdf/?test_mode=1`;
+    console.log(`Launching headless ${useEdge ? 'Edge' : 'Chrome'} opening REAL UI at: ${testUrl}...`);
 
-    edgeProcess = spawn(edgePath, [
+    edgeProcess = spawn(browserPath, [
         '--headless=new',
         '--disable-gpu',
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
         '--window-size=1400,1000',
         `--remote-debugging-port=${DEBUG_PORT}`,
         '--remote-allow-origins=*',
         '--no-first-run',
         '--no-default-browser-check',
-        '--user-data-dir=' + path.join(require('os').tmpdir(), 'nopaypdf-edge-test-' + Date.now()),
+        '--user-data-dir=' + path.join(require('os').tmpdir(), 'nopaypdf-browser-test-' + Date.now()),
         testUrl,
     ]);
 
@@ -337,7 +399,11 @@ server.listen(PORT, async () => {
     // Timeout safety net (90s)
     setTimeout(() => {
         console.error('❌ E2E Test timed out after 90 seconds');
-        if (edgeProcess) edgeProcess.kill();
+        if (edgeProcess) {
+            try { edgeProcess.kill('SIGKILL'); } catch (e) {}
+        }
+        if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
         server.close(() => process.exit(1));
+        setTimeout(() => process.exit(1), 500);
     }, 90000);
 });

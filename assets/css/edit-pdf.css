@@ -408,35 +408,65 @@
 .form-field-hotspot {
     position: absolute;
     pointer-events: auto;
-    border: 1.5px solid #6366f1;
-    background-color: rgba(99, 102, 241, 0.1);
-    border-radius: 4px;
-    cursor: move;
+    border: 1px solid rgba(37, 99, 235, 0.55);
+    background-color: rgba(59, 130, 246, 0.12);
+    border-radius: 2px;
+    cursor: pointer;
     box-sizing: border-box;
-    padding: 4px;
+    padding: 0 6px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    overflow: hidden;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 
 .form-field-hotspot:hover {
-    background-color: rgba(99, 102, 241, 0.18);
+    background-color: rgba(59, 130, 246, 0.18);
+    border-color: rgba(37, 99, 235, 0.85);
 }
 
 .form-field-hotspot.selected {
-    outline: 2px solid #6366f1;
+    outline: 2px solid #2563eb;
     outline-offset: 1px;
-    background-color: rgba(99, 102, 241, 0.25);
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+    background-color: rgba(59, 130, 246, 0.22);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
 }
 
-.form-field-badge {
-    font-size: 9px;
-    font-weight: 700;
-    background-color: #6366f1;
-    color: #ffffff;
-    padding: 1px 4px;
+.form-field-hotspot.form-field-checkbox {
+    padding: 0;
+    justify-content: center;
     border-radius: 3px;
+}
+
+.form-field-checkbox-mark {
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1;
+    color: #1d4ed8;
+    user-select: none;
+}
+
+.form-field-text-preview {
+    font-size: 11px;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+
+.form-field-text-preview.is-placeholder {
+    color: #64748b;
+    font-style: italic;
+}
+
+.form-field-dropdown-caret {
+    font-size: 10px;
+    color: rgba(37, 99, 235, 0.9);
+    margin-left: 4px;
+    flex-shrink: 0;
+    user-select: none;
 }
 
 /* ====================================================================
@@ -645,6 +675,197 @@
     outline: 1px dashed rgba(59, 130, 246, 0.7);
     outline-offset: 1px;
     background-color: rgba(59, 130, 246, 0.04);
+}
+
+/* ====================================================================
+   11. Unified Color Picker Popover & Trigger Buttons
+   ==================================================================== */
+
+.nopay-color-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background-color: #ffffff;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    white-space: nowrap;
+}
+
+.nopay-color-trigger:hover {
+    border-color: #94a3b8;
+    background-color: #f8fafc;
+}
+
+.nopay-trigger-chip {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid rgba(15, 23, 42, 0.2);
+    display: inline-block;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.nopay-trigger-chip.is-clear {
+    background: #ffffff !important;
+    overflow: hidden;
+}
+
+.nopay-trigger-chip.is-clear::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(to top right, transparent 44%, #ef4444 45%, #ef4444 55%, transparent 56%);
+}
+
+.nopay-trigger-label {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+}
+
+.nopay-color-popover {
+    position: fixed;
+    z-index: 95;
+    width: 216px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+
+.nopay-color-popover.hidden {
+    display: none !important;
+}
+
+.nopay-color-clear-row {
+    margin-bottom: 8px;
+}
+
+.nopay-color-clear-row.hidden {
+    display: none !important;
+}
+
+.nopay-color-clear-btn {
+    width: 100%;
+    padding: 5px 8px;
+    border-radius: 7px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.nopay-color-clear-btn:hover,
+.nopay-color-clear-btn.active {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+}
+
+.nopay-swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.nopay-color-swatch {
+    width: 30px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid rgba(15, 23, 42, 0.14);
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    padding: 0;
+}
+
+.nopay-color-swatch:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+}
+
+.nopay-color-swatch.active {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+}
+
+.nopay-custom-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.nopay-native-wrap {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.nopay-popover-native {
+    position: absolute;
+    inset: -4px;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+}
+
+.nopay-popover-hex {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: #1e293b;
+    background: #f8fafc;
+}
+
+.nopay-popover-hex:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: #ffffff;
+}
+
+/* ====================================================================
+   12. Non-Blocking Inline Properties Popover (Forms & Links)
+   ==================================================================== */
+
+.inline-properties-popover {
+    position: fixed;
+    z-index: 95;
+    width: 260px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+
+.inline-properties-popover.hidden {
+    display: none !important;
 }
 
 

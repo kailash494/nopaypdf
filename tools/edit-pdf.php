@@ -296,12 +296,12 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
     </div>
 
-    <!-- Contextual Sub-Toolbar (Active when editing text blocks) -->
+    <!-- Contextual Sub-Toolbar (Active when editing text blocks or + Add Text) -->
     <div id="context-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
-        <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Typography:</span>
+        <div class="flex items-center gap-2 shrink-0 flex-nowrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider shrink-0">Typography:</span>
             <!-- Font Family -->
-            <select id="sub-font-select" class="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium">
+            <select id="sub-font-select" class="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium shrink-0">
                 <option value="original">Original (Embedded)</option>
                 <option value="carlito">Carlito (Calibri)</option>
                 <option value="roboto">Roboto</option>
@@ -311,25 +311,34 @@ require_once __DIR__ . '/../includes/header.php';
                 <option value="serif">Liberation Serif (Times)</option>
                 <option value="mono">Liberation Mono (Courier)</option>
             </select>
-            <span id="sub-font-tier-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hidden"></span>
+            <span id="sub-font-tier-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hidden shrink-0"></span>
 
             <!-- Font Size -->
-            <input type="number" id="sub-font-size" value="12" min="4" max="144" step="0.05" class="w-14 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium text-center">
+            <input type="number" id="sub-font-size" value="12" min="4" max="144" step="0.1" class="w-14 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 font-medium text-center shrink-0">
 
             <!-- Bold / Italic -->
-            <button type="button" id="sub-bold-btn" class="px-2.5 py-1 rounded-md border border-slate-200 font-extrabold hover:bg-slate-100">B</button>
-            <button type="button" id="sub-italic-btn" class="px-2.5 py-1 rounded-md border border-slate-200 italic font-serif hover:bg-slate-100">I</button>
+            <button type="button" id="sub-bold-btn" class="px-2.5 py-1 rounded-md border border-slate-200 font-extrabold hover:bg-slate-100 shrink-0">B</button>
+            <button type="button" id="sub-italic-btn" class="px-2.5 py-1 rounded-md border border-slate-200 italic font-serif hover:bg-slate-100 shrink-0">I</button>
 
-            <!-- Colors -->
-            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-                <label class="text-[10px] text-slate-500 font-semibold">Text:</label>
-                <input type="color" id="sub-text-color" value="#1e293b" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Text Color">
+            <!-- Unified Colors -->
+            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
+                <span class="text-[10px] text-slate-500 font-semibold">Text:</span>
+                <input type="hidden" id="sub-text-color" value="#1e293b">
+                <button type="button" id="sub-text-color-trigger" class="nopay-color-trigger" title="Text Color" aria-label="Text Color">
+                    <span class="nopay-trigger-chip" style="background-color: #1e293b;"></span>
+                    <span class="nopay-trigger-label">#1E293B</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                </button>
             </div>
 
-            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-                <label class="text-[10px] text-slate-500 font-semibold">Background:</label>
-                <input type="color" id="sub-bg-color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Background Color (Auto-matched to page)">
-                <button type="button" id="sub-bg-auto-btn" class="text-[10px] font-semibold px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors" title="Match page background automatically">Auto</button>
+            <div id="sub-bg-color-wrap" class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
+                <span class="text-[10px] text-slate-500 font-semibold">Bg:</span>
+                <input type="hidden" id="sub-bg-color" value="#ffffff">
+                <button type="button" id="sub-bg-color-trigger" class="nopay-color-trigger" title="Background Color" aria-label="Background Color">
+                    <span class="nopay-trigger-chip" style="background-color: #ffffff;"></span>
+                    <span class="nopay-trigger-label">Auto</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                </button>
             </div>
         </div>
 
@@ -345,9 +354,9 @@ require_once __DIR__ . '/../includes/header.php';
 
     <!-- Annotate Sub-Toolbar -->
     <div id="annotate-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
-        <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Annotate:</span>
-            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+        <div class="flex items-center gap-2 shrink-0 flex-nowrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider shrink-0">Annotate:</span>
+            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
                 <button type="button" id="annot-type-highlight" class="annot-type-btn active px-2.5 py-1 rounded-md font-semibold text-xs transition-colors bg-white text-blue-600 shadow-xs" data-type="highlight">
                     Highlight
                 </button>
@@ -359,41 +368,43 @@ require_once __DIR__ . '/../includes/header.php';
                 </button>
             </div>
 
-            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-                <label for="annot-color-picker" class="text-[10px] text-slate-500 font-semibold">Color:</label>
-                <input type="color" id="annot-color-picker" value="#fef08a" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Annotation Color">
-                <button type="button" class="annot-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#fef08a]" data-color="#fef08a" title="Yellow"></button>
-                <button type="button" class="annot-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#bbf7d0]" data-color="#bbf7d0" title="Green"></button>
-                <button type="button" class="annot-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#bfdbfe]" data-color="#bfdbfe" title="Blue"></button>
-                <button type="button" class="annot-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#fbcfe8]" data-color="#fbcfe8" title="Pink"></button>
+            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
+                <span class="text-[10px] text-slate-500 font-semibold">Color:</span>
+                <input type="hidden" id="annot-color-picker" value="#fef08a">
+                <button type="button" id="annot-color-trigger" class="nopay-color-trigger" title="Annotation Color" aria-label="Annotation Color">
+                    <span class="nopay-trigger-chip" style="background-color: #fef08a;"></span>
+                    <span class="nopay-trigger-label">#FEF08A</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                </button>
             </div>
         </div>
-        <p class="text-[11px] text-slate-500 hidden sm:block">Click & drag on page to annotate text or areas</p>
+        <p class="text-[11px] text-slate-500 hidden lg:block shrink-0">Click & drag on page to annotate text or areas</p>
     </div>
 
     <!-- Whiteout Sub-Toolbar -->
     <div id="whiteout-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
-        <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Whiteout Fill:</span>
-            <div class="flex items-center gap-1.5">
-                <input type="color" id="whiteout-fill-color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Cover Fill Color">
-                <button type="button" class="whiteout-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#ffffff]" data-color="#ffffff" title="White (Default)"></button>
-                <button type="button" class="whiteout-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#faf8f5]" data-color="#faf8f5" title="Cream"></button>
-                <button type="button" class="whiteout-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#f1f5f9]" data-color="#f1f5f9" title="Soft Grey"></button>
-                <button type="button" class="whiteout-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#000000]" data-color="#000000" title="Blackout (Redaction)"></button>
+        <div class="flex items-center gap-2 shrink-0 flex-nowrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider shrink-0">Whiteout Fill:</span>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <input type="hidden" id="whiteout-fill-color" value="#ffffff">
+                <button type="button" id="whiteout-color-trigger" class="nopay-color-trigger" title="Cover Fill Color" aria-label="Whiteout Fill Color">
+                    <span class="nopay-trigger-chip" style="background-color: #ffffff;"></span>
+                    <span class="nopay-trigger-label">#FFFFFF</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                </button>
             </div>
-            <span class="text-[11px] text-slate-500 hidden sm:inline ml-2">Click & drag over document to cover content</span>
+            <span class="text-[11px] text-slate-500 hidden lg:inline ml-2 shrink-0">Click & drag over document to cover content</span>
         </div>
-        <button type="button" id="btn-add-whiteout-box" class="px-3 py-1 rounded-lg bg-blue-600 text-white font-semibold text-xs hover:bg-blue-700">
+        <button type="button" id="btn-add-whiteout-box" class="px-3 py-1 rounded-lg bg-blue-600 text-white font-semibold text-xs hover:bg-blue-700 shrink-0">
             + Add Cover Box
         </button>
     </div>
 
     <!-- Shapes Sub-Toolbar -->
     <div id="shapes-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
-        <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Shape:</span>
-            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+        <div class="flex items-center gap-2 shrink-0 flex-nowrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider shrink-0">Shape:</span>
+            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
                 <button type="button" id="shape-type-rect" class="shape-type-btn active px-2.5 py-1 rounded-md font-semibold text-xs transition-colors bg-white text-blue-600 shadow-xs" data-type="rect">
                     Rectangle
                 </button>
@@ -409,17 +420,18 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
 
             <!-- Stroke Color -->
-            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-                <label for="shape-stroke-color" class="text-[10px] text-slate-500 font-semibold">Stroke:</label>
-                <input type="color" id="shape-stroke-color" value="#2563eb" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Stroke Color">
-                <button type="button" class="shape-stroke-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#2563eb]" data-color="#2563eb" title="Blue"></button>
-                <button type="button" class="shape-stroke-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#000000]" data-color="#000000" title="Black"></button>
-                <button type="button" class="shape-stroke-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#dc2626]" data-color="#dc2626" title="Red"></button>
-                <button type="button" class="shape-stroke-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#16a34a]" data-color="#16a34a" title="Green"></button>
+            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
+                <span class="text-[10px] text-slate-500 font-semibold">Stroke:</span>
+                <input type="hidden" id="shape-stroke-color" value="#2563eb">
+                <button type="button" id="shape-stroke-trigger" class="nopay-color-trigger" title="Stroke Color" aria-label="Shape Stroke Color">
+                    <span class="nopay-trigger-chip" style="background-color: #2563eb;"></span>
+                    <span class="nopay-trigger-label">#2563EB</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                </button>
             </div>
 
             <!-- Stroke Width -->
-            <div class="flex items-center gap-1 pl-2 border-l border-slate-200">
+            <div class="flex items-center gap-1 pl-2 border-l border-slate-200 shrink-0">
                 <label for="shape-stroke-width" class="text-[10px] text-slate-500 font-semibold">Width:</label>
                 <select id="shape-stroke-width" class="px-2 py-0.5 rounded border border-slate-200 bg-white text-xs font-medium cursor-pointer">
                     <option value="1">1px</option>
@@ -429,33 +441,36 @@ require_once __DIR__ . '/../includes/header.php';
                 </select>
             </div>
 
-            <!-- Fill Color & Transparent Toggle -->
-            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-                <label for="shape-fill-color" class="text-[10px] text-slate-500 font-semibold">Fill:</label>
-                <input type="color" id="shape-fill-color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Fill Color">
-                <label class="flex items-center gap-1 cursor-pointer text-[10px] font-medium text-slate-600 select-none">
-                    <input type="checkbox" id="shape-fill-transparent" checked class="rounded border-slate-300 text-blue-600">
-                    <span>No Fill</span>
-                </label>
+            <!-- Fill Color & No Fill via Unified Picker -->
+            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
+                <span class="text-[10px] text-slate-500 font-semibold">Fill:</span>
+                <input type="hidden" id="shape-fill-color" value="#ffffff">
+                <input type="checkbox" id="shape-fill-transparent" checked class="sr-only">
+                <button type="button" id="shape-fill-trigger" class="nopay-color-trigger" title="Fill Color" aria-label="Shape Fill Color">
+                    <span class="nopay-trigger-chip is-clear"></span>
+                    <span class="nopay-trigger-label">No Fill</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                </button>
             </div>
         </div>
-        <p class="text-[11px] text-slate-500 hidden sm:block">Click & drag on page to draw shape</p>
+        <p class="text-[11px] text-slate-500 hidden lg:block shrink-0">Click & drag on page to draw shape</p>
     </div>
 
     <!-- Draw Sub-Toolbar -->
     <div id="draw-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
-        <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Freehand Ink:</span>
-            <div class="flex items-center gap-1.5">
-                <label for="draw-brush-color" class="text-[10px] text-slate-500 font-semibold">Color:</label>
-                <input type="color" id="draw-brush-color" value="#2563eb" class="w-6 h-6 rounded cursor-pointer border-0 p-0" title="Ink Color">
-                <button type="button" class="draw-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#2563eb]" data-color="#2563eb" title="Blue"></button>
-                <button type="button" class="draw-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#0f172a]" data-color="#0f172a" title="Dark Slate"></button>
-                <button type="button" class="draw-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#dc2626]" data-color="#dc2626" title="Red"></button>
-                <button type="button" class="draw-swatch w-5 h-5 rounded-md border border-slate-300 bg-[#16a34a]" data-color="#16a34a" title="Green"></button>
+        <div class="flex items-center gap-2 shrink-0 flex-nowrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider shrink-0">Freehand Ink:</span>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <span class="text-[10px] text-slate-500 font-semibold">Color:</span>
+                <input type="hidden" id="draw-brush-color" value="#2563eb">
+                <button type="button" id="draw-color-trigger" class="nopay-color-trigger" title="Ink Color" aria-label="Draw Ink Color">
+                    <span class="nopay-trigger-chip" style="background-color: #2563eb;"></span>
+                    <span class="nopay-trigger-label">#2563EB</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                </button>
             </div>
 
-            <div class="flex items-center gap-1 pl-2 border-l border-slate-200">
+            <div class="flex items-center gap-1 pl-2 border-l border-slate-200 shrink-0">
                 <label for="draw-brush-size" class="text-[10px] text-slate-500 font-semibold">Thickness:</label>
                 <select id="draw-brush-size" class="px-2 py-0.5 rounded border border-slate-200 bg-white text-xs font-medium cursor-pointer">
                     <option value="1">1px (Fine)</option>
@@ -465,14 +480,14 @@ require_once __DIR__ . '/../includes/header.php';
                 </select>
             </div>
         </div>
-        <p class="text-[11px] text-slate-500 hidden sm:block">Draw directly on document with mouse or stylus</p>
+        <p class="text-[11px] text-slate-500 hidden lg:block shrink-0">Draw directly on document with mouse or stylus</p>
     </div>
 
     <!-- Forms Sub-Toolbar -->
     <div id="forms-sub-toolbar" class="hidden sub-toolbar px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
-        <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">AcroForm Field:</span>
-            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+        <div class="flex items-center gap-2 shrink-0 flex-nowrap">
+            <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider shrink-0">Form Field:</span>
+            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
                 <button type="button" id="form-type-text" class="form-type-btn active px-2.5 py-1 rounded-md font-semibold text-xs transition-colors bg-white text-blue-600 shadow-xs" data-type="text">
                     Text Field
                 </button>
@@ -483,12 +498,12 @@ require_once __DIR__ . '/../includes/header.php';
                     Dropdown
                 </button>
             </div>
-            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+            <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 shrink-0">
                 <label for="form-field-name-input" class="text-[10px] text-slate-500 font-semibold">Field Name:</label>
                 <input type="text" id="form-field-name-input" placeholder="e.g. fullName" class="px-2 py-1 rounded border border-slate-200 bg-white text-xs w-28">
             </div>
         </div>
-        <p class="text-[11px] text-slate-500 hidden sm:block">Click anywhere on document to place form field</p>
+        <p class="text-[11px] text-slate-500 hidden lg:block shrink-0">Click on document to place field • Double-click field to edit properties</p>
     </div>
 
     <!-- Find & Replace Floating Drawer -->
@@ -520,11 +535,21 @@ require_once __DIR__ . '/../includes/header.php';
         
         <!-- Left Thumbnail Rail -->
         <aside id="thumbnail-rail" class="w-48 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 overflow-y-auto p-3 space-y-3">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2 pb-1 border-b border-slate-200/80">
                 <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pages</span>
-                <button type="button" id="add-blank-page-btn" class="p-1 rounded text-blue-600 hover:bg-blue-50" title="Insert Blank Page">
-                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                </button>
+                <div class="flex items-center gap-1">
+                    <button type="button" id="add-blank-page-btn" class="p-1 rounded text-blue-600 hover:bg-blue-50" title="Insert Blank Page">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    </button>
+                    <button
+                        type="button"
+                        id="toggle-rail-btn"
+                        class="p-1 rounded text-slate-500 hover:text-blue-600 hover:bg-slate-200/70"
+                        title="Collapse Pages Sidebar"
+                    >
+                        <i data-lucide="panel-left-close" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Thumbnail List -->
@@ -538,12 +563,12 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </aside>
 
-        <!-- Toggle Rail Button -->
+        <!-- Reopen Rail Button (Visible only when sidebar is collapsed) -->
         <button
             type="button"
-            id="toggle-rail-btn"
-            class="absolute top-3 left-3 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-md text-slate-600 hover:text-blue-600 hover:bg-slate-50"
-            title="Toggle Thumbnails"
+            id="reopen-rail-btn"
+            class="hidden absolute top-3 left-3 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-md text-slate-600 hover:text-blue-600 hover:bg-slate-50"
+            title="Show Pages Sidebar"
         >
             <i data-lucide="panel-left" class="w-4 h-4"></i>
         </button>
@@ -579,6 +604,10 @@ require_once __DIR__ . '/../includes/header.php';
                 <div id="floating-object-bar" class="floating-object-bar hidden" role="toolbar" aria-label="Selected object actions">
                     <span id="floating-obj-badge" class="floating-obj-badge">Object</span>
                     <div class="floating-bar-divider"></div>
+                    <button type="button" id="floating-btn-properties" class="floating-bar-btn hidden" title="Edit Properties" aria-label="Properties">
+                        <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
+                        <span class="sr-only">Properties</span>
+                    </button>
                     <button type="button" id="floating-btn-duplicate" class="floating-bar-btn" title="Duplicate (Ctrl+D)" aria-label="Duplicate">
                         <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                         <span class="sr-only">Duplicate</span>
@@ -754,6 +783,71 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Inline Non-Blocking Properties Popover (Forms & Links) -->
+<div id="inline-properties-popover" class="hidden inline-properties-popover" role="dialog" aria-label="Field Properties">
+    <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
+        <span id="prop-popover-title" class="text-xs font-bold text-slate-800">Field Properties</span>
+        <button type="button" id="prop-close-btn" class="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700" aria-label="Close">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+    </div>
+
+    <div id="prop-form-fields" class="space-y-2 hidden">
+        <div>
+            <label for="prop-field-name" class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Field Name</label>
+            <input type="text" id="prop-field-name" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none">
+        </div>
+        <div id="prop-default-wrap">
+            <label for="prop-field-default" class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Default / Placeholder Value</label>
+            <input type="text" id="prop-field-default" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none">
+        </div>
+        <div id="prop-checked-wrap" class="hidden">
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
+                <input type="checkbox" id="prop-field-checked" class="rounded border-slate-300 text-blue-600">
+                <span>Checked by default</span>
+            </label>
+        </div>
+        <div id="prop-options-wrap" class="hidden">
+            <label for="prop-field-options" class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Options (comma separated)</label>
+            <textarea id="prop-field-options" rows="2" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none"></textarea>
+        </div>
+    </div>
+
+    <div id="prop-link-fields" class="space-y-2 hidden">
+        <div>
+            <label for="prop-link-type" class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Destination Type</label>
+            <select id="prop-link-type" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md bg-white">
+                <option value="url">External Website URL</option>
+                <option value="page">Jump to Page #</option>
+            </select>
+        </div>
+        <div>
+            <label for="prop-link-target" class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">URL or Page Number</label>
+            <input type="text" id="prop-link-target" placeholder="https://example.com" class="w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none">
+        </div>
+    </div>
+
+    <div class="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-100">
+        <button type="button" id="prop-delete-btn" class="px-2 py-1 rounded text-[11px] font-semibold text-rose-600 hover:bg-rose-50">Delete</button>
+        <button type="button" id="prop-apply-btn" class="px-3 py-1 rounded-md bg-blue-600 text-white text-[11px] font-semibold hover:bg-blue-700">Apply</button>
+    </div>
+</div>
+
+<!-- Non-Blocking Confirmation Modal -->
+<div id="app-confirm-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full p-5 space-y-4">
+        <h3 id="app-confirm-title" class="text-sm font-bold text-slate-900">Confirm Action</h3>
+        <p id="app-confirm-message" class="text-xs text-slate-600 leading-relaxed"></p>
+        <div class="flex justify-end gap-2 pt-2">
+            <button type="button" id="app-confirm-cancel" class="px-3.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button type="button" id="app-confirm-ok" class="px-3.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Non-Blocking Toast Notification -->
+<div id="app-toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl shadow-lg bg-slate-900 text-white text-xs font-semibold flex items-center gap-2 transition-all"></div>
+
 <!-- SEO & FAQ Sections -->
 <?php render_tool_seo_sections($howToSteps, $faqs, 'edit-pdf'); ?>
 
@@ -765,6 +859,7 @@ require_once __DIR__ . '/../includes/header.php';
 <script src="/assets/js/tools/edit-pdf/editor-state.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/embedded-font-encoder.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/content-stream-editor.js?v=<?= APP_VERSION ?>"></script>
+<script src="/assets/js/tools/edit-pdf/color-picker.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/canvas-stage.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/pdf-exporter.js?v=<?= APP_VERSION ?>"></script>
 <script src="/assets/js/tools/edit-pdf/main.js?v=<?= APP_VERSION ?>"></script>

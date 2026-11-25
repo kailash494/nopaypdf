@@ -48,6 +48,179 @@
             this.isDrawingWhiteout = false;
             this.whiteoutDrawStart = null;
             this.activeFabricTextBox = null;
+            this.addTextBgColor = 'transparent';
+            this._hadActiveBeforeMouseDown = false;
+            this._wasClickingHandleOnBefore = false;
+            this._suppressMouseUpCreate = false;
+            this._suppressLinkCreate = false;
+            this._popoverContext = null;
+        }
+
+        _installCustomRotationControl() {
+            if (!window.fabric || !window.fabric.Object || window.fabric.Object.__nopayMtrInstalled) return;
+            window.fabric.Object.__nopayMtrInstalled = true;
+
+            const renderMtrKnob = function(ctx, left, top, styleOverride, fabricObject) {
+                const size = 20;
+                const r = size / 2;
+                ctx.save();
+                ctx.translate(left, top);
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = 'rgba(15, 23, 42, 0.22)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetY = 1;
+                ctx.fill();
+                ctx.shadowColor = 'transparent';
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = '#2563eb';
+                ctx.stroke();
+
+                // Crisp circular rotate arrow icon inside knob
+                ctx.beginPath();
+                ctx.arc(0, 0, 5.2, -Math.PI * 0.75, Math.PI * 0.55);
+                ctx.lineWidth = 1.5;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = '#2563eb';
+                ctx.stroke();
+
+                // Arrow tip at end of arc (~100 deg)
+                ctx.beginPath();
+                ctx.moveTo(2.5, 4.8);
+                ctx.lineTo(-0.5, 5.5);
+                ctx.lineTo(0.8, 2.7);
+                ctx.closePath();
+                ctx.fillStyle = '#2563eb';
+                ctx.fill();
+                ctx.restore();
+            };
+
+            const existingMtr = fabric.Object.prototype.controls && fabric.Object.prototype.controls.mtr;
+            const mtrControl = existingMtr || new fabric.Control({
+                x: 0,
+                y: -0.5,
+                cursorStyleHandler: fabric.controlsUtils.rotationStyleHandler,
+                actionHandler: fabric.controlsUtils.rotationWithSnapping,
+                actionName: 'rotate',
+            });
+            mtrControl.offsetY = -28;
+            mtrControl.withConnection = true;
+            mtrControl.sizeX = 24;
+            mtrControl.sizeY = 24;
+            mtrControl.touchSizeX = 28;
+            mtrControl.touchSizeY = 28;
+            mtrControl.render = renderMtrKnob;
+
+            if (fabric.Object.prototype.controls) {
+                fabric.Object.prototype.controls.mtr = mtrControl;
+            }
+            if (fabric.IText && fabric.IText.prototype.controls) {
+                fabric.IText.prototype.controls.mtr = mtrControl;
+            }
+            if (fabric.Textbox && fabric.Textbox.prototype.controls) {
+                fabric.Textbox.prototype.controls.mtr = mtrControl;
+            }
+        }
+
+        _configureObjectControls(obj) {
+            if (!obj || typeof obj.set !== 'function') return obj;
+            obj.set({
+                lockRotation: false,
+                hasControls: true,
+                hasBorders: true,
+                hasRotatingPoint: true,
+                transparentCorners: false,
+                cornerSize: 10,
+                cornerColor: '#ffffff',
+                cornerStrokeColor: '#2563eb',
+                borderColor: '#2563eb',
+                cornerStyle: 'circle',
+                rotatingPointOffset: 28,
+            });
+            if (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox') {
+                obj.set({
+                    objectCaching: false,
+                    padding: Math.max(4, obj.padding || 4),
+                });
+            }
+            if (typeof obj.setControlsVisibility === 'function') {
+                obj.setControlsVisibility({ mtr: true });
+            }
+            if (typeof obj.setCoords === 'function') {
+                obj.setCoords();
+            }
+            return obj;
+        }
+
+        _isPropertiesPopoverOpen() {
+            const pop = document.getElementById('inline-properties-popover');
+            return Boolean(pop && !pop.classList.contains('hidden'));
+        }
+
+        _hasActiveInteraction() {
+            const activeObj = this.fabricCanvas ? this.fabricCanvas.getActiveObject() : null;
+            const domEditing = Boolean(document.querySelector('.text-hitbox.editing'));
+            const colorOpen = Boolean(window.NoPayColorPicker && window.NoPayColorPicker.isOpen());
+            return Boolean(
+                activeObj ||
+                (this.activeFabricTextBox && this.activeFabricTextBox.isEditing) ||
+                domEditing ||
+                this.selectedLink ||
+                this.selectedFormField ||
+                this._isPropertiesPopoverOpen() ||
+                colorOpen
+            );
+        }
+
+        _exitActiveInteraction() {
+            let changed = false;
+            if (window.NoPayColorPicker && window.NoPayColorPicker.isOpen()) {
+                window.NoPayColorPicker.close();
+                changed = true;
+            }
+            if (this._isPropertiesPopoverOpen()) {
+                this.closePropertiesPopover();
+                changed = true;
+            }
+
+            const activeObj = this.fabricCanvas ? this.fabricCanvas.getActiveObject() : null;
+            if (activeObj) {
+                if (activeObj.isEditing && typeof activeObj.exitEditing === 'function') {
+                    activeObj.exitEditing();
+                }
+                this.fabricCanvas.discardActiveObject();
+                this.fabricCanvas.renderAll();
+                changed = true;
+            } else if (this.activeFabricTextBox && this.activeFabricTextBox.isEditing) {
+                this.activeFabricTextBox.exitEditing();
+                this.fabricCanvas.discardActiveObject();
+                this.fabricCanvas.renderAll();
+                changed = true;
+            }
+            this.activeFabricTextBox = null;
+
+            const activeDomInput = document.querySelector('.text-hitbox.editing .text-inline-input');
+            if (activeDomInput) {
+                activeDomInput.blur();
+                changed = true;
+            }
+            if (this.selectedBlock) {
+                this.selectedBlock = null;
+                this._syncContextSubToolbar(null);
+                changed = true;
+            }
+
+            if (this.selectedLink || this.selectedFormField) {
+                this.selectedLink = null;
+                this.selectedFormField = null;
+                document.querySelectorAll('.link-hotspot').forEach(el => el.classList.remove('selected'));
+                document.querySelectorAll('.form-field-hotspot').forEach(el => el.classList.remove('selected'));
+                changed = true;
+            }
+
+            this._hideFloatingBar();
+            return changed;
         }
 
         init(containerEl, baseCanvasEl, textLayerEl, linksLayerEl, formsLayerEl, fabricCanvasEl) {
@@ -69,14 +242,20 @@
                 window.fabric.Text.prototype._setTextStyles.__patched = true;
             }
 
-            // Initialize Fabric.js
+            // Initialize Fabric.js with HiDPI Retina scaling and crisp custom mtr handle
             if (window.fabric && !this.fabricCanvas) {
+                window.fabric.devicePixelRatio = Math.max(window.devicePixelRatio || 1, 2);
+                this._installCustomRotationControl();
+
                 this.fabricCanvas = new fabric.Canvas(this.fabricCanvasEl, {
                     selection: true,
                     preserveObjectStacking: true,
                     fireRightClick: true,
                     stopContextMenu: true,
+                    enableRetinaScaling: true,
                 });
+
+                window.FontManager?.preloadLocalFonts?.();
 
                 this.fabricCanvas.on('object:modified', (opt) => {
                     if (opt && opt.target && opt.target._skipNextObjectModified) {
@@ -104,7 +283,10 @@
 
                 this.fabricCanvas.on('path:created', (e) => {
                     if (!this._isRestoring) {
-                        if (e.path) e.path.set({ lockUniScaling: true });
+                        if (e.path) {
+                            e.path.set({ lockUniScaling: true });
+                            this._configureObjectControls(e.path);
+                        }
                         this._saveFabricState();
                         window.EditorState.pushSnapshot('Freehand Drawing');
                     }
@@ -123,19 +305,47 @@
                     this._hideFloatingBar();
                 });
 
+                this.fabricCanvas.on('mouse:down:before', (opt) => {
+                    const activeObj = this.fabricCanvas.getActiveObject();
+                    this._hadActiveBeforeMouseDown = this._hasActiveInteraction();
+                    this._wasClickingHandleOnBefore = false;
+                    if (activeObj && opt && opt.e) {
+                        if (typeof activeObj._findTargetCorner === 'function') {
+                            const vptPt = this.fabricCanvas.getPointer(opt.e, true);
+                            if (activeObj._findTargetCorner(vptPt)) {
+                                this._wasClickingHandleOnBefore = true;
+                            }
+                        }
+                    }
+                });
+
                 this.fabricCanvas.on('mouse:down', (opt) => {
+                    this._suppressMouseUpCreate = false;
+                    const hitTarget = Boolean(opt.target || opt.transform || this._wasClickingHandleOnBefore);
+
+                    // Universal 2-Click Exit-Before-Create Rule on empty canvas click
+                    if (!hitTarget && this._hadActiveBeforeMouseDown) {
+                        this._hadActiveBeforeMouseDown = false;
+                        this._suppressMouseUpCreate = true;
+                        this._exitActiveInteraction();
+                        return;
+                    }
+
                     const pointer = (opt.e && typeof opt.e.clientX === 'number')
                         ? this.clientToCanvasPoint(opt.e.clientX, opt.e.clientY)
                         : this.fabricCanvas.getPointer(opt.e);
 
                     if (this.activeTool === 'add-text') {
-                        // If clicking an existing added text box, focus/edit it instead of spawning a duplicate
+                        // If clicking an existing added text box (or handle), edit/manipulate immediately
                         if (opt.target && (opt.target.type === 'i-text' || opt.target.type === 'text')) {
                             this.fabricCanvas.setActiveObject(opt.target);
-                            opt.target.enterEditing();
+                            if (!opt.transform) {
+                                opt.target.enterEditing();
+                            }
                             this._updateFloatingBar();
                             return;
                         }
+                        if (hitTarget) return;
 
                         const pageState = window.EditorState.getActivePage();
                         const pageW = (pageState && pageState.widthPt) || 612;
@@ -148,23 +358,25 @@
                         const clampedLeft = Math.max(8, Math.min(pageW - 36, pointer.x));
                         const clampedTop = Math.max(8, Math.min(pageH - 24, pointer.y));
 
+                        const initBg = (this.addTextBgColor && this.addTextBgColor !== 'transparent')
+                            ? this.addTextBgColor
+                            : '';
+
                         const t = new fabric.IText('', {
                             left: clampedLeft,
                             top: clampedTop,
                             fontSize: nearestStyle.fontSize,
                             fill: nearestStyle.fill,
+                            textBackgroundColor: initBg,
                             fontFamily: nearestStyle.fontFamily,
                             fontWeight: nearestStyle.bold ? 'bold' : 'normal',
                             fontStyle: nearestStyle.italic ? 'italic' : 'normal',
                             lockUniScaling: true,
-                            hasControls: true,
-                            hasBorders: true,
-                            borderColor: '#2563eb',
                             editingBorderColor: '#2563eb',
+                            objectCaching: false,
                             padding: 4,
-                            cornerSize: 8,
-                            transparentCorners: false,
                         });
+                        this._configureObjectControls(t);
                         t._isPendingNewText = true;
                         t._textBeforeEdit = '';
 
@@ -182,6 +394,9 @@
                                 this._isRestoring = true;
                                 this.fabricCanvas.remove(t);
                                 this._isRestoring = false;
+                                if (this.activeFabricTextBox === t) {
+                                    this.activeFabricTextBox = null;
+                                }
                                 this._saveFabricState();
                                 this._hideFloatingBar();
                                 return;
@@ -213,21 +428,21 @@
                     }
 
                     if (this.activeTool === 'annotate') {
-                        if (opt.target) return;
+                        if (hitTarget) return;
                         this.isDrawingAnnot = true;
                         this.annotDrawStart = pointer;
                         return;
                     }
 
                     if (this.activeTool === 'whiteout') {
-                        if (opt.target) return;
+                        if (hitTarget) return;
                         this.isDrawingWhiteout = true;
                         this.whiteoutDrawStart = pointer;
                         return;
                     }
 
                     if (this.activeTool === 'shapes') {
-                        if (opt.target) return;
+                        if (hitTarget) return;
                         this.isDrawingShape = true;
                         this.shapeDrawStart = pointer;
                         return;
@@ -239,6 +454,16 @@
                 });
 
                 this.fabricCanvas.on('mouse:up', (opt) => {
+                    if (this._suppressMouseUpCreate) {
+                        this._suppressMouseUpCreate = false;
+                        this.isDrawingAnnot = false;
+                        this.isDrawingWhiteout = false;
+                        this.isDrawingShape = false;
+                        this.annotDrawStart = null;
+                        this.whiteoutDrawStart = null;
+                        this.shapeDrawStart = null;
+                        return;
+                    }
                     const endPointer = (opt.e && typeof opt.e.clientX === 'number')
                         ? this.clientToCanvasPoint(opt.e.clientX, opt.e.clientY)
                         : this.fabricCanvas.getPointer(opt.e);
@@ -369,7 +594,29 @@
         }
 
         setTool(tool) {
+            const prevTool = this.activeTool;
             this.activeTool = tool;
+            this.closePropertiesPopover();
+            if (window.NoPayColorPicker) {
+                window.NoPayColorPicker.close();
+            }
+            if (prevTool !== tool) {
+                this.selectedBlock = null;
+                this.selectedLink = null;
+                this.selectedFormField = null;
+                this.activeFabricTextBox = null;
+                document.querySelectorAll('.link-hotspot').forEach(el => el.classList.remove('selected'));
+                document.querySelectorAll('.form-field-hotspot').forEach(el => el.classList.remove('selected'));
+                if (this.fabricCanvas) {
+                    const activeObj = this.fabricCanvas.getActiveObject();
+                    if (activeObj && activeObj.isEditing && typeof activeObj.exitEditing === 'function') {
+                        activeObj.exitEditing();
+                    }
+                    this.fabricCanvas.discardActiveObject();
+                    this.fabricCanvas.renderAll();
+                }
+                this._hideFloatingBar();
+            }
 
             if (tool !== 'draw' && this.fabricCanvas) {
                 this.fabricCanvas.isDrawingMode = false;
@@ -559,7 +806,8 @@
             if (page && this.fabricCanvas) {
                 page.fabricJson = this.fabricCanvas.toJSON([
                     'id', 'toolType', 'isWhiteout', 'isSignature', 'isAnnotation',
-                    'annotType', 'lockUniScaling', 'angle', 'opacity', 'fill', 'stroke', 'strokeWidth'
+                    'annotType', 'isArrow', 'shapeStrokeWidth', 'textBackgroundColor',
+                    'lockUniScaling', 'angle', 'opacity', 'fill', 'stroke', 'strokeWidth'
                 ]);
                 page.hasEdits = true;
             }
@@ -841,37 +1089,77 @@
                 if (this.linksLayer) this.linksLayer.appendChild(linkEl);
             }
 
-            // C. Render AcroForm Fields
+            // C. Render Realistic Fillable AcroForm Fields
             for (const field of pageState.formFields) {
                 const [fx, fy, fw, fh] = field.rect.map(v => v * scale);
                 const fieldEl = document.createElement('div');
                 fieldEl.className = 'form-field-hotspot';
+                if (field.type === 'checkbox') {
+                    fieldEl.classList.add('form-field-checkbox');
+                }
                 if (this.selectedFormField && this.selectedFormField.id === field.id) {
                     fieldEl.classList.add('selected');
                 }
+                fieldEl.dataset.fieldId = field.id;
                 fieldEl.style.left = `${fx}px`;
                 fieldEl.style.top = `${fy}px`;
                 fieldEl.style.width = `${fw}px`;
                 fieldEl.style.height = `${fh}px`;
 
-                const label = document.createElement('span');
-                label.className = 'form-field-badge';
-                label.textContent = `${field.type.toUpperCase()}: ${field.name}`;
-                fieldEl.appendChild(label);
+                if (field.type === 'checkbox') {
+                    const mark = document.createElement('span');
+                    mark.className = 'form-field-checkbox-mark';
+                    mark.textContent = field.checked ? '✓' : '';
+                    fieldEl.appendChild(mark);
+                } else if (field.type === 'dropdown') {
+                    const opts = Array.isArray(field.options) && field.options.length > 0 ? field.options : ['Option A', 'Option B'];
+                    const previewText = field.defaultValue || opts[0] || field.name || 'Select...';
+                    const textSpan = document.createElement('span');
+                    textSpan.className = 'form-field-text-preview';
+                    textSpan.textContent = previewText;
+                    const caret = document.createElement('span');
+                    caret.className = 'form-field-dropdown-caret';
+                    caret.textContent = '▾';
+                    fieldEl.appendChild(textSpan);
+                    fieldEl.appendChild(caret);
+                } else {
+                    const hasDefault = Boolean(field.defaultValue && field.defaultValue.trim());
+                    const textSpan = document.createElement('span');
+                    textSpan.className = `form-field-text-preview ${hasDefault ? '' : 'is-placeholder'}`;
+                    textSpan.textContent = hasDefault ? field.defaultValue : (field.name || 'Text field');
+                    fieldEl.appendChild(textSpan);
+                }
 
                 fieldEl.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    const wasSelected = this.selectedFormField && this.selectedFormField.id === field.id;
                     this.selectedFormField = field;
                     this.selectedLink = null;
                     if (this.fabricCanvas) this.fabricCanvas.discardActiveObject();
                     document.querySelectorAll('.link-hotspot').forEach(el => el.classList.remove('selected'));
                     document.querySelectorAll('.form-field-hotspot').forEach(el => el.classList.remove('selected'));
                     fieldEl.classList.add('selected');
+
+                    // Clicking an unselected or selected checkbox toggles default checked preview cleanly
+                    // without tearing down the DOM element (preserving immediate dblclick).
+                    if (field.type === 'checkbox' && (e.detail === 1 || wasSelected)) {
+                        if (e.detail === 1) {
+                            field.checked = !field.checked;
+                            const mark = fieldEl.querySelector('.form-field-checkbox-mark');
+                            if (mark) mark.textContent = field.checked ? '✓' : '';
+                            pageState.hasEdits = true;
+                            window.EditorState.pushSnapshot(`Toggle Checkbox ${field.name}`);
+                        }
+                    }
+
                     this._updateFloatingBar();
                 });
 
                 fieldEl.addEventListener('dblclick', (e) => {
                     e.stopPropagation();
+                    this.selectedFormField = field;
+                    document.querySelectorAll('.form-field-hotspot').forEach(el => el.classList.remove('selected'));
+                    fieldEl.classList.add('selected');
                     this._openFormFieldConfig(field);
                 });
 
@@ -1038,6 +1326,9 @@
                 this._isRestoring = true;
                 this.fabricCanvas.loadFromJSON(pageState.fabricJson, () => {
                     this._isRestoring = false;
+                    this.fabricCanvas.getObjects().forEach(obj => {
+                        this._configureObjectControls(obj);
+                    });
                     this.fabricCanvas.renderAll();
                     this._updateFloatingBar();
                 });
@@ -1051,7 +1342,11 @@
 
         _setupClickDismiss() {
             const dismissHandler = (e) => {
+                if (e.target && e.target.closest && e.target.closest('#inline-properties-popover, #nopay-color-popover, #floating-object-bar')) {
+                    return;
+                }
                 if (e.target === this.textLayer || e.target === this.linksLayer || e.target === this.formsLayer || e.target === this.container) {
+                    this.closePropertiesPopover();
                     this.selectedLink = null;
                     this.selectedFormField = null;
                     document.querySelectorAll('.link-hotspot').forEach(el => el.classList.remove('selected'));
@@ -1066,12 +1361,22 @@
         }
 
         _setupFloatingBarEvents() {
+            const propBtn = document.getElementById('floating-btn-properties');
             const dupBtn = document.getElementById('floating-btn-duplicate');
             const delBtn = document.getElementById('floating-btn-delete');
             const fwdBtn = document.getElementById('floating-btn-forward');
             const bwdBtn = document.getElementById('floating-btn-backward');
             const rotLBtn = document.getElementById('floating-btn-rotate-left');
             const rotRBtn = document.getElementById('floating-btn-rotate-right');
+
+            if (propBtn && !propBtn._bound) {
+                propBtn._bound = true;
+                propBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (this.selectedLink) this._openLinkConfig(this.selectedLink);
+                    else if (this.selectedFormField) this._openFormFieldConfig(this.selectedFormField);
+                });
+            }
 
             if (dupBtn && !dupBtn._bound) {
                 dupBtn._bound = true;
@@ -1149,16 +1454,15 @@
                 this.activeFabricTextBox = activeObj;
                 if (subToolbar) {
                     subToolbar.classList.remove('hidden');
-                    // Hide background controls for added text
-                    const bgGroup = document.getElementById('sub-bg-color')?.closest('.flex');
-                    if (bgGroup) bgGroup.style.display = 'none';
+                    const bgWrap = document.getElementById('sub-bg-color-wrap');
+                    if (bgWrap) bgWrap.style.display = '';
                     const resetBtn = document.getElementById('sub-reset-btn');
                     if (resetBtn) resetBtn.style.display = 'none';
 
                     const fontTierPill = document.getElementById('sub-font-tier-pill');
                     if (fontTierPill) {
                         fontTierPill.classList.remove('hidden');
-                        fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200';
+                        fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 shrink-0';
                         fontTierPill.textContent = 'Added Vector Text';
                     }
 
@@ -1175,10 +1479,24 @@
                     }
 
                     const fontSizeInput = document.getElementById('sub-font-size');
-                    if (fontSizeInput) fontSizeInput.value = Math.round(activeObj.fontSize || 16).toString();
+                    if (fontSizeInput) fontSizeInput.value = (Math.round((activeObj.fontSize || 16) * 10) / 10).toString();
 
                     const textColorInput = document.getElementById('sub-text-color');
-                    if (textColorInput && activeObj.fill) textColorInput.value = activeObj.fill;
+                    if (textColorInput && activeObj.fill) {
+                        textColorInput.value = activeObj.fill;
+                        window.NoPayColorPicker?.syncVisualState('sub-text-color');
+                    }
+
+                    const bgColorInput = document.getElementById('sub-bg-color');
+                    if (bgColorInput) {
+                        bgColorInput.value = activeObj.textBackgroundColor || '#ffffff';
+                        const bgBinding = window.NoPayColorPicker?.bindings?.get('sub-bg-color');
+                        if (bgBinding) {
+                            bgBinding.clearMode = 'transparent';
+                            bgBinding.clearLabel = 'Transparent';
+                        }
+                        window.NoPayColorPicker?.syncVisualState('sub-bg-color');
+                    }
 
                     const boldBtn = document.getElementById('sub-bold-btn');
                     if (boldBtn) boldBtn.classList.toggle('active', activeObj.fontWeight === 'bold' || activeObj.fontWeight === 700 || activeObj.fontWeight === '700');
@@ -1255,6 +1573,11 @@
             const badge = document.getElementById('floating-obj-badge');
             if (badge) badge.textContent = badgeText;
 
+            const propBtn = document.getElementById('floating-btn-properties');
+            if (propBtn) {
+                propBtn.classList.toggle('hidden', !(this.selectedLink || this.selectedFormField));
+            }
+
             const fwdBtn = document.getElementById('floating-btn-forward');
             const bwdBtn = document.getElementById('floating-btn-backward');
             if (fwdBtn) fwdBtn.style.display = canReorder ? 'inline-flex' : 'none';
@@ -1269,7 +1592,7 @@
 
             bar.classList.remove('hidden');
 
-            const barW = bar.offsetWidth || 160;
+            const barW = bar.offsetWidth || 180;
             const barH = bar.offsetHeight || 32;
 
             const stageW = (this.container && this.container.offsetWidth) || (this.baseCanvas ? this.baseCanvas.width : 600);
@@ -1278,15 +1601,30 @@
             let left = targetRect.left + (targetRect.width / 2) - (barW / 2);
             left = Math.max(8, Math.min(stageW - barW - 8, left));
 
-            // Position 8px above target
-            let top = targetRect.top - barH - 8;
-            if (top < 8) {
-                // Flip below if not enough room above
-                top = targetRect.top + targetRect.height + 8;
+            // Keep >= 48px vertical clearance above selection box so Fabric's mtr rotation knob (-28px) has clean daylight
+            const aboveOffset = activeObj ? 48 : 10;
+            let top = targetRect.top - barH - aboveOffset;
+
+            const mtr = activeObj && activeObj.oCoords ? activeObj.oCoords.mtr : null;
+            const overlapsMtr = (testLeft, testTop) => {
+                if (!mtr) return false;
+                const pad = 16;
+                return !(
+                    testLeft + barW <= mtr.x - pad ||
+                    testLeft >= mtr.x + pad ||
+                    testTop + barH <= mtr.y - pad ||
+                    testTop >= mtr.y + pad
+                );
+            };
+
+            if (top < 8 || overlapsMtr(left, top)) {
+                const mtrIsBelow = mtr && mtr.y > (targetRect.top + targetRect.height / 2);
+                const belowOffset = mtrIsBelow ? 44 : 14;
+                top = targetRect.top + targetRect.height + belowOffset;
             }
 
-            bar.style.left = `${left}px`;
-            bar.style.top = `${top}px`;
+            bar.style.left = `${Math.round(left)}px`;
+            bar.style.top = `${Math.round(top)}px`;
         }
 
         _hideFloatingBar() {
@@ -1306,10 +1644,14 @@
                     });
                     if (activeObj.isWhiteout) cloned.isWhiteout = true;
                     if (activeObj.isSignature) cloned.isSignature = true;
+                    if (activeObj.isArrow) cloned.isArrow = true;
+                    if (activeObj.shapeStrokeWidth !== undefined) cloned.shapeStrokeWidth = activeObj.shapeStrokeWidth;
+                    if (activeObj.textBackgroundColor) cloned.textBackgroundColor = activeObj.textBackgroundColor;
                     if (activeObj.isAnnotation) {
                         cloned.isAnnotation = true;
                         cloned.annotType = activeObj.annotType;
                     }
+                    this._configureObjectControls(cloned);
 
                     this.fabricCanvas.add(cloned);
                     this.fabricCanvas.setActiveObject(cloned);
@@ -1420,6 +1762,10 @@
 
         startPlacement(type, dataUrl) {
             this.cancelPlacement();
+            const targetTool = type === 'signature' ? 'sign' : 'images';
+            if (this.activeTool !== targetTool) {
+                this.setTool(targetTool);
+            }
             this.placementMode = { type, dataUrl };
 
             const ghost = document.getElementById('placement-ghost-preview');
@@ -1473,18 +1819,16 @@
                         scaleX: scale,
                         scaleY: scale,
                         lockUniScaling: true,
-                        cornerSize: 8,
-                        transparentCorners: false,
-                        hasRotatingPoint: true,
                         isSignature: currentType === 'signature',
                     });
-                    img.setControlsVisibility({ mtr: true });
+                    this._configureObjectControls(img);
                     const w = img.getScaledWidth();
                     const h = img.getScaledHeight();
                     img.set({
                         left: clickX - (w / 2),
                         top: clickY - (h / 2),
                     });
+                    img.setCoords();
 
                     this.fabricCanvas.add(img);
                     this.fabricCanvas.setActiveObject(img);
@@ -1532,6 +1876,7 @@
 
         startFormPlacement(type = 'text', customName = '') {
             this.cancelPlacement();
+            this._exitActiveInteraction();
             this.formPlacementType = type;
             this.customFormName = (customName || '').trim();
 
@@ -1546,8 +1891,8 @@
             ghost.classList.remove('hidden');
 
             const isCheckbox = type === 'checkbox';
-            const w = (isCheckbox ? 24 : 140) * this.currentScale;
-            const h = (isCheckbox ? 24 : 28) * this.currentScale;
+            const w = (isCheckbox ? 18 : 140) * this.currentScale;
+            const h = (isCheckbox ? 18 : 28) * this.currentScale;
             ghostBox.style.width = `${w}px`;
             ghostBox.style.height = `${h}px`;
 
@@ -1562,11 +1907,20 @@
 
             this._onPlacementClick = (e) => {
                 if (!this.formPlacementType) return;
+                if (e.target && e.target.closest && e.target.closest('.form-field-hotspot, #inline-properties-popover, #nopay-color-popover, #floating-object-bar')) {
+                    return;
+                }
                 const rect = this.container.getBoundingClientRect();
                 if (
                     e.clientX < rect.left || e.clientX > rect.right ||
                     e.clientY < rect.top || e.clientY > rect.bottom
                 ) {
+                    return;
+                }
+
+                // 2-Click Exit-Before-Create guard for active selection/popover
+                if (this._hasActiveInteraction()) {
+                    this._exitActiveInteraction();
                     return;
                 }
 
@@ -1577,8 +1931,8 @@
                 const formType = this.formPlacementType;
                 const customFieldName = this.customFormName;
                 const isCb = formType === 'checkbox';
-                const fw = isCb ? 24 : 140;
-                const fh = isCb ? 24 : 28;
+                const fw = isCb ? 18 : 140;
+                const fh = isCb ? 18 : 28;
 
                 const page = window.EditorState.getActivePage();
                 if (page) {
@@ -1614,7 +1968,7 @@
             const page = window.EditorState.getActivePage();
             if (!page) return null;
             const isCb = type === 'checkbox';
-            const defaultRect = rect || [100, 100, isCb ? 24 : 140, isCb ? 24 : 28];
+            const defaultRect = rect || [100, 100, isCb ? 18 : 140, isCb ? 18 : 28];
             const newField = {
                 id: `ff-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
                 type,
@@ -1637,12 +1991,28 @@
             if (!this.linksLayer) return;
             this.linksLayer.addEventListener('mousedown', (e) => {
                 if (this.activeTool !== 'links') return;
+                if (e.target && e.target.closest && e.target.closest('.link-hotspot, #inline-properties-popover, #nopay-color-popover, #floating-object-bar')) {
+                    return;
+                }
+                // 2-Click Exit-Before-Create guard
+                if (this._hasActiveInteraction()) {
+                    this._exitActiveInteraction();
+                    this._suppressLinkCreate = true;
+                    this.isDrawingLink = false;
+                    return;
+                }
+                this._suppressLinkCreate = false;
                 const pt = this.clientToCanvasPoint(e.clientX, e.clientY);
                 this.isDrawingLink = true;
                 this.linkDrawStart = { x: pt.x, y: pt.y };
             });
 
             window.addEventListener('mouseup', (e) => {
+                if (this._suppressLinkCreate) {
+                    this._suppressLinkCreate = false;
+                    this.isDrawingLink = false;
+                    return;
+                }
                 if (!this.isDrawingLink || this.activeTool !== 'links' || !this.linksLayer) return;
                 this.isDrawingLink = false;
                 const endPt = this.clientToCanvasPoint(e.clientX, e.clientY);
@@ -1658,55 +2028,213 @@
             });
         }
 
+        _setupPropertiesPopover() {
+            const pop = document.getElementById('inline-properties-popover');
+            if (!pop || pop._bound) return;
+            pop._bound = true;
+
+            ['mousedown', 'pointerdown', 'click'].forEach(evtName => {
+                pop.addEventListener(evtName, (e) => e.stopPropagation());
+            });
+
+            const closeBtn = document.getElementById('prop-close-btn');
+            const applyBtn = document.getElementById('prop-apply-btn');
+            const delBtn = document.getElementById('prop-delete-btn');
+
+            const applyChanges = (shouldClose = false) => {
+                const ctx = this._popoverContext;
+                if (!ctx) return;
+                const page = window.EditorState.getActivePage();
+                if (!page) return;
+
+                if (ctx.kind === 'form') {
+                    const f = ctx.item;
+                    const nameInput = document.getElementById('prop-field-name');
+                    const defInput = document.getElementById('prop-field-default');
+                    const chkInput = document.getElementById('prop-field-checked');
+                    const optInput = document.getElementById('prop-field-options');
+
+                    const nextName = (nameInput?.value || '').trim();
+                    if (nextName) f.name = nextName;
+                    if (f.type === 'text' || f.type === 'textarea') {
+                        f.defaultValue = defInput?.value || '';
+                    } else if (f.type === 'checkbox') {
+                        f.checked = Boolean(chkInput?.checked);
+                    } else if (f.type === 'dropdown') {
+                        const rawOpts = (optInput?.value || '').split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+                        if (rawOpts.length > 0) f.options = rawOpts;
+                        f.defaultValue = defInput?.value?.trim() || f.options[0] || '';
+                    }
+                    page.hasEdits = true;
+                    window.EditorState.pushSnapshot(`Configure Form Field ${f.name}`);
+                    this.renderPage(this.currentPdfProxy);
+                } else if (ctx.kind === 'link') {
+                    const link = ctx.item;
+                    const typeSel = document.getElementById('prop-link-type');
+                    const targetInput = document.getElementById('prop-link-target');
+                    const rawTarget = (targetInput?.value || '').trim();
+                    if (rawTarget) {
+                        const isPage = (typeSel?.value === 'page') || rawTarget.startsWith('#') || /^\d+$/.test(rawTarget);
+                        link.type = isPage ? 'page' : 'url';
+                        link.target = isPage ? rawTarget.replace(/^#/, '') : rawTarget;
+                        page.hasEdits = true;
+                        window.EditorState.pushSnapshot('Update Link');
+                        this.renderPage(this.currentPdfProxy);
+                    }
+                }
+                if (shouldClose) {
+                    this.closePropertiesPopover();
+                }
+            };
+
+            closeBtn?.addEventListener('click', () => this.closePropertiesPopover());
+            applyBtn?.addEventListener('click', () => applyChanges(true));
+
+            pop.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    applyChanges(true);
+                } else if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    this.closePropertiesPopover();
+                }
+            });
+
+            delBtn?.addEventListener('click', () => {
+                const ctx = this._popoverContext;
+                const page = window.EditorState.getActivePage();
+                if (!ctx || !page) return;
+                if (ctx.kind === 'form') {
+                    page.formFields = page.formFields.filter(f => f.id !== ctx.item.id);
+                    if (this.selectedFormField && this.selectedFormField.id === ctx.item.id) {
+                        this.selectedFormField = null;
+                    }
+                    window.EditorState.pushSnapshot('Delete Form Field');
+                } else if (ctx.kind === 'link') {
+                    page.links = page.links.filter(l => l.id !== ctx.item.id);
+                    if (this.selectedLink && this.selectedLink.id === ctx.item.id) {
+                        this.selectedLink = null;
+                    }
+                    window.EditorState.pushSnapshot('Delete Link');
+                }
+                page.hasEdits = true;
+                this.closePropertiesPopover();
+                this.renderPage(this.currentPdfProxy);
+                this._hideFloatingBar();
+            });
+        }
+
+        _positionPropertiesPopover(rect) {
+            const pop = document.getElementById('inline-properties-popover');
+            if (!pop || !this.container) return;
+            const stageRect = this.container.getBoundingClientRect();
+            const [rx, ry, rw, rh] = rect.map(v => v * this.currentScale);
+            const popW = pop.offsetWidth || 260;
+            const popH = pop.offsetHeight || 220;
+
+            let left = stageRect.left + rx;
+            left = Math.max(8, Math.min(window.innerWidth - popW - 8, left));
+
+            let top = stageRect.top + ry + rh + 10;
+            if (top + popH > window.innerHeight - 8) {
+                top = Math.max(8, stageRect.top + ry - popH - 10);
+            }
+
+            pop.style.left = `${Math.round(left)}px`;
+            pop.style.top = `${Math.round(top)}px`;
+        }
+
+        closePropertiesPopover() {
+            const pop = document.getElementById('inline-properties-popover');
+            if (pop) pop.classList.add('hidden');
+            this._popoverContext = null;
+        }
+
         _createLinkPrompt(rect) {
-            const url = prompt('Enter link URL (e.g. https://example.com) or page number (e.g. #2):', 'https://');
-            if (!url) return;
-
             const page = window.EditorState.getActivePage();
-            if (!page) return;
-
-            const isPage = url.startsWith('#') || /^\d+$/.test(url);
-            const target = isPage ? url.replace('#', '') : url;
-            const type = isPage ? 'page' : 'url';
+            if (!page) return null;
 
             const newLink = {
                 id: `link-${Date.now().toString(36)}`,
                 rect,
-                type,
-                target,
+                type: 'url',
+                target: 'https://',
             };
             page.links.push(newLink);
             page.hasEdits = true;
             this.selectedLink = newLink;
             window.EditorState.pushSnapshot('Add Link');
-            this.renderPage(this.currentPdfProxy);
+            this.renderPage(this.currentPdfProxy).then(() => {
+                this._openLinkConfig(newLink);
+            });
             this._updateFloatingBar();
+            return newLink;
         }
 
         _openLinkConfig(link) {
-            if (confirm(`Link target: ${link.target}\nClick OK to change or Cancel to delete.`)) {
-                const newTarget = prompt('New target (URL or page number):', link.target);
-                if (newTarget) {
-                    link.target = newTarget;
-                    link.type = newTarget.startsWith('#') || /^\d+$/.test(newTarget) ? 'page' : 'url';
-                    window.EditorState.pushSnapshot('Update Link');
-                    this.renderPage(this.currentPdfProxy);
-                }
-            } else {
-                const page = window.EditorState.getActivePage();
-                page.links = page.links.filter(l => l.id !== link.id);
-                window.EditorState.pushSnapshot('Delete Link');
-                this.renderPage(this.currentPdfProxy);
-            }
+            this._setupPropertiesPopover();
+            const pop = document.getElementById('inline-properties-popover');
+            if (!pop || !link) return;
+
+            this._popoverContext = { kind: 'link', item: link };
+            document.getElementById('prop-popover-title').textContent = 'Link Properties';
+            document.getElementById('prop-form-fields')?.classList.add('hidden');
+            document.getElementById('prop-link-fields')?.classList.remove('hidden');
+
+            const typeSel = document.getElementById('prop-link-type');
+            const targetInput = document.getElementById('prop-link-target');
+            if (typeSel) typeSel.value = link.type === 'page' ? 'page' : 'url';
+            if (targetInput) targetInput.value = link.target || 'https://';
+
+            pop.classList.remove('hidden');
+            this._positionPropertiesPopover(link.rect);
+            targetInput?.focus();
+            targetInput?.select();
         }
 
         _openFormFieldConfig(field) {
-            const newName = prompt(`Configure ${field.type.toUpperCase()} field name:`, field.name);
-            if (newName) {
-                field.name = newName;
-                window.EditorState.pushSnapshot('Configure Form Field');
-                this.renderPage(this.currentPdfProxy);
+            this._setupPropertiesPopover();
+            const pop = document.getElementById('inline-properties-popover');
+            if (!pop || !field) return;
+
+            this._popoverContext = { kind: 'form', item: field };
+            const titleLabel = field.type === 'checkbox' ? 'Checkbox Properties' :
+                               field.type === 'dropdown' ? 'Dropdown Properties' : 'Text Field Properties';
+            document.getElementById('prop-popover-title').textContent = titleLabel;
+            document.getElementById('prop-link-fields')?.classList.add('hidden');
+            document.getElementById('prop-form-fields')?.classList.remove('hidden');
+
+            const nameInput = document.getElementById('prop-field-name');
+            const defWrap = document.getElementById('prop-default-wrap');
+            const defInput = document.getElementById('prop-field-default');
+            const chkWrap = document.getElementById('prop-checked-wrap');
+            const chkInput = document.getElementById('prop-field-checked');
+            const optWrap = document.getElementById('prop-options-wrap');
+            const optInput = document.getElementById('prop-field-options');
+
+            if (nameInput) nameInput.value = field.name || '';
+            if (field.type === 'checkbox') {
+                defWrap?.classList.add('hidden');
+                chkWrap?.classList.remove('hidden');
+                optWrap?.classList.add('hidden');
+                if (chkInput) chkInput.checked = Boolean(field.checked);
+            } else if (field.type === 'dropdown') {
+                defWrap?.classList.remove('hidden');
+                chkWrap?.classList.add('hidden');
+                optWrap?.classList.remove('hidden');
+                if (defInput) defInput.value = field.defaultValue || '';
+                if (optInput) optInput.value = Array.isArray(field.options) ? field.options.join(', ') : '';
+            } else {
+                defWrap?.classList.remove('hidden');
+                chkWrap?.classList.add('hidden');
+                optWrap?.classList.add('hidden');
+                if (defInput) defInput.value = field.defaultValue || '';
             }
+
+            pop.classList.remove('hidden');
+            this._positionPropertiesPopover(field.rect);
+            nameInput?.focus();
+            nameInput?.select();
         }
 
         // ====================================================
@@ -1720,12 +2248,13 @@
                 top: options.top !== undefined ? options.top : 100,
                 fontSize: options.fontSize || 18,
                 fill: options.fill || '#1e293b',
+                textBackgroundColor: options.textBackgroundColor || '',
                 fontFamily: options.fontFamily || 'Liberation Sans',
                 lockUniScaling: true,
-                cornerSize: 8,
-                transparentCorners: false,
+                objectCaching: false,
                 ...options,
             });
+            this._configureObjectControls(t);
             this.fabricCanvas.add(t);
             this.activeFabricTextBox = t;
             this.fabricCanvas.setActiveObject(t);
@@ -1783,14 +2312,17 @@
 
             if (!closestBlock) return defaultStyle;
 
-            const matchedFamily = closestBlock.matched?.name || closestBlock.fontFamily || 'Liberation Sans';
-            const clampedSize = Math.max(8, Math.min(72, Math.round(closestBlock.fontSizePt || 14)));
+            const rawFamily = closestBlock.fontFamily
+                ? window.FontManager.getCssFamily(closestBlock.fontFamily)
+                : (closestBlock.matched?.cssName || closestBlock.matched?.name || 'Liberation Sans');
+            const rawPt = closestBlock.fontSizePt || 14;
+            const clampedSize = Math.max(6, Math.min(96, Math.round(rawPt * 2) / 2));
             const color = closestBlock.colorHex || '#1e293b';
             const bold = Boolean(closestBlock.bold || closestBlock.isBold);
             const italic = Boolean(closestBlock.italic || closestBlock.isItalic);
 
             return {
-                fontFamily: matchedFamily,
+                fontFamily: rawFamily,
                 fontSize: clampedSize,
                 fill: color,
                 bold,
@@ -1826,11 +2358,10 @@
                 fill: fill,
                 stroke: null,
                 strokeWidth: 0,
-                lockUniScaling: true,
-                cornerSize: 8,
-                transparentCorners: false,
+                lockUniScaling: lockUniScaling,
                 isWhiteout: true,
             });
+            this._configureObjectControls(rect);
             this.fabricCanvas.add(rect);
             this.fabricCanvas.setActiveObject(rect);
             this.fabricCanvas.renderAll();
@@ -1848,21 +2379,41 @@
 
             let annotObj;
             if (type === 'underline') {
+                // Anchor underline cleanly right under the baseline of dragged line or closest overlapping text block
+                let ulTop = h > 5 ? (y + h - 2) : y;
+                const pageState = window.EditorState.getActivePage();
+                if (pageState && Array.isArray(pageState.textBlocks) && pageState.textBlocks.length > 0) {
+                    const pageH = pageState.heightPt || 792;
+                    const midY = y + h / 2;
+                    let bestDist = Infinity;
+                    let snappedBaselineY = null;
+                    for (const b of pageState.textBlocks) {
+                        const bw = b.origPdfWidth || b.pdfWidth || 40;
+                        const horizOverlap = (x <= b.pdfX + bw + 8) && (x + w >= b.pdfX - 8);
+                        if (!horizOverlap) continue;
+                        const baselineY = pageH - (b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY);
+                        const d = Math.abs(baselineY - (h > 5 ? (y + h) : midY));
+                        if (d < 16 && d < bestDist) {
+                            bestDist = d;
+                            snappedBaselineY = baselineY + 1.5;
+                        }
+                    }
+                    if (snappedBaselineY !== null) {
+                        ulTop = snappedBaselineY;
+                    }
+                }
+
                 annotObj = new fabric.Rect({
                     left: x,
-                    top: h > 4 ? (y + h - 3) : y,
+                    top: ulTop,
                     width: Math.max(10, w),
-                    height: 3,
+                    height: 2.5,
                     angle: 0,
                     fill: chosenColor,
-                    opacity: 0.9,
+                    opacity: 0.92,
                     padding: 8,
-                    hasBorders: true,
-                    hasControls: true,
                     perPixelTargetFind: false,
                     lockUniScaling: false,
-                    cornerSize: 8,
-                    transparentCorners: false,
                     isAnnotation: true,
                     annotType: 'underline',
                 });
@@ -1871,17 +2422,13 @@
                     left: x,
                     top: h > 4 ? (y + (h / 2) - 1.5) : y,
                     width: Math.max(10, w),
-                    height: 3,
+                    height: 2.5,
                     angle: 0,
                     fill: chosenColor,
-                    opacity: 0.9,
+                    opacity: 0.92,
                     padding: 8,
-                    hasBorders: true,
-                    hasControls: true,
                     perPixelTargetFind: false,
                     lockUniScaling: false,
-                    cornerSize: 8,
-                    transparentCorners: false,
                     isAnnotation: true,
                     annotType: 'strike',
                 });
@@ -1895,13 +2442,12 @@
                     fill: chosenColor,
                     opacity: 0.35,
                     lockUniScaling: false,
-                    cornerSize: 8,
-                    transparentCorners: false,
                     isAnnotation: true,
                     annotType: 'highlight',
                 });
             }
 
+            this._configureObjectControls(annotObj);
             this.fabricCanvas.add(annotObj);
             this.fabricCanvas.setActiveObject(annotObj);
             this.fabricCanvas.renderAll();
@@ -1927,8 +2473,6 @@
                 stroke: strokeColor,
                 strokeWidth: strokeWidth,
                 lockUniScaling: true,
-                cornerSize: 8,
-                transparentCorners: false,
                 ...options,
             };
 
@@ -1949,48 +2493,51 @@
                     strokeWidth: strokeWidth,
                     strokeLineCap: 'round',
                     lockUniScaling: true,
-                    hasBorders: true,
-                    hasControls: true,
                     perPixelTargetFind: false,
                     padding: 8,
-                    cornerSize: 8,
-                    transparentCorners: false,
                 });
             } else if (type === 'arrow') {
                 const x1 = options.x1 !== undefined ? options.x1 : base.left;
                 const y1 = options.y1 !== undefined ? options.y1 : base.top;
                 const x2 = options.x2 !== undefined ? options.x2 : (x1 + w);
                 const y2 = options.y2 !== undefined ? options.y2 : (y1 + h);
-                const headLen = 14;
-                const angle = Math.atan2(y2 - y1, x2 - x1);
-                const line = new fabric.Line([x1, y1, x2, y2], {
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const dist = Math.hypot(dx, dy) || 1;
+                const theta = Math.atan2(dy, dx);
+                const headLen = Math.max(12, Math.min(36, strokeWidth * 4.5));
+                const headWidth = headLen * 0.9;
+                const shaftTrim = Math.min(dist * 0.65, headLen * 0.72);
+                const shaftEndX = x2 - Math.cos(theta) * shaftTrim;
+                const shaftEndY = y2 - Math.sin(theta) * shaftTrim;
+
+                const line = new fabric.Line([x1, y1, shaftEndX, shaftEndY], {
                     stroke: strokeColor,
                     strokeWidth: strokeWidth,
-                    strokeLineCap: 'round',
+                    strokeLineCap: 'butt',
                 });
                 const triangle = new fabric.Triangle({
                     left: x2,
                     top: y2,
                     originX: 'center',
-                    originY: 'center',
-                    pointType: 'arrow_start',
-                    angle: (angle * 180 / Math.PI) + 90,
-                    width: headLen,
+                    originY: 'top',
+                    angle: (theta * 180 / Math.PI) + 90,
+                    width: headWidth,
                     height: headLen,
                     fill: strokeColor,
+                    strokeWidth: 0,
                 });
                 shape = new fabric.Group([line, triangle], {
+                    isArrow: true,
+                    shapeStrokeWidth: strokeWidth,
                     lockUniScaling: true,
-                    hasBorders: true,
-                    hasControls: true,
                     perPixelTargetFind: false,
                     padding: 8,
-                    cornerSize: 8,
-                    transparentCorners: false,
                 });
             }
 
             if (shape) {
+                this._configureObjectControls(shape);
                 this.fabricCanvas.add(shape);
                 this.fabricCanvas.setActiveObject(shape);
                 this.fabricCanvas.renderAll();
@@ -2017,10 +2564,9 @@
                     scaleX: scale,
                     scaleY: scale,
                     lockUniScaling: true,
-                    cornerSize: 8,
-                    transparentCorners: false,
                     isSignature: true,
                 });
+                this._configureObjectControls(img);
                 this.fabricCanvas.add(img);
                 this.fabricCanvas.setActiveObject(img);
                 this.fabricCanvas.renderAll();
@@ -2046,9 +2592,8 @@
                     scaleX: scale,
                     scaleY: scale,
                     lockUniScaling: true,
-                    cornerSize: 8,
-                    transparentCorners: false,
                 });
+                this._configureObjectControls(img);
                 this.fabricCanvas.add(img);
                 this.fabricCanvas.setActiveObject(img);
                 this.fabricCanvas.renderAll();

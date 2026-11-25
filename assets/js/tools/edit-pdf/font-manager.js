@@ -482,7 +482,38 @@
         },
 
         getCssFamily(family) {
-            return LOCAL_FONTS[family]?.cssName || LOCAL_FONTS.sans.cssName;
+            if (!family) return LOCAL_FONTS.sans.cssName;
+            if (LOCAL_FONTS[family]?.cssName) return LOCAL_FONTS[family].cssName;
+            const norm = String(family).toLowerCase().replace(/[^a-z]/g, '');
+            for (const [k, cfg] of Object.entries(LOCAL_FONTS)) {
+                if (cfg.cssName.toLowerCase().replace(/[^a-z]/g, '') === norm || k === norm) {
+                    return cfg.cssName;
+                }
+            }
+            return LOCAL_FONTS.sans.cssName;
+        },
+
+        /**
+         * Preload all bundled @font-face fonts into document.fonts and flush Fabric's font cache
+         * so added canvas text never renders blurry fallback glyphs or stale width metrics.
+         */
+        async preloadLocalFonts() {
+            if (!document.fonts || typeof document.fonts.load !== 'function') return;
+            const loads = [];
+            for (const cfg of Object.values(LOCAL_FONTS)) {
+                const fam = cfg.cssName;
+                loads.push(document.fonts.load(`400 16px "${fam}"`).catch(() => null));
+                if (cfg.bold) loads.push(document.fonts.load(`700 16px "${fam}"`).catch(() => null));
+                if (cfg.italic) loads.push(document.fonts.load(`italic 400 16px "${fam}"`).catch(() => null));
+                if (cfg.boldItalic) loads.push(document.fonts.load(`italic 700 16px "${fam}"`).catch(() => null));
+            }
+            await Promise.all(loads);
+            if (window.fabric?.util?.clearFabricFontCache) {
+                window.fabric.util.clearFabricFontCache();
+            }
+            if (window.CanvasStage?.fabricCanvas) {
+                window.CanvasStage.fabricCanvas.requestRenderAll();
+            }
         },
     };
 

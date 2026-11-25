@@ -47,6 +47,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
+            signal: AbortSignal.timeout ? AbortSignal.timeout(25000) : undefined,
         });
         const data = await res.json();
         if (!data.ok) throw new Error(`CDP action ${payload.action} failed: ${data.error}`);
@@ -57,6 +58,11 @@
         await new Promise(r => setTimeout(r, 80));
     }
 
+    async function cdpDblClick(x, y) {
+        await cdp({ action: 'dblclick', x: Math.round(x), y: Math.round(y) });
+        await new Promise(r => setTimeout(r, 120));
+    }
+
     async function cdpClickEl(selectorOrEl) {
         const el = typeof selectorOrEl === 'string' ? document.querySelector(selectorOrEl) : selectorOrEl;
         if (!el) throw new Error(`Element not found for cdpClickEl: ${selectorOrEl}`);
@@ -64,6 +70,15 @@
         await new Promise(r => setTimeout(r, 40));
         const r = el.getBoundingClientRect();
         await cdpClick(r.left + r.width / 2, r.top + r.height / 2);
+    }
+
+    async function cdpDblClickEl(selectorOrEl) {
+        const el = typeof selectorOrEl === 'string' ? document.querySelector(selectorOrEl) : selectorOrEl;
+        if (!el) throw new Error(`Element not found for cdpDblClickEl: ${selectorOrEl}`);
+        el.scrollIntoView({ block: 'center', inline: 'center' });
+        await new Promise(r => setTimeout(r, 40));
+        const r = el.getBoundingClientRect();
+        await cdpDblClick(r.left + r.width / 2, r.top + r.height / 2);
     }
 
     async function cdpMove(x, y) {
@@ -126,10 +141,91 @@
         const bound = obj.getBoundingRect(false);
         return {
             left: canvasRect.left + bound.left * scaleX,
-            top: canvasRect.top + bound.top * scaleY,
+            top: canvasRect.top + bound.top * syFallback(scaleY),
             width: bound.width * scaleX,
             height: bound.height * scaleY,
         };
+    }
+
+    function syFallback(val) { return val; }
+
+    function getMtrScreenPoint(obj) {
+        obj.setCoords();
+        const mtr = obj.oCoords && obj.oCoords.mtr;
+        if (!mtr) return null;
+        const upperCanvas = window.CanvasStage.fabricCanvas.upperCanvasEl;
+        const canvasRect = upperCanvas.getBoundingClientRect();
+        const scaleX = canvasRect.width / window.CanvasStage.fabricCanvas.getWidth();
+        const scaleY = canvasRect.height / window.CanvasStage.fabricCanvas.getHeight();
+        return {
+            x: canvasRect.left + mtr.x * scaleX,
+            y: canvasRect.top + mtr.y * scaleY,
+        };
+    }
+
+    function assertMtrVisibleAndUnoccluded(obj, label) {
+        if (!obj) throw new Error(`[${label}] Missing object for mtr assertion`);
+        if (obj.lockRotation !== false) throw new Error(`[${label}] Expected lockRotation === false, got ${obj.lockRotation}`);
+        if (!obj.hasControls) throw new Error(`[${label}] Expected hasControls === true`);
+        if (typeof obj.isControlVisible !== 'function' || !obj.isControlVisible('mtr')) {
+            throw new Error(`[${label}] Expected mtr rotation control visible`);
+        }
+        const mtrPt = getMtrScreenPoint(obj);
+        if (!mtrPt) throw new Error(`[${label}] Missing oCoords.mtr`);
+        const floatBar = document.getElementById('floating-object-bar');
+        if (floatBar && !floatBar.classList.contains('hidden')) {
+            const barRect = floatBar.getBoundingClientRect();
+            const pad = 10;
+            const overlaps = !(
+                barRect.right <= mtrPt.x - pad ||
+                barRect.left >= mtrPt.x + pad ||
+                barRect.bottom <= mtrPt.y - pad ||
+                barRect.top >= mtrPt.y + pad
+            );
+            if (overlaps) {
+                throw new Error(`[${label}] #floating-object-bar overlaps mtr knob! bar=(${Math.round(barRect.left)},${Math.round(barRect.top)}..${Math.round(barRect.right)},${Math.round(barRect.bottom)}) mtr=(${Math.round(mtrPt.x)},${Math.round(mtrPt.y)})`);
+            }
+        }
+        log(`✓ [${label}] Visible mtr handle unoccluded at (${Math.round(mtrPt.x)}, ${Math.round(mtrPt.y)})`);
+        return mtrPt;
+    }
+
+    async function assertUnifiedColorPicker(triggerSelector, targetSwatchHex, testHexCode, label) {
+        await cdpClickEl(triggerSelector);
+        await new Promise(r => setTimeout(r, 80));
+        const pop = document.getElementById('nopay-color-popover');
+        if (!pop || pop.classList.contains('hidden')) {
+            throw new Error(`[${label}] Color picker popover failed to open for ${triggerSelector}`);
+        }
+        const popStyle = window.getComputedStyle(pop);
+        if (popStyle.position !== 'fixed' || parseInt(popStyle.zIndex || '0', 10) < 90) {
+            throw new Error(`[${label}] Popover must be fixed portal with z-index >= 90, got ${popStyle.position} z=${popStyle.zIndex}`);
+        }
+        const swatches = pop.querySelectorAll('.nopay-color-swatch');
+        if (swatches.length < 18) {
+            throw new Error(`[${label}] Expected >= 18 swatches in Color Picker, found ${swatches.length}`);
+        }
+        const nativeWheel = pop.querySelector('#nopay-popover-native-color');
+        const hexInput = pop.querySelector('#nopay-popover-hex-input');
+        if (!nativeWheel || !hexInput) {
+            throw new Error(`[${label}] Missing custom wheel or #HEX input inside popover`);
+        }
+        if (testHexCode) {
+            hexInput.focus();
+            hexInput.value = testHexCode;
+            hexInput.dispatchEvent(new Event('input', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 40));
+        }
+        if (targetSwatchHex) {
+            const targetSwatch = pop.querySelector(`.nopay-color-swatch[data-color="${targetSwatchHex.toLowerCase()}"]`);
+            if (!targetSwatch) throw new Error(`[${label}] Swatch ${targetSwatchHex} not found`);
+            await cdpClickEl(targetSwatch);
+            await new Promise(r => setTimeout(r, 60));
+        } else {
+            await cdpClickEl(swatches[0]);
+            await new Promise(r => setTimeout(r, 60));
+        }
+        log(`✓ [${label}] Unified Color Picker (${swatches.length} swatches + wheel + #HEX) verified`);
     }
 
     async function report(status, error = null) {
@@ -219,6 +315,19 @@
         }
         log('✓ Verified #stage-highlight-layer permanently removed');
 
+        // Confirm sidebar collapse button does NOT overlap "Pages" label
+        const toggleRailBtn = document.getElementById('toggle-rail-btn');
+        const pagesSpan = Array.from(document.querySelectorAll('#thumbnail-rail span')).find(s => s.textContent.trim().toLowerCase() === 'pages');
+        if (toggleRailBtn && pagesSpan) {
+            const trR = toggleRailBtn.getBoundingClientRect();
+            const pgR = pagesSpan.getBoundingClientRect();
+            const railOverlap = !(trR.right <= pgR.left || trR.left >= pgR.right || trR.bottom <= pgR.top || trR.top >= pgR.bottom);
+            if (railOverlap) {
+                throw new Error('Sidebar collapse button (#toggle-rail-btn) overlaps "Pages" heading!');
+            }
+            log('✓ Sidebar #toggle-rail-btn sits cleanly beside "Pages" without overlap');
+        }
+
         // ====================================================================
         // FEATURE 1: Edit Text (No-Squish Check + 150% Zoom Real CDP Click)
         // ====================================================================
@@ -301,9 +410,17 @@
         recordFeature(1, 'Edit Text', true, '150% zoom real CDP click, transform:none / normal letter-spacing, dynamic expansion, Revert, Delete & Undo passed');
 
         // ====================================================================
-        // FEATURE 2: + Add Text (3 Consecutive CDP Clicks at 100% + 150% Zoom Accuracy)
+        // FEATURE 2: + Add Text (HiDPI + Unified Picker + 2-Click Exit-Before-Create + 100%/150% Zoom)
         // ====================================================================
-        log('\n--- Verifying Feature 2: + Add Text (Exact Cursor Placement & Multi-Click) ---');
+        log('\n--- Verifying Feature 2: + Add Text (HiDPI, Picker, 2-Click Exit-Before-Create & Multi-Zoom) ---');
+        if (!window.CanvasStage.fabricCanvas.enableRetinaScaling || window.fabric.devicePixelRatio < 2) {
+            throw new Error(`Expected HiDPI Fabric retina scaling >= 2, got enableRetinaScaling=${window.CanvasStage.fabricCanvas.enableRetinaScaling}, dpr=${window.fabric.devicePixelRatio}`);
+        }
+        if (document.fonts && typeof document.fonts.check === 'function' && !document.fonts.check('16px "Liberation Sans"')) {
+            throw new Error('Bundled font "Liberation Sans" did not preload into document.fonts');
+        }
+        log(`✓ HiDPI Fabric Retina enabled (dpr=${window.fabric.devicePixelRatio}) & local fonts loaded`);
+
         await cdpClickEl('.editor-tool-btn[data-tool="add-text"]');
         await new Promise(r => setTimeout(r, 120));
 
@@ -313,6 +430,17 @@
         }
         log('✓ Typography sub-toolbar opened immediately without mid-click layout jump');
 
+        // Verify Unified Color Picker on + Add Text (Text & Bg with Transparent)
+        await assertUnifiedColorPicker('#sub-text-color-trigger', '#000000', '#1e293b', '+ Add Text Color');
+        await cdpClickEl('#sub-bg-color-trigger');
+        await new Promise(r => setTimeout(r, 60));
+        const bgClearBtn = document.querySelector('#nopay-color-popover [data-nopay-clear="true"]');
+        if (!bgClearBtn || !bgClearBtn.textContent.toLowerCase().includes('transparent')) {
+            throw new Error('+ Add Text BG picker should expose Transparent clear option');
+        }
+        await cdpClickEl(bgClearBtn);
+        await new Promise(r => setTimeout(r, 60));
+
         // Ensure canvas is well-positioned in visible viewport below toolbars
         const viewportEl = document.querySelector('.editor-viewport-container');
         if (viewportEl) viewportEl.scrollTop = 180;
@@ -321,16 +449,40 @@
         await new Promise(r => setTimeout(r, 80));
 
         const ucRect100 = window.CanvasStage.fabricCanvas.upperCanvasEl.getBoundingClientRect();
-        const clicks100 = [
-            { x: ucRect100.left + 80,  y: ucRect100.top + 260, text: 'Box1' },
-            { x: ucRect100.left + 210, y: ucRect100.top + 290, text: 'Box2' },
-            { x: ucRect100.left + 340, y: ucRect100.top + 320, text: 'Box3' },
-        ];
+        const c1 = { x: ucRect100.left + 80,  y: ucRect100.top + 260, text: 'Box1' };
+        const c2 = { x: ucRect100.left + 210, y: ucRect100.top + 290, text: 'Box2' };
+        const c3 = { x: ucRect100.left + 340, y: ucRect100.top + 320, text: 'Box3' };
 
-        for (const c of clicks100) {
-            await cdpClick(c.x, c.y);
-            await cdpType(c.text);
+        // Click 1 -> creates Box1 immediately
+        await cdpClick(c1.x, c1.y);
+        await cdpType(c1.text);
+
+        // Box1 is active -> Click 1 on c2 MUST exit/commit Box1 WITHOUT creating Box2
+        await cdpClick(c2.x, c2.y);
+        await new Promise(r => setTimeout(r, 100));
+        if (window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'i-text').length !== 1) {
+            throw new Error('2-Click Exit-Before-Create FAILED: 1st click on empty canvas spawned a 2nd IText instead of exiting Box1');
         }
+        const remActive = window.CanvasStage.fabricCanvas.getActiveObject();
+        if (remActive) {
+            throw new Error(`2-Click Exit-Before-Create FAILED: active object was not deselected on 1st empty click (type=${remActive.type}, text="${remActive.text || ''}", left=${Math.round(remActive.left)}, top=${Math.round(remActive.top)}, isEditing=${Boolean(remActive.isEditing)}, _hadActive=${window.CanvasStage._hadActiveBeforeMouseDown})`);
+        }
+        log('✓ 2-Click Exit-Before-Create: Click 1 exited Box1 without creating a 2nd box');
+
+        // Click 2 on c2 -> creates Box2 cleanly
+        await cdpClick(c2.x, c2.y);
+        await cdpType(c2.text);
+        if (window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'i-text').length !== 2) {
+            throw new Error('2nd click on c2 failed to create Box2');
+        }
+
+        // Click 1 on c3 exits Box2 (count stays 2) -> Click 2 on c3 creates Box3
+        await cdpClick(c3.x, c3.y);
+        if (window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'i-text').length !== 2) {
+            throw new Error('Click 1 on c3 should exit Box2 without spawning Box3');
+        }
+        await cdpClick(c3.x, c3.y);
+        await cdpType(c3.text);
 
         // Press Escape via real CDP to commit Box3 cleanly and reset tool
         await cdpKey('Escape', 27);
@@ -338,14 +490,18 @@
 
         const addedBoxes = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'i-text');
         if (addedBoxes.length !== 3) {
-            throw new Error(`Expected 3 consecutive IText boxes without re-clicking toolbar button, found ${addedBoxes.length}`);
+            throw new Error(`Expected 3 IText boxes after Exit-Before-Create sequence, found ${addedBoxes.length}`);
         }
 
+        const clicks100 = [c1, c2, c3];
         for (let i = 0; i < 3; i++) {
             const box = addedBoxes[i];
             const clickPt = clicks100[i];
             if (box.text !== clickPt.text) {
                 throw new Error(`Text box ${i + 1} expected "${clickPt.text}", got "${box.text}"`);
+            }
+            if (box.objectCaching !== false) {
+                throw new Error(`Text box ${i + 1} should have objectCaching: false for crisp HiDPI text`);
             }
             const sr = getObjectScreenRect(box);
             const dx = Math.abs(sr.left - clickPt.x);
@@ -386,7 +542,7 @@
         }
         log(`✓ 150% Zoom "${zoomClick.text}" placed within ±10px: clicked=(${Math.round(zoomClick.x)}, ${Math.round(zoomClick.y)}), rendered=(${Math.round(zoomScreenRect.left)}, ${Math.round(zoomScreenRect.top)})`);
 
-        // Select Box 2 and verify floating mini-bar + proportional lock
+        // Return to 100%, select Box2, assert floating mini-bar + visible unoccluded mtr handle
         await window.CanvasStage.renderPage(window.CanvasStage.currentPdfProxy, 1.0);
         await new Promise(r => setTimeout(r, 120));
         const box2Obj = window.CanvasStage.fabricCanvas.getObjects().find(o => o.type === 'i-text' && o.text === 'Box2');
@@ -399,15 +555,15 @@
             throw new Error('Floating mini-bar missing or wrong badge for IText box');
         }
         if (!box2Obj.lockUniScaling) throw new Error('Added IText missing lockUniScaling: true');
-        recordFeature(2, '+ Add Text', true, '3 consecutive CDP clicks + Ctrl+Z atomic undo + 100% & 150% zoom ±10px accuracy passed');
+        assertMtrVisibleAndUnoccluded(box2Obj, 'Add Text Box2');
+        recordFeature(2, '+ Add Text', true, 'HiDPI Retina, Unified Picker, 2-Click Exit-Before-Create, visible mtr, Ctrl+Z & 150% zoom passed');
 
         // ====================================================================
-        // FEATURE 3: Links (Real CDP Drag)
+        // FEATURE 3: Links (Real CDP Drag + Non-Blocking Inline Properties Popover)
         // ====================================================================
-        log('\n--- Verifying Feature 3: Links (Real CDP Drag) ---');
+        log('\n--- Verifying Feature 3: Links (Real CDP Drag + Non-Blocking Popover) ---');
         await cdpClickEl('.editor-tool-btn[data-tool="links"]');
         await new Promise(r => setTimeout(r, 100));
-        await cdp({ action: 'setNextDialog', acceptText: 'https://nopaypdf.com' });
         const linkLayerRect = document.getElementById('stage-links-layer').getBoundingClientRect();
         await cdpDrag(linkLayerRect.left + 50, linkLayerRect.top + 300, linkLayerRect.left + 190, linkLayerRect.top + 324);
         await new Promise(r => setTimeout(r, 200));
@@ -416,42 +572,100 @@
         if (activePg.links.length !== 1) {
             throw new Error(`Real CDP link drag failed: expected 1 link, found ${activePg.links.length}`);
         }
+        const propPop = document.getElementById('inline-properties-popover');
+        if (!propPop || propPop.classList.contains('hidden')) {
+            throw new Error('Inline Link Properties Popover did not open automatically after Link drag (zero window.prompt expected)');
+        }
+        const linkTargetInput = document.getElementById('prop-link-target');
+        linkTargetInput.value = 'https://nopaypdf.com';
+        await cdpClickEl('#prop-apply-btn');
+        await new Promise(r => setTimeout(r, 120));
+        if (activePg.links[0].target !== 'https://nopaypdf.com') {
+            throw new Error(`Inline Link Properties Popover failed to update target: ${activePg.links[0].target}`);
+        }
+
         const linkEl = document.querySelector('.link-hotspot');
         await cdpClickEl(linkEl);
         await new Promise(r => setTimeout(r, 100));
         if (floatBar.classList.contains('hidden') || floatBadge.textContent.toLowerCase() !== 'link') {
             throw new Error('Floating mini-bar missing on Link selection');
         }
+        // Verify Links 2-Click Exit-Before-Create: dragging empty space while Link is selected exits Link instead of creating a 2nd link
+        await cdpDrag(linkLayerRect.left + 260, linkLayerRect.top + 300, linkLayerRect.left + 380, linkLayerRect.top + 324);
+        await new Promise(r => setTimeout(r, 100));
+        if (activePg.links.length !== 1) {
+            throw new Error(`Links Exit-Before-Create failed: expected 1 link, got ${activePg.links.length}`);
+        }
+        await cdpClickEl(linkEl);
+        await new Promise(r => setTimeout(r, 80));
         await cdpClickEl('#floating-btn-duplicate');
         await new Promise(r => setTimeout(r, 120));
         if (activePg.links.length !== 2) throw new Error('Duplicate link failed');
         await cdpClickEl('#floating-btn-delete');
         await new Promise(r => setTimeout(r, 120));
         if (activePg.links.length !== 1) throw new Error('Delete link failed');
-        log('✓ Real CDP drag created Link, selected with mini-bar, duplicated & deleted');
-        recordFeature(3, 'Links', true, 'Real CDP drag link creation, mini-bar duplicate & delete verified');
+        log('✓ Real CDP drag created Link, updated via Inline Popover (0 blocking prompts), exited cleanly & duplicated');
+        recordFeature(3, 'Links', true, 'Real CDP drag link, Inline Properties Popover, Exit-Before-Create & mini-bar verified');
 
         // ====================================================================
-        // FEATURE 4: Forms (Real CDP Click-to-Place)
+        // FEATURE 4: Forms (Realistic UI + Zero Purple Badges + Non-Blocking dblclick Popover)
         // ====================================================================
-        log('\n--- Verifying Feature 4: Forms (Real CDP Click-to-Place) ---');
+        log('\n--- Verifying Feature 4: Forms (Clean Fillable Fields + Inline dblclick Popover) ---');
         await cdpClickEl('.editor-tool-btn[data-tool="forms"]');
         await new Promise(r => setTimeout(r, 100));
         const ucForms = document.getElementById('stage-stack').getBoundingClientRect();
         await cdpClick(ucForms.left + 120, ucForms.top + 430);
         await new Promise(r => setTimeout(r, 150));
 
-        window.CanvasStage.addFormField('checkbox', [220, 420, 24, 24], { name: 'agreeTerms', checked: true });
-        window.CanvasStage.addFormField('dropdown', [260, 420, 120, 26], { name: 'custCountry', options: ['USA', 'UK', 'Canada'] });
-        await new Promise(r => setTimeout(r, 120));
+        // Real CDP Checkbox & Dropdown placement via toolbar type buttons
+        await cdpClickEl('#form-type-checkbox');
+        await new Promise(r => setTimeout(r, 80));
+        await cdpClick(ucForms.left + 230, ucForms.top + 430);
+        await new Promise(r => setTimeout(r, 150));
+
+        await cdpClickEl('#form-type-dropdown');
+        await new Promise(r => setTimeout(r, 80));
+        await cdpClick(ucForms.left + 330, ucForms.top + 430);
+        await new Promise(r => setTimeout(r, 150));
 
         if (activePg.formFields.length < 3) {
             throw new Error(`Expected >= 3 form fields, found ${activePg.formFields.length}`);
         }
-        await cdpClickEl('.form-field-hotspot');
-        await new Promise(r => setTimeout(r, 100));
-        if (floatBar.classList.contains('hidden')) throw new Error('Floating mini-bar not visible on form field');
-        recordFeature(4, 'Forms', true, 'Real CDP click-to-place Text Field + Checkbox + Dropdown verified');
+        if (document.querySelectorAll('.form-field-badge').length > 0) {
+            throw new Error('Legacy purple .form-field-badge elements still present in DOM!');
+        }
+        const cbHotspot = document.querySelector('.form-field-hotspot.form-field-checkbox');
+        const ddCaret = document.querySelector('.form-field-dropdown-caret');
+        if (!cbHotspot || !ddCaret) {
+            throw new Error('Missing realistic checkbox or dropdown preview elements');
+        }
+        if (cbHotspot.getBoundingClientRect().width > 22) {
+            throw new Error(`Checkbox default size too wide: ${cbHotspot.getBoundingClientRect().width}`);
+        }
+        // Toggle checkbox on click
+        await cdpClickEl(cbHotspot);
+        await new Promise(r => setTimeout(r, 80));
+        const cbMark = cbHotspot.querySelector('.form-field-checkbox-mark');
+        if (!cbMark || cbMark.textContent !== '✓') {
+            throw new Error('Clicking Checkbox hotspot failed to toggle ✓ check preview');
+        }
+
+        // Real CDP dblclick on Text Field opens non-blocking Properties Popover (0ms violation, 0 window.prompt)
+        const textFieldHotspot = document.querySelector('.form-field-hotspot:not(.form-field-checkbox)');
+        await cdpDblClickEl(textFieldHotspot);
+        await new Promise(r => setTimeout(r, 120));
+        if (!propPop || propPop.classList.contains('hidden')) {
+            throw new Error('Double-clicking Form field failed to open non-blocking Inline Properties Popover');
+        }
+        const formNameProp = document.getElementById('prop-field-name');
+        formNameProp.value = 'customerEmail';
+        await cdpClickEl('#prop-apply-btn');
+        await new Promise(r => setTimeout(r, 120));
+        if (!activePg.formFields.some(f => f.name === 'customerEmail')) {
+            throw new Error('Inline Form Properties Popover failed to update field name');
+        }
+        log('✓ Clean fillable Forms UI (0 purple badges) + 18x18 Checkbox + real dblclick Popover verified');
+        recordFeature(4, 'Forms', true, 'Clean Text/18x18 Checkbox/Dropdown UI + non-blocking dblclick Inline Popover verified');
 
         // ====================================================================
         // FEATURE 5: Images (Cursor Ghost Move + Real CDP Click + Rotate ±90°)
@@ -490,14 +704,21 @@
         await cdpClickEl('#floating-btn-rotate-right');
         await new Promise(r => setTimeout(r, 100));
         if (stampedImg.angle !== 90) throw new Error(`Expected angle 90, got ${stampedImg.angle}`);
+        assertMtrVisibleAndUnoccluded(stampedImg, 'Rotated Image');
         await cdpClickEl('#floating-btn-rotate-left');
         await new Promise(r => setTimeout(r, 100));
         if (stampedImg.angle !== 0) throw new Error(`Expected angle 0, got ${stampedImg.angle}`);
-        await cdpClickEl('#floating-btn-rotate-right');
+        // Safeguard #1: verify dragging on-box mtr handle works on the 1st click/drag without being blocked
+        const imgMtr = assertMtrVisibleAndUnoccluded(stampedImg, 'Image Before mtr Drag');
+        await cdpDrag(imgMtr.x, imgMtr.y, imgMtr.x + 25, imgMtr.y + 10, 6);
         await new Promise(r => setTimeout(r, 100));
+        if (!stampedImg.angle || Math.abs(stampedImg.angle) < 5) {
+            throw new Error(`1st-click drag on mtr handle did not rotate image! angle=${stampedImg.angle}`);
+        }
+        log(`✓ 1st-click on-box mtr drag rotated image interactively to ${Math.round(stampedImg.angle)}°`);
         window.CanvasStage._saveFabricState();
 
-        recordFeature(5, 'Images', true, 'Real CDP ghost follow, centered click stamp (±10px), and ±90° rotation verified');
+        recordFeature(5, 'Images', true, 'Real CDP ghost follow, centered click stamp (±10px), interactive mtr handle & ±90° rotation verified');
 
         // ====================================================================
         // FEATURE 6: Sign (Upload Picture bg removal + Ghost Follow + Real CDP Stamp)
@@ -544,11 +765,12 @@
         recordFeature(6, 'Sign', true, 'Upload Picture white background removal + real CDP signature stamp verified');
 
         // ====================================================================
-        // FEATURE 7: Whiteout (Real CDP Drag + Cream Fill + 1-step Undo)
+        // FEATURE 7: Whiteout (Unified Picker + Real CDP Drag + Cream Fill + mtr Handle + 1-step Undo)
         // ====================================================================
         log('\n--- Verifying Feature 7: Whiteout ---');
         await cdpClickEl('.editor-tool-btn[data-tool="whiteout"]');
         await new Promise(r => setTimeout(r, 100));
+        await assertUnifiedColorPicker('#whiteout-color-trigger', '#ffffff', null, 'Whiteout Color');
         const woStageRect = document.getElementById('stage-stack').getBoundingClientRect();
         const woDrag = { x1: woStageRect.left + 50, y1: woStageRect.top + 480, x2: woStageRect.left + 170, y2: woStageRect.top + 505 };
         await cdpDrag(woDrag.x1, woDrag.y1, woDrag.x2, woDrag.y2);
@@ -556,6 +778,7 @@
 
         const woObj = window.CanvasStage.fabricCanvas.getObjects().find(o => o.isWhiteout);
         if (!woObj) throw new Error('Real CDP whiteout drag failed');
+        assertMtrVisibleAndUnoccluded(woObj, 'Whiteout Box');
         const woSr = getObjectScreenRect(woObj);
         if (Math.abs(woSr.left - woDrag.x1) > 10 || Math.abs(woSr.top - woDrag.y1) > 10) {
             throw new Error(`Whiteout drag drift: expected (${woDrag.x1}, ${woDrag.y1}), got (${woSr.left}, ${woSr.top})`);
@@ -568,14 +791,15 @@
         await new Promise(r => setTimeout(r, 150));
         const woCountAfterUndo = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.isWhiteout).length;
         if (woCountAfterUndo !== woCountBeforeUndo - 1) throw new Error('Whiteout 1-step undo failed');
-        recordFeature(7, 'Whiteout', true, 'Real CDP whiteout drag (±10px), cream fill, duplicate, and 1-step undo verified');
+        recordFeature(7, 'Whiteout', true, 'Unified picker, Real CDP whiteout drag (±10px), mtr handle, duplicate & undo verified');
 
         // ====================================================================
-        // ANNOTATE CHECK (Zero Duplication + Exact Drag Coords + Horizontal Underline/Strike)
+        // ANNOTATE CHECK (Unified Picker + Zero Duplication + Aligned Underline/Strike + mtr)
         // ====================================================================
-        log('\n--- Verifying Annotate (Highlight Zero-Duplication + Underline/Strike) ---');
+        log('\n--- Verifying Annotate (Unified Picker + Highlight Zero-Duplication + Baseline Underline) ---');
         await cdpClickEl('.editor-tool-btn[data-tool="annotate"]');
         await new Promise(r => setTimeout(r, 100));
+        await assertUnifiedColorPicker('#annot-color-trigger', '#fef08a', null, 'Annotate Color');
         const hlStageRect = document.getElementById('stage-stack').getBoundingClientRect();
         const hlDrag = { x1: hlStageRect.left + 295, y1: hlStageRect.top + 190, x2: hlStageRect.left + 445, y2: hlStageRect.top + 210 };
         await cdpDrag(hlDrag.x1, hlDrag.y1, hlDrag.x2, hlDrag.y2);
@@ -588,24 +812,55 @@
         if (highlights.length !== 1) {
             throw new Error(`Highlight duplication check failed: expected 1 highlight, found ${highlights.length}`);
         }
+        assertMtrVisibleAndUnoccluded(highlights[0], 'Highlight Annotation');
         const hlSr = getObjectScreenRect(highlights[0]);
         if (Math.abs(hlSr.left - hlDrag.x1) > 10 || Math.abs(hlSr.top - hlDrag.y1) > 10) {
             throw new Error(`Highlight drag drift: dragged (${hlDrag.x1}, ${hlDrag.y1}), rendered (${hlSr.left}, ${hlSr.top})`);
         }
-        log(`✓ Single Highlight created within ±10px of real CDP drag (no #stage-highlight-layer duplication)`);
+        log(`✓ Single Highlight created within ±10px of real CDP drag with visible mtr handle`);
 
-        // Underline horizontal drag + clickable check
+        // Click once to exit Highlight selection (2-Click Exit-Before-Create)
         await cdpClickEl('#annot-type-underline');
-        await cdpDrag(hlStageRect.left + 295, hlStageRect.top + 245, hlStageRect.left + 445, hlStageRect.top + 247);
+        const ulStart = await stagePoint(295, 245);
+        const ulEnd = await stagePoint(445, 247);
+        const hlBeforeUl = window.CanvasStage.fabricCanvas.getActiveObject();
+        const hlScreen = hlBeforeUl ? getObjectScreenRect(hlBeforeUl) : null;
+        const ulTopEl = document.elementFromPoint(ulStart.x, ulStart.y);
+        const preUlActive = hlBeforeUl;
+        await cdpClick(ulStart.x, ulStart.y); // Exits active Highlight first!
+        const midUlActive = window.CanvasStage.fabricCanvas.getActiveObject();
+        await cdpDrag(ulStart.x, ulStart.y, ulEnd.x, ulEnd.y);
         const ulObj = window.CanvasStage.fabricCanvas.getObjects().find(o => o.isAnnotation && o.annotType === 'underline');
-        if (!ulObj || ulObj.height > 4 || ulObj.angle !== 0) throw new Error('Underline must be flat horizontal (0°)');
+        if (!ulObj || ulObj.height > 4 || ulObj.angle !== 0) {
+            throw new Error(`Underline must be flat horizontal (0°): ulObj=${ulObj ? `${ulObj.width}x${ulObj.height}@${ulObj.angle}` : 'null'}, ulStart=(${Math.round(ulStart.x)},${Math.round(ulStart.y)}), topEl=${ulTopEl?.tagName}.${ulTopEl?.className}, hlScreen=${JSON.stringify(hlScreen)}, annotType=${window.CanvasStage.annotateType}, preActive=${preUlActive?.annotType || preUlActive?.type || 'none'}, midActive=${midUlActive?.annotType || midUlActive?.type || 'none'}`);
+        }
 
         // ====================================================================
-        // FEATURE 8: Shapes -> Line (Straight Horizontal Along Cursor, Never Forced 90°)
+        // FEATURE 8: Shapes -> Line, Tip-Aligned Arrow, Pickers, Layout Clipping & Exit-Before-Create
         // ====================================================================
-        log('\n--- Verifying Feature 8: Shapes -> Line (Straight Horizontal + Single Click) ---');
+        log('\n--- Verifying Feature 8: Shapes -> Line & Vector Arrow + Layout & Exit-Before-Create ---');
         await cdpClickEl('.editor-tool-btn[data-tool="shapes"]');
         await new Promise(r => setTimeout(r, 100));
+
+        // Verify sub-toolbar "SHAPE:" label is NOT clipped off left edge
+        const shapesSubBar = document.getElementById('shapes-sub-toolbar');
+        const shapeLabel = Array.from(shapesSubBar.querySelectorAll('span')).find(s => s.textContent.trim().toLowerCase().startsWith('shape'));
+        if (!shapeLabel || shapeLabel.getBoundingClientRect().left < shapesSubBar.getBoundingClientRect().left) {
+            throw new Error('Shapes sub-toolbar label "Shape:" clipped on left edge!');
+        }
+        log('✓ Shapes sub-toolbar "Shape:" label is completely unclipped');
+
+        // Verify Unified Color Pickers on Shapes (Stroke + Fill w/ No Fill)
+        await assertUnifiedColorPicker('#shape-stroke-trigger', '#2563eb', '#dc2626', 'Shape Stroke');
+        await cdpClickEl('#shape-fill-trigger');
+        await new Promise(r => setTimeout(r, 60));
+        const noFillBtn = document.querySelector('#nopay-color-popover [data-nopay-clear="true"]');
+        if (!noFillBtn || !noFillBtn.textContent.toLowerCase().includes('no fill')) {
+            throw new Error('Shape Fill picker missing No Fill toggle');
+        }
+        await cdpClickEl(noFillBtn);
+        await new Promise(r => setTimeout(r, 60));
+
         await cdpClickEl('#shape-type-line');
         await new Promise(r => setTimeout(r, 80));
 
@@ -614,28 +869,35 @@
         await cdpDrag(lp1.x, lp1.y, lp2.x, lp2.y);
         await new Promise(r => setTimeout(r, 150));
 
-        const lineObjs = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'line');
+        let lineObjs = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'line');
         if (lineObjs.length < 1) throw new Error('Real CDP Shapes -> Line drag did not create a line');
         const draggedLine = lineObjs[lineObjs.length - 1];
+        assertMtrVisibleAndUnoccluded(draggedLine, 'Shapes Line');
         const lineSr = getObjectScreenRect(draggedLine);
         if (draggedLine.height > 4 || draggedLine.width < 60 || draggedLine.padding < 8 || !draggedLine.hasBorders) {
             throw new Error(`Horizontal line check failed: w=${draggedLine.width}, h=${draggedLine.height}, padding=${draggedLine.padding}, hasBorders=${draggedLine.hasBorders}, screen=(${lineSr.width}x${lineSr.height})`);
         }
         log(`✓ Shapes -> Line horizontal drag produced flat 0° line (${Math.round(draggedLine.width)}x${Math.round(draggedLine.height)}) with clickable padding=${draggedLine.padding}`);
 
-        // Single click without dragging -> straight 0° horizontal line
+        // Shapes 2-Click Exit-Before-Create: Click 1 on lpClick MUST exit draggedLine without creating Line 2
         const lpClick = await stagePoint(280, 585);
+        await cdpClick(lpClick.x, lpClick.y);
+        await new Promise(r => setTimeout(r, 100));
+        if (window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'line').length !== 1) {
+            throw new Error('Shapes 2-Click Exit-Before-Create failed: 1st click created a 2nd line instead of exiting Line 1');
+        }
+        // Click 2 on lpClick -> creates straight horizontal 0° line
         await cdpClick(lpClick.x, lpClick.y);
         await new Promise(r => setTimeout(r, 150));
         const clickedLines = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'line');
-        if (clickedLines.length < 2) throw new Error('Single-click Shapes -> Line failed');
+        if (clickedLines.length < 2) throw new Error('2nd-click Shapes -> Line failed');
         const singleLine = clickedLines[clickedLines.length - 1];
         if (singleLine.height > 4 || singleLine.width < 60) {
             throw new Error(`Single-click Shapes -> Line was not flat horizontal: ${singleLine.width}x${singleLine.height}`);
         }
-        log(`✓ Shapes -> Line single-click created straight horizontal 0° line (${Math.round(singleLine.width)}x${Math.round(singleLine.height)})`);
+        log(`✓ Shapes -> Line 2-Click Exit-Before-Create & horizontal single-click (0°) passed`);
 
-        // Real CDP click directly on flat line to confirm hit padding selection works cleanly
+        // Re-select flat 0° line directly via 1st CDP click (Safeguard #1)
         await cdpKey('Escape', 27);
         const lpHit = await stagePoint(335, 540);
         await cdpClick(lpHit.x, lpHit.y);
@@ -646,19 +908,41 @@
         }
         log('✓ Re-selected flat 0° line via real CDP click using generous hit padding');
 
+        // Verify Clean Vector Arrow Geometry (tip-pinned arrowhead + shortened shaft)
+        await cdpKey('Escape', 27);
+        await cdpClickEl('.editor-tool-btn[data-tool="shapes"]');
+        await new Promise(r => setTimeout(r, 80));
+        await cdpClickEl('#shape-type-arrow');
+        await new Promise(r => setTimeout(r, 80));
+        const arrStart = await stagePoint(280, 615);
+        const arrEnd = await stagePoint(390, 645);
+        await cdpDrag(arrStart.x, arrStart.y, arrEnd.x, arrEnd.y);
+        await new Promise(r => setTimeout(r, 150));
+        const arrowObj = window.CanvasStage.fabricCanvas.getObjects().find(o => o.isArrow && o.type === 'group');
+        if (!arrowObj) throw new Error('Shapes -> Arrow drag did not create a unified Group arrow');
+        const arrChildren = arrowObj.getObjects();
+        const arrLine = arrChildren.find(c => c.type === 'line');
+        const arrTri = arrChildren.find(c => c.type === 'triangle');
+        if (!arrLine || !arrTri || arrLine.strokeLineCap !== 'butt') {
+            throw new Error('Arrow group missing butt-capped shaft line or arrowhead triangle');
+        }
+        assertMtrVisibleAndUnoccluded(arrowObj, 'Vector Arrow');
+        log(`✓ Vector Arrow created cleanly (shaft cap=${arrLine.strokeLineCap}, tri=${Math.round(arrTri.width)}x${Math.round(arrTri.height)})`);
+
         await cdpKey('Escape', 27);
         if (window.CanvasStage.activeTool !== 'text-edit' || window.CanvasStage.fabricCanvas.getActiveObject()) {
             throw new Error('Escape key failed to reset activeTool or deselect');
         }
-        recordFeature(8, 'Shapes', true, 'Straight horizontal Line drag & single-click (0°), hit padding click selection, and Esc exit verified');
+        recordFeature(8, 'Shapes', true, 'Line & Tip-Aligned Vector Arrow, Pickers, Exit-Before-Create & unclipped toolbar verified');
 
         // ====================================================================
-        // FEATURE 9: Draw (Real CDP Freehand Drag + 1-step Undo/Redo)
+        // FEATURE 9: Draw (Real CDP Freehand Drag + Picker + 1-step Undo/Redo)
         // ====================================================================
         log('\n--- Verifying Feature 9: Draw (Real CDP Freehand Drag) ---');
         await cdpClickEl('.editor-tool-btn[data-tool="draw"]');
         await new Promise(r => setTimeout(r, 100));
         if (!window.CanvasStage.fabricCanvas.isDrawingMode) throw new Error('Draw mode inactive');
+        await assertUnifiedColorPicker('#draw-color-trigger', '#2563eb', null, 'Draw Ink Color');
 
         const d1Start = await stagePoint(80, 280);
         const d1End = await stagePoint(150, 295);
@@ -668,8 +952,12 @@
         await cdpDrag(d2Start.x, d2Start.y, d2End.x, d2End.y, 12);
         await new Promise(r => setTimeout(r, 150));
 
-        const pathsBefore = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'path').length;
+        const drawnPaths = window.CanvasStage.fabricCanvas.getObjects().filter(o => o.type === 'path');
+        const pathsBefore = drawnPaths.length;
         if (pathsBefore < 2) throw new Error(`Expected >= 2 freehand paths, found ${pathsBefore}`);
+        if (drawnPaths[pathsBefore - 1].lockRotation !== false) {
+            throw new Error('Drawn freehand stroke missing lockRotation: false');
+        }
 
         window.EditorState.undo();
         await new Promise(r => setTimeout(r, 150));
@@ -734,9 +1022,24 @@
         recordFeature(12, 'Zoom & Page Controls', true, 'Zoom 75%/125%/150%/100% + Blank Page Insert/Delete verified');
 
         // ====================================================================
-        // FEATURE 13: Apply Changes (Export)
+        // FEATURE 13: Apply Changes (Export with Rotated Vector Text & Highlight)
         // ====================================================================
         log('\n--- Verifying Feature 13: Apply Changes (Export) ---');
+        const fractionalMatch = window.CanvasStage.getNearestTextBlockStyle(60, 405);
+        if (!fractionalMatch || fractionalMatch.fontSize !== 7.5) {
+            throw new Error(`Expected fractional style match fontSize=7.5 near 7.4pt block, got ${fractionalMatch?.fontSize}`);
+        }
+        const rotTextTarget = window.CanvasStage.fabricCanvas.getObjects().find(o => o.type === 'i-text' && o.text === 'Zoom150Box');
+        if (rotTextTarget) {
+            rotTextTarget.set({ angle: 25, textBackgroundColor: '#fef08a' });
+        }
+        const rotHlTarget = window.CanvasStage.fabricCanvas.getObjects().find(o => o.isAnnotation && o.annotType === 'highlight');
+        if (rotHlTarget) {
+            rotHlTarget.set('angle', 15);
+        }
+        window.CanvasStage.fabricCanvas.renderAll();
+        window.CanvasStage._saveFabricState();
+
         const exportedBytes = await window.PdfExporter.exportPdf();
         if (!(exportedBytes instanceof Uint8Array) || exportedBytes.length < 1000) {
             throw new Error('Invalid exported PDF byte stream');

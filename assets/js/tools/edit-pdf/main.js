@@ -34,9 +34,58 @@
         // Thumbnail Rail
         const thumbnailRailList = document.getElementById('thumbnail-rail-list');
         const toggleRailBtn = document.getElementById('toggle-rail-btn');
+        const reopenRailBtn = document.getElementById('reopen-rail-btn');
         const thumbnailRail = document.getElementById('thumbnail-rail');
         const addBlankPageBtn = document.getElementById('add-blank-page-btn');
         const deletePageBtn = document.getElementById('delete-page-btn');
+
+        // Non-Blocking Toast & Confirmation Dialog Helpers
+        let toastTimer = null;
+        function showAppToast(message, type = 'info') {
+            const toastEl = document.getElementById('app-toast');
+            if (!toastEl || !message) return;
+            toastEl.textContent = message;
+            toastEl.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2 transition-all ' +
+                (type === 'error' ? 'bg-rose-600 text-white' : type === 'warning' ? 'bg-amber-600 text-white' : 'bg-slate-900 text-white');
+            toastEl.classList.remove('hidden');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toastEl.classList.add('hidden');
+            }, 3400);
+        }
+
+        function showAppConfirm(title, message, confirmLabel, onConfirm) {
+            const modal = document.getElementById('app-confirm-modal');
+            const titleEl = document.getElementById('app-confirm-title');
+            const msgEl = document.getElementById('app-confirm-message');
+            const okBtn = document.getElementById('app-confirm-ok');
+            const cancelBtn = document.getElementById('app-confirm-cancel');
+            if (!modal || !okBtn || !cancelBtn) return;
+
+            if (titleEl) titleEl.textContent = title || 'Confirm Action';
+            if (msgEl) msgEl.textContent = message || '';
+            okBtn.textContent = confirmLabel || 'Confirm';
+            modal.classList.remove('hidden');
+
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+            };
+            cancelBtn.onclick = cleanup;
+            okBtn.onclick = async () => {
+                cleanup();
+                if (typeof onConfirm === 'function') {
+                    await onConfirm();
+                }
+            };
+        }
+
+        window.addEventListener('editor:toast', (e) => {
+            if (e.detail && e.detail.message) {
+                showAppToast(e.detail.message, e.detail.type || 'info');
+            }
+        });
 
         // Toolbar Buttons
         const toolBtns = document.querySelectorAll('.editor-tool-btn');
@@ -212,6 +261,9 @@
             if (heroSection) heroSection.classList.add('hidden');
             if (workspaceSection) workspaceSection.classList.remove('hidden');
 
+            // Preload local @font-face families eagerly before rendering stage text
+            await window.FontManager?.preloadLocalFonts?.();
+
             renderThumbnailRail();
             await renderCurrentPage();
             updateHistoryButtons();
@@ -299,7 +351,15 @@
         }
 
         toggleRailBtn?.addEventListener('click', () => {
-            thumbnailRail?.classList.toggle('hidden');
+            thumbnailRail?.classList.add('hidden');
+            reopenRailBtn?.classList.remove('hidden');
+            window.CanvasStage?.syncCanvasOffset();
+        });
+
+        reopenRailBtn?.addEventListener('click', () => {
+            thumbnailRail?.classList.remove('hidden');
+            reopenRailBtn?.classList.add('hidden');
+            window.CanvasStage?.syncCanvasOffset();
         });
 
         addBlankPageBtn?.addEventListener('click', async () => {
@@ -308,16 +368,24 @@
             await renderCurrentPage();
         });
 
-        deletePageBtn?.addEventListener('click', async () => {
-            if (confirm(`Delete Page ${window.EditorState.activePageIndex + 1}?`)) {
-                if (window.EditorState.deletePage()) {
-                    renderThumbnailRail();
-                    await renderCurrentPage();
+        deletePageBtn?.addEventListener('click', () => {
+            const pageNum = window.EditorState.activePageIndex + 1;
+            showAppConfirm(
+                'Delete Page',
+                `Remove Page ${pageNum} from this document? You can undo this step with Ctrl+Z.`,
+                'Delete Page',
+                async () => {
+                    if (window.EditorState.deletePage()) {
+                        renderThumbnailRail();
+                        await renderCurrentPage();
+                    }
                 }
-            }
+            );
         });
 
         function hideAllSubToolbars() {
+            window.NoPayColorPicker?.close();
+            window.CanvasStage?.closePropertiesPopover();
             subToolbar?.classList.add('hidden');
             annotateSubToolbar?.classList.add('hidden');
             whiteoutSubToolbar?.classList.add('hidden');
@@ -354,14 +422,20 @@
                     }
                 } else if (tool === 'add-text') {
                     subToolbar?.classList.remove('hidden');
-                    const bgGroup = document.getElementById('sub-bg-color')?.closest('.flex');
-                    if (bgGroup) bgGroup.style.display = 'none';
+                    const bgWrap = document.getElementById('sub-bg-color-wrap');
+                    if (bgWrap) bgWrap.style.display = '';
+                    const bgBinding = window.NoPayColorPicker?.bindings?.get('sub-bg-color');
+                    if (bgBinding) {
+                        bgBinding.clearMode = 'transparent';
+                        bgBinding.clearLabel = 'Transparent';
+                        window.NoPayColorPicker.syncVisualState(bgBinding);
+                    }
                     const resetBtn = document.getElementById('sub-reset-btn');
                     if (resetBtn) resetBtn.style.display = 'none';
                     const fontTierPill = document.getElementById('sub-font-tier-pill');
                     if (fontTierPill) {
                         fontTierPill.classList.remove('hidden');
-                        fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200';
+                        fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 shrink-0';
                         fontTierPill.textContent = 'Add Text Mode';
                     }
                 } else if (tool === 'annotate') {
@@ -391,6 +465,41 @@
             });
         });
 
+        // Unified Shape Style Updater (handles standard Shapes & Group Arrows)
+        function updateSelectedShapeStyle({ stroke, strokeWidth, fill }) {
+            const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+            if (!activeObj || activeObj.isWhiteout || activeObj.isSignature || activeObj.isAnnotation || activeObj.type === 'i-text' || activeObj.type === 'text') {
+                return;
+            }
+            if (activeObj.isArrow && activeObj.type === 'group') {
+                const items = activeObj.getObjects();
+                const line = items.find(i => i.type === 'line');
+                const tri = items.find(i => i.type === 'triangle');
+                if (stroke !== undefined) {
+                    if (line) line.set('stroke', stroke);
+                    if (tri) tri.set('fill', stroke);
+                }
+                if (strokeWidth !== undefined) {
+                    if (line) line.set('strokeWidth', strokeWidth);
+                    if (tri) {
+                        const headLen = Math.max(12, Math.min(36, strokeWidth * 4.5));
+                        tri.set({ width: headLen * 0.9, height: headLen });
+                    }
+                    activeObj.shapeStrokeWidth = strokeWidth;
+                }
+                if (typeof activeObj.addWithUpdate === 'function') {
+                    activeObj.addWithUpdate();
+                }
+            } else {
+                if (stroke !== undefined) activeObj.set('stroke', stroke);
+                if (strokeWidth !== undefined) activeObj.set('strokeWidth', strokeWidth);
+                if (fill !== undefined) activeObj.set('fill', fill);
+            }
+            activeObj.setCoords();
+            window.CanvasStage?.fabricCanvas?.renderAll();
+            window.CanvasStage?._saveFabricState();
+        }
+
         // Annotate Sub-Toolbar wiring
         const annotTypeBtns = document.querySelectorAll('.annot-type-btn');
         annotTypeBtns.forEach(b => {
@@ -405,26 +514,9 @@
             });
         });
 
-        const annotColorPicker = document.getElementById('annot-color-picker');
-        annotColorPicker?.addEventListener('input', (e) => {
-            window.CanvasStage.annotateColor = e.target.value;
-        });
-
-        const annotSwatches = document.querySelectorAll('.annot-swatch');
-        annotSwatches.forEach(sw => {
-            sw.addEventListener('click', () => {
-                const color = sw.dataset.color;
-                if (color) {
-                    window.CanvasStage.annotateColor = color;
-                    if (annotColorPicker) annotColorPicker.value = color;
-                }
-            });
-        });
-
         // Whiteout Sub-Toolbar wiring
         const whiteoutFillColor = document.getElementById('whiteout-fill-color');
         const btnAddWhiteoutBox = document.getElementById('btn-add-whiteout-box');
-        const whiteoutSwatches = document.querySelectorAll('.whiteout-swatch');
 
         function updateActiveWhiteoutFill(color) {
             const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
@@ -439,20 +531,6 @@
                 window.EditorState.pushSnapshot('Change Whiteout Color');
             }
         }
-
-        whiteoutFillColor?.addEventListener('input', (e) => {
-            updateActiveWhiteoutFill(e.target.value);
-        });
-
-        whiteoutSwatches.forEach(sw => {
-            sw.addEventListener('click', () => {
-                const color = sw.dataset.color;
-                if (color) {
-                    if (whiteoutFillColor) whiteoutFillColor.value = color;
-                    updateActiveWhiteoutFill(color);
-                }
-            });
-        });
 
         btnAddWhiteoutBox?.addEventListener('click', () => {
             window.CanvasStage.addWhiteoutBox();
@@ -472,100 +550,157 @@
             });
         });
 
-        const shapeStrokeColor = document.getElementById('shape-stroke-color');
-        shapeStrokeColor?.addEventListener('input', (e) => {
-            window.CanvasStage.shapeStrokeColor = e.target.value;
-            const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
-            if (activeObj && !activeObj.isWhiteout && !activeObj.isSignature && !activeObj.isAnnotation) {
-                activeObj.set('stroke', e.target.value);
-                window.CanvasStage?.fabricCanvas?.renderAll();
-                window.CanvasStage?._saveFabricState();
-            }
-        });
-
-        const shapeStrokeSwatches = document.querySelectorAll('.shape-stroke-swatch');
-        shapeStrokeSwatches.forEach(sw => {
-            sw.addEventListener('click', () => {
-                const color = sw.dataset.color;
-                if (color) {
-                    window.CanvasStage.shapeStrokeColor = color;
-                    if (shapeStrokeColor) shapeStrokeColor.value = color;
-                    const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
-                    if (activeObj && !activeObj.isWhiteout && !activeObj.isSignature && !activeObj.isAnnotation) {
-                        activeObj.set('stroke', color);
-                        window.CanvasStage?.fabricCanvas?.renderAll();
-                        window.CanvasStage?._saveFabricState();
-                    }
-                }
-            });
-        });
-
         const shapeStrokeWidth = document.getElementById('shape-stroke-width');
         shapeStrokeWidth?.addEventListener('change', () => {
             const w = parseInt(shapeStrokeWidth.value || '2', 10);
             window.CanvasStage.shapeStrokeWidth = w;
-            const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
-            if (activeObj && !activeObj.isWhiteout && !activeObj.isSignature && !activeObj.isAnnotation) {
-                activeObj.set('strokeWidth', w);
-                window.CanvasStage?.fabricCanvas?.renderAll();
-                window.CanvasStage?._saveFabricState();
-            }
+            updateSelectedShapeStyle({ strokeWidth: w });
         });
 
         const shapeFillColor = document.getElementById('shape-fill-color');
         const shapeFillTransparent = document.getElementById('shape-fill-transparent');
 
-        shapeFillColor?.addEventListener('input', (e) => {
-            window.CanvasStage.shapeFillColor = e.target.value;
-            if (shapeFillTransparent) shapeFillTransparent.checked = false;
-            window.CanvasStage.shapeFillTransparent = false;
-            const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
-            if (activeObj && !activeObj.isWhiteout && !activeObj.isSignature && !activeObj.isAnnotation) {
-                activeObj.set('fill', e.target.value);
-                window.CanvasStage?.fabricCanvas?.renderAll();
-                window.CanvasStage?._saveFabricState();
-            }
-        });
-
-        shapeFillTransparent?.addEventListener('change', () => {
-            const isTrans = shapeFillTransparent.checked;
-            window.CanvasStage.shapeFillTransparent = isTrans;
-            const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
-            if (activeObj && !activeObj.isWhiteout && !activeObj.isSignature && !activeObj.isAnnotation) {
-                activeObj.set('fill', isTrans ? 'transparent' : (shapeFillColor?.value || '#ffffff'));
-                window.CanvasStage?.fabricCanvas?.renderAll();
-                window.CanvasStage?._saveFabricState();
-            }
-        });
-
         // Draw Sub-Toolbar wiring
         const drawBrushColor = document.getElementById('draw-brush-color');
         const drawBrushSize = document.getElementById('draw-brush-size');
-        const drawSwatches = document.querySelectorAll('.draw-swatch');
-
-        drawBrushColor?.addEventListener('input', (e) => {
-            if (window.CanvasStage?.fabricCanvas?.freeDrawingBrush) {
-                window.CanvasStage.fabricCanvas.freeDrawingBrush.color = e.target.value;
-            }
-        });
-
-        drawSwatches.forEach(sw => {
-            sw.addEventListener('click', () => {
-                const color = sw.dataset.color;
-                if (color) {
-                    if (drawBrushColor) drawBrushColor.value = color;
-                    if (window.CanvasStage?.fabricCanvas?.freeDrawingBrush) {
-                        window.CanvasStage.fabricCanvas.freeDrawingBrush.color = color;
-                    }
-                }
-            });
-        });
 
         drawBrushSize?.addEventListener('change', () => {
             if (window.CanvasStage?.fabricCanvas?.freeDrawingBrush) {
                 window.CanvasStage.fabricCanvas.freeDrawingBrush.width = parseInt(drawBrushSize.value || '3', 10);
             }
         });
+
+        // Unified Rich Color Pickers (20 Swatches + Custom Wheel + #HEX) across ALL 6 tools
+        if (window.NoPayColorPicker) {
+            window.NoPayColorPicker.bind({
+                triggerBtn: 'sub-text-color-trigger',
+                inputEl: 'sub-text-color',
+                onChange: (color) => {
+                    if (window.CanvasStage.selectedBlock) {
+                        window.CanvasStage.selectedBlock.colorHex = color;
+                        window.CanvasStage.selectedBlock.modified = true;
+                        renderCurrentPage();
+                    } else if (window.CanvasStage.activeFabricTextBox) {
+                        window.CanvasStage.activeFabricTextBox.set('fill', color);
+                        window.CanvasStage.fabricCanvas.renderAll();
+                        window.CanvasStage._saveFabricState();
+                    }
+                },
+            });
+
+            window.NoPayColorPicker.bind({
+                triggerBtn: 'sub-bg-color-trigger',
+                inputEl: 'sub-bg-color',
+                clearMode: 'auto',
+                clearLabel: 'Auto',
+                isClearFn: () => {
+                    if (window.CanvasStage?.selectedBlock) {
+                        const b = window.CanvasStage.selectedBlock;
+                        return !b.bgHex || b.bgHex === (b.autoBgHex || '#ffffff');
+                    }
+                    if (window.CanvasStage?.activeFabricTextBox) {
+                        return !window.CanvasStage.activeFabricTextBox.textBackgroundColor;
+                    }
+                    return !window.CanvasStage?.addTextBgColor || window.CanvasStage.addTextBgColor === 'transparent';
+                },
+                onChange: (color) => {
+                    if (window.CanvasStage.selectedBlock) {
+                        window.CanvasStage.selectedBlock.bgHex = color;
+                        window.CanvasStage.selectedBlock.modified = true;
+                        renderCurrentPage();
+                    } else if (window.CanvasStage.activeFabricTextBox) {
+                        window.CanvasStage.activeFabricTextBox.set('textBackgroundColor', color);
+                        window.CanvasStage.addTextBgColor = color;
+                        window.CanvasStage.fabricCanvas.renderAll();
+                        window.CanvasStage._saveFabricState();
+                    } else {
+                        window.CanvasStage.addTextBgColor = color;
+                    }
+                },
+                onClear: () => {
+                    if (window.CanvasStage.selectedBlock) {
+                        const b = window.CanvasStage.selectedBlock;
+                        b.bgHex = b.autoBgHex || '#ffffff';
+                        if (bgColorInput) bgColorInput.value = (b.bgHex && b.bgHex.startsWith('#')) ? b.bgHex : '#ffffff';
+                        b.modified = true;
+                        renderCurrentPage();
+                    } else if (window.CanvasStage.activeFabricTextBox) {
+                        window.CanvasStage.activeFabricTextBox.set('textBackgroundColor', '');
+                        window.CanvasStage.addTextBgColor = 'transparent';
+                        window.CanvasStage.fabricCanvas.renderAll();
+                        window.CanvasStage._saveFabricState();
+                    } else {
+                        window.CanvasStage.addTextBgColor = 'transparent';
+                    }
+                },
+            });
+
+            window.NoPayColorPicker.bind({
+                triggerBtn: 'annot-color-trigger',
+                inputEl: 'annot-color-picker',
+                onChange: (color) => {
+                    window.CanvasStage.annotateColor = color;
+                    const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+                    if (activeObj && activeObj.isAnnotation) {
+                        activeObj.set('fill', color);
+                        window.CanvasStage.fabricCanvas.renderAll();
+                        window.CanvasStage._saveFabricState();
+                    }
+                },
+            });
+
+            window.NoPayColorPicker.bind({
+                triggerBtn: 'whiteout-color-trigger',
+                inputEl: 'whiteout-fill-color',
+                onChange: (color) => {
+                    updateActiveWhiteoutFill(color);
+                },
+            });
+
+            window.NoPayColorPicker.bind({
+                triggerBtn: 'shape-stroke-trigger',
+                inputEl: 'shape-stroke-color',
+                onChange: (color) => {
+                    window.CanvasStage.shapeStrokeColor = color;
+                    updateSelectedShapeStyle({ stroke: color });
+                },
+            });
+
+            window.NoPayColorPicker.bind({
+                triggerBtn: 'shape-fill-trigger',
+                inputEl: 'shape-fill-color',
+                clearMode: 'nofill',
+                clearLabel: 'No Fill',
+                isClearFn: () => Boolean(shapeFillTransparent?.checked),
+                onChange: (color) => {
+                    window.CanvasStage.shapeFillColor = color;
+                    window.CanvasStage.shapeFillTransparent = false;
+                    if (shapeFillTransparent) shapeFillTransparent.checked = false;
+                    updateSelectedShapeStyle({ fill: color });
+                },
+                onClear: () => {
+                    window.CanvasStage.shapeFillTransparent = true;
+                    if (shapeFillTransparent) shapeFillTransparent.checked = true;
+                    updateSelectedShapeStyle({ fill: 'transparent' });
+                },
+            });
+
+            window.NoPayColorPicker.bind({
+                triggerBtn: 'draw-color-trigger',
+                inputEl: 'draw-brush-color',
+                onChange: (color) => {
+                    if (window.CanvasStage?.fabricCanvas?.freeDrawingBrush) {
+                        window.CanvasStage.fabricCanvas.freeDrawingBrush.color = color;
+                    }
+                    const activeObj = window.CanvasStage?.fabricCanvas?.getActiveObject();
+                    if (activeObj && activeObj.type === 'path') {
+                        activeObj.set('stroke', color);
+                        window.CanvasStage.fabricCanvas.renderAll();
+                        window.CanvasStage._saveFabricState();
+                    }
+                },
+            });
+        }
 
         // Forms Sub-Toolbar wiring
         const formTypeBtns = document.querySelectorAll('.form-type-btn');
@@ -623,8 +758,13 @@
             }
 
             subToolbar?.classList.remove('hidden');
-            const bgGroup = document.getElementById('sub-bg-color')?.closest('.flex');
-            if (bgGroup) bgGroup.style.display = '';
+            const bgWrap = document.getElementById('sub-bg-color-wrap');
+            if (bgWrap) bgWrap.style.display = '';
+            const bgBinding = window.NoPayColorPicker?.bindings?.get('sub-bg-color');
+            if (bgBinding) {
+                bgBinding.clearMode = 'auto';
+                bgBinding.clearLabel = 'Auto';
+            }
             const resetBtn = document.getElementById('sub-reset-btn');
             if (resetBtn) resetBtn.style.display = '';
             const fontTierPill = document.getElementById('sub-font-tier-pill');
@@ -632,10 +772,10 @@
                 fontTierPill.classList.remove('hidden');
                 const displayName = block.baseFontName || block.realName || 'Original';
                 if (block.tier === 1) {
-                    fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200';
+                    fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0';
                     fontTierPill.textContent = `Original: ${displayName}`;
                 } else {
-                    fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200';
+                    fontTierPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 shrink-0';
                     fontTierPill.textContent = `Matched: ${block.matched?.name || 'Liberation Sans'}`;
                 }
             }
@@ -651,8 +791,14 @@
             if (italicBtn) {
                 italicBtn.classList.toggle('active', Boolean(block.italic));
             }
-            if (textColorInput) textColorInput.value = block.colorHex || '#1e293b';
-            if (bgColorInput) bgColorInput.value = block.bgHex || '#ffffff';
+            if (textColorInput) {
+                textColorInput.value = block.colorHex || '#1e293b';
+                window.NoPayColorPicker?.syncVisualState('sub-text-color');
+            }
+            if (bgColorInput) {
+                bgColorInput.value = (block.bgHex && block.bgHex.startsWith('#')) ? block.bgHex : (block.autoBgHex || '#ffffff');
+                window.NoPayColorPicker?.syncVisualState('sub-bg-color');
+            }
             window.CanvasStage?.syncCanvasOffset();
         });
 
@@ -731,7 +877,7 @@
             }
         });
 
-        textColorInput?.addEventListener('input', () => {
+        textColorInput?.addEventListener('change', () => {
             if (window.CanvasStage.selectedBlock) {
                 window.CanvasStage.selectedBlock.colorHex = textColorInput.value;
                 window.CanvasStage.selectedBlock.modified = true;
@@ -743,22 +889,16 @@
             }
         });
 
-        bgColorInput?.addEventListener('input', () => {
+        bgColorInput?.addEventListener('change', () => {
             if (window.CanvasStage.selectedBlock) {
                 window.CanvasStage.selectedBlock.bgHex = bgColorInput.value;
                 window.CanvasStage.selectedBlock.modified = true;
                 renderCurrentPage();
-            }
-        });
-
-        const bgAutoBtn = document.getElementById('sub-bg-auto-btn');
-        bgAutoBtn?.addEventListener('click', () => {
-            if (window.CanvasStage.selectedBlock) {
-                const b = window.CanvasStage.selectedBlock;
-                b.bgHex = b.autoBgHex || '#ffffff';
-                if (bgColorInput) bgColorInput.value = (b.bgHex && b.bgHex.startsWith('#')) ? b.bgHex : '#ffffff';
-                b.modified = true;
-                renderCurrentPage();
+            } else if (window.CanvasStage.activeFabricTextBox) {
+                window.CanvasStage.activeFabricTextBox.set('textBackgroundColor', bgColorInput.value);
+                window.CanvasStage.addTextBgColor = bgColorInput.value;
+                window.CanvasStage.fabricCanvas.renderAll();
+                window.CanvasStage._saveFabricState();
             }
         });
 
@@ -917,7 +1057,7 @@
             const query = findInput?.value || '';
             const rep = replaceInput?.value || '';
             const count = window.EditorState.replaceAll(query, rep);
-            alert(`Replaced ${count} occurrence(s) across all pages.`);
+            showAppToast(`Replaced ${count} occurrence(s) across all pages.`);
             updateFindMatches();
             renderCurrentPage();
         });
@@ -1156,7 +1296,7 @@
                 exportResultWrap?.classList.remove('hidden');
             } catch (err) {
                 console.error('Export error:', err);
-                alert('Export failed: ' + err.message);
+                showAppToast('Export failed: ' + err.message, 'error');
                 btnConfirmExport.disabled = false;
                 exportProgressWrap?.classList.add('hidden');
             }
@@ -1169,12 +1309,17 @@
         });
 
         resetEditorBtn?.addEventListener('click', () => {
-            if (confirm('Discard all unsaved edits and open another PDF?')) {
-                window.EditorState.reset();
-                if (workspaceSection) workspaceSection.classList.add('hidden');
-                if (heroSection) heroSection.classList.remove('hidden');
-                if (fileInput) fileInput.value = '';
-            }
+            showAppConfirm(
+                'Open New PDF',
+                'Discard all unsaved edits and return to upload?',
+                'Discard & Reset',
+                () => {
+                    window.EditorState.reset();
+                    if (workspaceSection) workspaceSection.classList.add('hidden');
+                    if (heroSection) heroSection.classList.remove('hidden');
+                    if (fileInput) fileInput.value = '';
+                }
+            );
         });
     });
 })(window, document);

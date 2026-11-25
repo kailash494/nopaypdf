@@ -115,7 +115,9 @@
         deletePage(index = null) {
             const targetIdx = index === null ? this.activePageIndex : index;
             if (this.pages.length <= 1) {
-                alert('A PDF must contain at least one page.');
+                window.dispatchEvent(new CustomEvent('editor:toast', {
+                    detail: { message: 'A PDF must contain at least one page.', type: 'warning' },
+                }));
                 return false;
             }
 

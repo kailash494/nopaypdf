@@ -285,15 +285,18 @@
             for (const o of json.objects) {
                 if (!o.isAnnotation || o.annotType !== 'highlight') continue;
 
-                const oLeft = o.left || 0;
-                const oTop = o.top || 0;
-                const oWidth = (o.width || 0) * (o.scaleX || 1);
-                const oHeight = (o.height || 0) * (o.scaleY || 1);
+                const oLeft = (o.left || 0) / scale;
+                const oTop = (o.top || 0) / scale;
+                const pdfWidth = ((o.width || 0) * (o.scaleX || 1)) / scale;
+                const pdfHeight = ((o.height || 0) * (o.scaleY || 1)) / scale;
 
-                const pdfX = oLeft / scale;
-                const pdfWidth = oWidth / scale;
-                const pdfHeight = oHeight / scale;
-                const pdfY = pageHeight - ((oTop + oHeight) / scale);
+                const angleDeg = o.angle || 0;
+                const alpha = (angleDeg * Math.PI) / 180;
+                // Transform Fabric rotated top-left corner to PDF bottom-left pivot for pdf-lib
+                const blScreenX = oLeft - pdfHeight * Math.sin(alpha);
+                const blScreenY = oTop + pdfHeight * Math.cos(alpha);
+                const pdfX = blScreenX;
+                const pdfY = pageHeight - blScreenY;
 
                 const color = hexToRgb(o.fill || '#fef08a');
                 const drawOptions = {
@@ -309,8 +312,8 @@
                     drawOptions.blendMode = window.PDFLib.BlendMode.Multiply;
                 }
 
-                if (o.angle) {
-                    drawOptions.rotate = window.PDFLib.degrees(-o.angle);
+                if (angleDeg) {
+                    drawOptions.rotate = window.PDFLib.degrees(-angleDeg);
                 }
 
                 pdfPage.drawRectangle(drawOptions);
@@ -329,10 +332,10 @@
                 if (!o.text || !o.text.trim()) continue;
 
                 const fontSizePt = (o.fontSize * (o.scaleY || 1)) / scale;
-                const pdfX = (o.left || 0) / scale;
-                const topPdf = (o.top || 0) / scale;
-                // Baseline calculation: top + font ascent
-                const baselineY = pageHeight - topPdf - (fontSizePt * 0.82);
+                const leftPt = (o.left || 0) / scale;
+                const topPt = (o.top || 0) / scale;
+                const angleDeg = o.angle || 0;
+                const alpha = (angleDeg * Math.PI) / 180;
 
                 const blockStub = {
                     fontFamily: o.fontFamily || 'Liberation Sans',
@@ -348,19 +351,47 @@
                     font = await pdfDoc.embedStandardFont(window.PDFLib.StandardFonts.Helvetica);
                 }
 
+                // Draw optional vector background highlight box behind added text
+                const bgHex = o.textBackgroundColor || o.backgroundColor || '';
+                if (bgHex && bgHex !== 'transparent') {
+                    let textWidthPt = fontSizePt * o.text.length * 0.55;
+                    try {
+                        textWidthPt = font.widthOfTextAtSize(o.text, fontSizePt);
+                    } catch (e) {}
+                    const bgW = Math.max(((o.width || 0) * (o.scaleX || 1)) / scale, textWidthPt + 4);
+                    const bgH = fontSizePt * 1.18;
+                    const bgBlX = leftPt - bgH * Math.sin(alpha);
+                    const bgBlY = topPt + bgH * Math.cos(alpha);
+                    const bgOpts = {
+                        x: bgBlX,
+                        y: pageHeight - bgBlY,
+                        width: bgW,
+                        height: bgH,
+                        color: hexToRgb(bgHex),
+                    };
+                    if (angleDeg) bgOpts.rotate = window.PDFLib.degrees(-angleDeg);
+                    pdfPage.drawRectangle(bgOpts);
+                }
+
+                // Rotated baseline origin matching Fabric top-left rotation
+                const ascentPt = fontSizePt * 0.82;
+                const baseScreenX = leftPt - ascentPt * Math.sin(alpha);
+                const baseScreenY = topPt + ascentPt * Math.cos(alpha);
+                const baselineY = pageHeight - baseScreenY;
+
                 const hex = o.fill || '#1e293b';
                 const rgbColor = hexToRgb(hex);
 
                 const drawOptions = {
-                    x: pdfX,
+                    x: baseScreenX,
                     y: baselineY,
                     size: fontSizePt,
                     font,
                     color: rgbColor,
                 };
 
-                if (o.angle) {
-                    drawOptions.rotate = window.PDFLib.degrees(-o.angle);
+                if (angleDeg) {
+                    drawOptions.rotate = window.PDFLib.degrees(-angleDeg);
                 }
 
                 pdfPage.drawText(o.text, drawOptions);
@@ -455,6 +486,9 @@
                         const dd = form.createDropdown(f.name);
                         const opts = Array.isArray(f.options) && f.options.length > 0 ? f.options : ['Option 1', 'Option 2'];
                         dd.addOptions(opts);
+                        if (f.defaultValue && opts.includes(f.defaultValue)) {
+                            dd.select(f.defaultValue);
+                        }
                         dd.addToPage(pdfPage, { x, y, width, height });
                     }
                 } catch (err) {
