@@ -633,10 +633,11 @@
 
         resolveFontKey(keyOrName) {
             if (!keyOrName) return 'sans';
-            const raw = String(keyOrName).trim();
-            if (raw.toLowerCase() === 'original') return 'original';
-            if (FONT_CATALOG[raw]) return raw;
-            const norm = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const primary = String(keyOrName).split(',')[0].replace(/['"]/g, '').trim();
+            if (!primary) return 'sans';
+            if (primary.toLowerCase() === 'original') return 'original';
+            if (FONT_CATALOG[primary]) return primary;
+            const norm = primary.toLowerCase().replace(/[^a-z0-9]/g, '');
             for (const cfg of Object.values(FONT_CATALOG)) {
                 if (cfg.key.toLowerCase() === norm || cfg.cssName.toLowerCase().replace(/[^a-z0-9]/g, '') === norm) {
                     return cfg.key;
@@ -850,7 +851,7 @@
 
             // TIER 2: Catalog TrueType Font (7 local or 33 cached static CDN TTFs)
             const matched = block.matched || this.matchFontName(block.realName);
-            const bold = Boolean(block.bold);
+            const bold = block.bold === true || block.bold === 'bold' || Number(block.bold) >= 600;
             const italic = Boolean(block.italic);
 
             const targetKey = explicitFontChanged

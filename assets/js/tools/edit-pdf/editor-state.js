@@ -63,6 +63,8 @@
                 sourcePageIndex: p.sourcePageIndex ?? idx,
                 widthPt: p.widthPt || 612,
                 heightPt: p.heightPt || 792,
+                originX: p.originX || 0,
+                originY: p.originY || 0,
                 rotation: p.rotation || 0,
                 textBlocks: (allPagesBlocks && allPagesBlocks[idx]) ? allPagesBlocks[idx] : (p.textBlocks || []),
                 links: [],

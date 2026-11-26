@@ -29,6 +29,46 @@
         return window.PDFLib.rgb(r, g, b);
     }
 
+    /**
+     * Resolve effective visible PDF box (intersection of MediaBox and CropBox matching PDF.js page.view).
+     */
+    function getEffectivePageBox(pdfPage) {
+        const media = typeof pdfPage.getMediaBox === 'function'
+            ? pdfPage.getMediaBox()
+            : { x: 0, y: 0, width: pdfPage.getWidth(), height: pdfPage.getHeight() };
+        const crop = typeof pdfPage.getCropBox === 'function' ? pdfPage.getCropBox() : null;
+        if (!crop) return media;
+        const x1 = Math.max(media.x, crop.x);
+        const y1 = Math.max(media.y, crop.y);
+        const x2 = Math.min(media.x + media.width, crop.x + crop.width);
+        const y2 = Math.min(media.y + media.height, crop.y + crop.height);
+        if (x2 > x1 && y2 > y1) {
+            return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+        }
+        return media;
+    }
+
+    /**
+     * Convert Fabric unscaled top-left object coordinates (including angle rotation) into PDF bottom-left coords.
+     */
+    function fabricRectToPdfParams(o, pageBox) {
+        const oLeft = o.left || 0;
+        const oTop = o.top || 0;
+        const pdfWidth = (o.width || 0) * (o.scaleX || 1);
+        const pdfHeight = (o.height || 0) * (o.scaleY || 1);
+        const angleDeg = o.angle || 0;
+        const alpha = (angleDeg * Math.PI) / 180;
+        const blScreenX = oLeft - pdfHeight * Math.sin(alpha);
+        const blScreenY = oTop + pdfHeight * Math.cos(alpha);
+        return {
+            x: pageBox.x + blScreenX,
+            y: pageBox.y + pageBox.height - blScreenY,
+            width: pdfWidth,
+            height: pdfHeight,
+            angleDeg,
+        };
+    }
+
     const PdfExporter = {
         /**
          * Export the edited PDF document.
@@ -76,22 +116,23 @@
                 }
                 createdPages.push(targetPage);
 
-                // Apply Existing-Text Edits (Mask & Redraw)
+                // Layer 1: Existing-Text Edits (Content Stream Rewrite / Tight Mask & Redraw)
                 await this._applyTextEdits(pdfDoc, targetPage, pageState);
 
-                // Stamp Fabric.js Layer (Shapes, Images, Signatures, Whiteout)
+                // Layer 2: Crisp Vector Whiteout Cover Boxes
+                this._stampWhiteoutVectors(targetPage, pageState);
+
+                // Layer 3: High-DPI Fabric.js Layer (Shapes, Arrows, Images, Signatures, Freehand Ink)
                 await this._stampFabricLayer(pdfDoc, targetPage, pageState);
 
-                // Stamp Vector Highlight Annotations with Multiply Blending
+                // Layer 4: Vector Highlight Annotations with Multiply Blending
                 this._stampHighlightAnnotations(pdfDoc, targetPage, pageState);
 
-                // Stamp Added Vector Text Boxes with Embedded TrueType Fonts
+                // Layer 5: Added Vector Text Boxes with Embedded TrueType Fonts
                 await this._stampAddedVectorText(pdfDoc, targetPage, pageState);
 
-                // Add Native Links
+                // Layer 6: Native Links & AcroForm Fields
                 this._attachNativeLinks(pdfDoc, targetPage, pageState, createdPages);
-
-                // Add AcroForm Fields
                 this._createAcroFormFields(pdfDoc, targetPage, pageState);
             }
 
@@ -170,15 +211,16 @@
                 }
 
                 if (!wasStreamRemoved) {
-                    // Fallback: Draw tight vector background cover rectangle ONLY if stream removal didn't succeed and background is not transparent
+                    // Fallback: Draw tight vector background cover rectangle sized strictly to original text bounds
                     if (b.bgHex && b.bgHex !== 'transparent') {
                         const pad = 0.8;
                         const ascentRatio = b.ascentRatio || 0.85;
                         const descentRatio = b.descentRatio || -0.20;
+                        const origMaskW = b.origPdfWidth || b.pdfWidth || 10;
 
-                        const rectX = Math.max(0, b.pdfX - pad);
-                        const rectY = Math.max(0, baselineY - (b.fontSizePt * Math.abs(descentRatio)) - pad);
-                        const rectW = b.pdfWidth + (pad * 2);
+                        const rectX = b.pdfX - pad;
+                        const rectY = baselineY - (b.fontSizePt * Math.abs(descentRatio)) - pad;
+                        const rectW = origMaskW + (pad * 2);
                         const rectH = (b.fontSizePt * (ascentRatio + Math.abs(descentRatio))) + (pad * 2);
 
                         const coverColor = (b.bgHex && b.bgHex.startsWith('#')) ? b.bgHex : (b.autoBgHex || '#ffffff');
@@ -192,25 +234,44 @@
                     }
                 }
 
-                // Draw replacement text if not deleted using 2-Tier font embedding
+                // Draw replacement text if not deleted using 2-Tier font embedding at exact point size
                 if (b.modified && !b.deleted && b.currentText) {
                     const embedResult = await window.FontManager.embedFontForBlock(pdfDoc, b, b.currentText);
                     const font = embedResult.font;
 
-                    // Calibrate export font size if horizontal scaling or width ratio requires subtle metric alignment
-                    let exportFontSize = b.fontSizePt;
-                    if (b.widthRatio && b.widthRatio > 0.85 && b.widthRatio < 1.15) {
-                        exportFontSize = Math.round(b.fontSizePt * (1.0 + (b.widthRatio - 1.0) * 0.35) * 100) / 100;
-                    }
-
                     pdfPage.drawText(b.currentText, {
                         x: b.pdfX,
                         y: baselineY,
-                        size: exportFontSize,
+                        size: b.fontSizePt,
                         font,
                         color: hexToRgb(b.colorHex || '#1e293b'),
                     });
                 }
+            }
+        },
+
+        _stampWhiteoutVectors(pdfPage, pageState) {
+            const json = pageState.fabricJson;
+            if (!json || !json.objects || json.objects.length === 0) return;
+
+            const pageBox = getEffectivePageBox(pdfPage);
+            for (const o of json.objects) {
+                if (!o.isWhiteout) continue;
+                const geom = fabricRectToPdfParams(o, pageBox);
+                if (geom.width <= 0 || geom.height <= 0) continue;
+
+                const drawOpts = {
+                    x: geom.x,
+                    y: geom.y,
+                    width: geom.width,
+                    height: geom.height,
+                    color: hexToRgb(o.fill || '#ffffff'),
+                    opacity: o.opacity !== undefined ? o.opacity : 1,
+                };
+                if (geom.angleDeg) {
+                    drawOpts.rotate = window.PDFLib.degrees(-geom.angleDeg);
+                }
+                pdfPage.drawRectangle(drawOpts);
             }
         },
 
@@ -220,26 +281,35 @@
                 return;
             }
 
-            const pageWidth = pdfPage.getWidth();
-            const pageHeight = pdfPage.getHeight();
+            const isVectorExportedObject = (o) =>
+                o.type === 'i-text' ||
+                o.type === 'text' ||
+                o.type === 'textbox' ||
+                Boolean(o.isWhiteout) ||
+                (Boolean(o.isAnnotation) && o.annotType === 'highlight');
 
-            // Offscreen static canvas at 2.5x high-DPI
+            const hasRasterizable = json.objects.some(o => !isVectorExportedObject(o));
+            if (!hasRasterizable) {
+                return;
+            }
+
+            const pageBox = getEffectivePageBox(pdfPage);
+            const pageWidth = pageBox.width;
+            const pageHeight = pageBox.height;
+
+            // Offscreen static canvas with fixed 1x backing store scaled cleanly by 3x multiplier
             const staticCanvasEl = document.createElement('canvas');
             const staticCanvas = new fabric.StaticCanvas(staticCanvasEl, {
                 width: pageWidth,
                 height: pageHeight,
+                enableRetinaScaling: false,
             });
 
             await new Promise((resolve) => {
                 staticCanvas.loadFromJSON(json, () => {
-                    // Temporarily hide added text objects and highlight annotations
-                    // so vector text and vector multiply rectangles are exported cleanly without double-rendering
                     const objs = staticCanvas.getObjects();
                     for (const o of objs) {
-                        if (o.type === 'i-text' || o.type === 'text' || o.type === 'textbox') {
-                            o.visible = false;
-                        }
-                        if (o.isAnnotation && o.annotType === 'highlight') {
+                        if (isVectorExportedObject(o)) {
                             o.visible = false;
                         }
                     }
@@ -250,13 +320,12 @@
 
             const pngDataUrl = staticCanvas.toDataURL({
                 format: 'png',
-                multiplier: 2.5,
+                multiplier: 3,
             });
 
-            // Restore visibility right after capturing overlay PNG
             const objs = staticCanvas.getObjects();
             for (const o of objs) {
-                if (o.type === 'i-text' || o.type === 'text' || o.type === 'textbox' || (o.isAnnotation && o.annotType === 'highlight')) {
+                if (isVectorExportedObject(o)) {
                     o.visible = true;
                 }
             }
@@ -264,13 +333,12 @@
 
             const embeddedPng = await pdfDoc.embedPng(pngDataUrl);
             pdfPage.drawImage(embeddedPng, {
-                x: 0,
-                y: 0,
+                x: pageBox.x,
+                y: pageBox.y,
                 width: pageWidth,
                 height: pageHeight,
             });
 
-            // Zero out offscreen canvas
             staticCanvasEl.width = 0;
             staticCanvasEl.height = 0;
         },
@@ -279,31 +347,18 @@
             const json = pageState.fabricJson;
             if (!json || !json.objects || json.objects.length === 0) return;
 
-            const scale = pageState.scale || 1.0;
-            const pageHeight = pdfPage.getHeight();
+            const pageBox = getEffectivePageBox(pdfPage);
 
             for (const o of json.objects) {
                 if (!o.isAnnotation || o.annotType !== 'highlight') continue;
 
-                const oLeft = (o.left || 0) / scale;
-                const oTop = (o.top || 0) / scale;
-                const pdfWidth = ((o.width || 0) * (o.scaleX || 1)) / scale;
-                const pdfHeight = ((o.height || 0) * (o.scaleY || 1)) / scale;
-
-                const angleDeg = o.angle || 0;
-                const alpha = (angleDeg * Math.PI) / 180;
-                // Transform Fabric rotated top-left corner to PDF bottom-left pivot for pdf-lib
-                const blScreenX = oLeft - pdfHeight * Math.sin(alpha);
-                const blScreenY = oTop + pdfHeight * Math.cos(alpha);
-                const pdfX = blScreenX;
-                const pdfY = pageHeight - blScreenY;
-
+                const geom = fabricRectToPdfParams(o, pageBox);
                 const color = hexToRgb(o.fill || '#fef08a');
                 const drawOptions = {
-                    x: pdfX,
-                    y: pdfY,
-                    width: pdfWidth,
-                    height: pdfHeight,
+                    x: geom.x,
+                    y: geom.y,
+                    width: geom.width,
+                    height: geom.height,
                     color,
                     opacity: o.opacity !== undefined ? o.opacity : 0.28,
                 };
@@ -312,8 +367,8 @@
                     drawOptions.blendMode = window.PDFLib.BlendMode.Multiply;
                 }
 
-                if (angleDeg) {
-                    drawOptions.rotate = window.PDFLib.degrees(-angleDeg);
+                if (geom.angleDeg) {
+                    drawOptions.rotate = window.PDFLib.degrees(-geom.angleDeg);
                 }
 
                 pdfPage.drawRectangle(drawOptions);
@@ -324,22 +379,27 @@
             const json = pageState.fabricJson;
             if (!json || !json.objects || json.objects.length === 0) return;
 
-            const scale = pageState.scale || 1.0;
-            const pageHeight = pdfPage.getHeight();
+            const pageBox = getEffectivePageBox(pdfPage);
+            const originX = pageBox.x;
+            const originY = pageBox.y;
+            const pageHeight = pageBox.height;
 
             for (const o of json.objects) {
                 if (o.type !== 'i-text' && o.type !== 'text' && o.type !== 'textbox') continue;
                 if (!o.text || !o.text.trim()) continue;
 
-                const fontSizePt = (o.fontSize * (o.scaleY || 1)) / scale;
-                const leftPt = (o.left || 0) / scale;
-                const topPt = (o.top || 0) / scale;
+                // fabricJson stores coordinates in unscaled PDF scene points regardless of editor zoom
+                const fontSizePt = (o.fontSize || 16) * (o.scaleY || 1);
+                const leftPt = o.left || 0;
+                const topPt = o.top || 0;
                 const angleDeg = o.angle || 0;
                 const alpha = (angleDeg * Math.PI) / 180;
+                const lineStepPt = fontSizePt * 1.13 * (o.lineHeight || 1.16);
+                const lines = String(o.text).replace(/\r\n/g, '\n').split('\n');
 
                 const blockStub = {
                     fontFamily: o.fontFamily || 'Liberation Sans',
-                    bold: o.fontWeight === 'bold' || o.fontWeight === 700 || o.fontWeight === '700',
+                    bold: o.fontWeight === 'bold' || Number(o.fontWeight) >= 600,
                     italic: o.fontStyle === 'italic',
                 };
 
@@ -351,20 +411,27 @@
                     font = await pdfDoc.embedStandardFont(window.PDFLib.StandardFonts.Helvetica);
                 }
 
-                // Draw optional vector background highlight box behind added text
+                // Draw optional vector background highlight box covering all lines behind added text
                 const bgHex = o.textBackgroundColor || o.backgroundColor || '';
                 if (bgHex && bgHex !== 'transparent') {
-                    let textWidthPt = fontSizePt * o.text.length * 0.55;
-                    try {
-                        textWidthPt = font.widthOfTextAtSize(o.text, fontSizePt);
-                    } catch (e) {}
-                    const bgW = Math.max(((o.width || 0) * (o.scaleX || 1)) / scale, textWidthPt + 4);
-                    const bgH = fontSizePt * 1.18;
-                    const bgBlX = leftPt - bgH * Math.sin(alpha);
+                    let maxLineWidthPt = 0;
+                    for (const lineStr of lines) {
+                        if (!lineStr) continue;
+                        let lw = fontSizePt * lineStr.length * 0.55;
+                        try {
+                            lw = font.widthOfTextAtSize(lineStr, fontSizePt);
+                        } catch (e) {}
+                        if (lw > maxLineWidthPt) maxLineWidthPt = lw;
+                    }
+                    const bgW = Math.max((o.width || 0) * (o.scaleX || 1), maxLineWidthPt + 4);
+                    const bgH = lines.length === 1
+                        ? fontSizePt * 1.15
+                        : ((lines.length - 1) * lineStepPt) + (fontSizePt * 1.15);
+                    const bgBlX = originX + leftPt - bgH * Math.sin(alpha);
                     const bgBlY = topPt + bgH * Math.cos(alpha);
                     const bgOpts = {
                         x: bgBlX,
-                        y: pageHeight - bgBlY,
+                        y: originY + pageHeight - bgBlY,
                         width: bgW,
                         height: bgH,
                         color: hexToRgb(bgHex),
@@ -373,28 +440,35 @@
                     pdfPage.drawRectangle(bgOpts);
                 }
 
-                // Rotated baseline origin matching Fabric top-left rotation
-                const ascentPt = fontSizePt * 0.82;
-                const baseScreenX = leftPt - ascentPt * Math.sin(alpha);
-                const baseScreenY = topPt + ascentPt * Math.cos(alpha);
-                const baselineY = pageHeight - baseScreenY;
+                // Fabric 5.3.1 baseline offset below o.top = fontSize * 1.13 * (1 - 0.222) ~= 0.879 * fontSize
+                const firstBaselineOffsetPt = fontSizePt * 0.879;
+                const rgbColor = hexToRgb(o.fill || '#1e293b');
+                const opacity = o.opacity !== undefined ? o.opacity : 1;
 
-                const hex = o.fill || '#1e293b';
-                const rgbColor = hexToRgb(hex);
+                for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+                    const lineText = lines[lineIdx];
+                    if (!lineText) continue;
 
-                const drawOptions = {
-                    x: baseScreenX,
-                    y: baselineY,
-                    size: fontSizePt,
-                    font,
-                    color: rgbColor,
-                };
+                    const offsetFromTopPt = firstBaselineOffsetPt + (lineIdx * lineStepPt);
+                    const baseScreenX = originX + leftPt - offsetFromTopPt * Math.sin(alpha);
+                    const baseScreenY = topPt + offsetFromTopPt * Math.cos(alpha);
+                    const baselineY = originY + pageHeight - baseScreenY;
 
-                if (angleDeg) {
-                    drawOptions.rotate = window.PDFLib.degrees(-angleDeg);
+                    const drawOptions = {
+                        x: baseScreenX,
+                        y: baselineY,
+                        size: fontSizePt,
+                        font,
+                        color: rgbColor,
+                        opacity,
+                    };
+
+                    if (angleDeg) {
+                        drawOptions.rotate = window.PDFLib.degrees(-angleDeg);
+                    }
+
+                    pdfPage.drawText(lineText, drawOptions);
                 }
-
-                pdfPage.drawText(o.text, drawOptions);
             }
         },
 
@@ -402,13 +476,13 @@
             const links = pageState.links || [];
             if (links.length === 0) return;
 
-            const pageHeight = pdfPage.getHeight();
+            const pageBox = getEffectivePageBox(pdfPage);
 
             for (const link of links) {
                 const [lx, ly, lw, lh] = link.rect;
-                // Convert viewport (top-left) to PDF (bottom-left) points
-                const pdfX = lx;
-                const pdfY = pageHeight - ly - lh;
+                // Convert viewport (top-left) to PDF user space (bottom-left + CropBox origin)
+                const pdfX = pageBox.x + lx;
+                const pdfY = pageBox.y + pageBox.height - ly - lh;
                 const rect = [pdfX, pdfY, pdfX + lw, pdfY + lh];
 
                 let annot = null;
@@ -459,12 +533,12 @@
             if (fields.length === 0) return;
 
             const form = pdfDoc.getForm();
-            const pageHeight = pdfPage.getHeight();
+            const pageBox = getEffectivePageBox(pdfPage);
 
             for (const f of fields) {
                 const [fx, fy, fw, fh] = f.rect;
-                const x = fx;
-                const y = pageHeight - fy - fh;
+                const x = pageBox.x + fx;
+                const y = pageBox.y + pageBox.height - fy - fh;
                 const width = fw;
                 const height = fh;
 

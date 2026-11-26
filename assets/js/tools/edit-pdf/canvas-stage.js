@@ -32,6 +32,8 @@
             this.placementMode = null;
             this.formPlacementType = null;
             this._isRestoring = false;
+            this._renderSeq = 0;
+            this._fabricRestoreSeq = 0;
             this._onPlacementMove = null;
             this._onPlacementClick = null;
             this.annotateType = 'highlight'; // 'highlight'|'underline'|'strike'
@@ -863,6 +865,7 @@
             const pageState = window.EditorState.getActivePage();
             if (!pageState) return;
 
+            const renderSeq = ++this._renderSeq;
             if (scale) this.currentScale = scale;
 
             const widthPt = pageState.widthPt || 612;
@@ -893,12 +896,14 @@
 
             // 2. Render Layer 1: Base PDF.js Canvas
             await this._renderBaseCanvas(pageState, viewportWidth, viewportHeight);
+            if (renderSeq !== this._renderSeq) return;
 
             // 3. Render Layer 2: Dedicated Interactive Overlays (Text, Links, Forms)
             this._renderDomLayers(pageState, viewportWidth, viewportHeight);
 
-            // 4. Render Layer 3: Fabric.js Canvas
-            this._renderFabricLayer(pageState, viewportWidth, viewportHeight);
+            // 4. Render Layer 3: Fabric.js Canvas (awaited with monotonic generation token)
+            await this._renderFabricLayer(pageState, viewportWidth, viewportHeight);
+            if (renderSeq !== this._renderSeq) return;
 
             this._applyLayerPointerEvents();
             this.syncCanvasOffset();
@@ -991,23 +996,33 @@
             }
         }
 
+        _pdfPointToStagePt(pdfX, pdfY, pageState) {
+            const originX = pageState?.originX || 0;
+            const originY = pageState?.originY || 0;
+            const pageHeightPt = pageState?.heightPt || 792;
+            return {
+                x: pdfX - originX,
+                y: (originY + pageHeightPt) - pdfY,
+            };
+        }
+
         _renderDomLayers(pageState, viewportWidth, viewportHeight) {
             if (this.textLayer) this.textLayer.innerHTML = '';
             if (this.linksLayer) this.linksLayer.innerHTML = '';
             if (this.formsLayer) this.formsLayer.innerHTML = '';
             const scale = this.currentScale;
-            const pageHeightPt = pageState.heightPt;
             const measureCtx = this.getMeasureContext();
 
             // A. Render Text Hitboxes
             for (const block of pageState.textBlocks) {
-                const baselineY = (pageHeightPt - (block.baselinePdfY !== undefined ? block.baselinePdfY : block.pdfY)) * scale;
+                const stagePt = this._pdfPointToStagePt(block.pdfX, block.baselinePdfY !== undefined ? block.baselinePdfY : block.pdfY, pageState);
+                const baselineY = stagePt.y * scale;
                 const ascentRatio = block.ascentRatio || 0.85;
                 const descentRatio = block.descentRatio || -0.20;
                 const fontSizePx = block.fontSizePt * scale;
 
                 const topPx = baselineY - (fontSizePx * ascentRatio);
-                const leftPx = block.pdfX * scale;
+                const leftPx = stagePt.x * scale;
 
                 // Determine font family: Tier 1 uses exact PDF.js loadedName
                 const hasCoverage = window.FontManager.checkEmbeddedCoverage(block.embeddedBytes, block.currentText);
@@ -1431,28 +1446,60 @@
             window.dispatchEvent(event);
         }
 
-        _renderFabricLayer(pageState, viewportWidth, viewportHeight) {
+        async _renderFabricLayer(pageState, viewportWidth, viewportHeight) {
             if (!this.fabricCanvas) return;
+            const restoreSeq = ++this._fabricRestoreSeq;
 
             this.fabricCanvas.setWidth(viewportWidth);
             this.fabricCanvas.setHeight(viewportHeight);
             this.fabricCanvas.setZoom(this.currentScale);
 
-            if (pageState.fabricJson) {
+            const objsData = pageState.fabricJson && Array.isArray(pageState.fabricJson.objects)
+                ? pageState.fabricJson.objects
+                : [];
+
+            if (objsData.length === 0) {
                 this._isRestoring = true;
-                this.fabricCanvas.loadFromJSON(pageState.fabricJson, () => {
+                try {
+                    this.fabricCanvas.clear();
+                    this._hideFloatingBar();
+                } finally {
                     this._isRestoring = false;
-                    this.fabricCanvas.getObjects().forEach(obj => {
-                        this._configureObjectControls(obj);
-                    });
-                    this.fabricCanvas.renderAll();
-                    this._updateFloatingBar();
+                }
+                return;
+            }
+
+            const enlivenedObjects = await new Promise((resolve) => {
+                fabric.util.enlivenObjects(objsData, (objects) => {
+                    resolve(objects || []);
                 });
-            } else {
-                this._isRestoring = true;
+            });
+
+            // Drop superseded restores (e.g. rapid zoom or undo/redo) so older image decodes never overwrite newer canvas state
+            if (restoreSeq !== this._fabricRestoreSeq || !this.fabricCanvas) {
+                return;
+            }
+
+            const CUSTOM_META_KEYS = ['id', 'toolType', 'isWhiteout', 'isSignature', 'isAnnotation', 'annotType', 'isArrow', 'shapeStrokeWidth'];
+            this._isRestoring = true;
+            try {
                 this.fabricCanvas.clear();
+                enlivenedObjects.forEach((obj, idx) => {
+                    const src = objsData[idx];
+                    if (src) {
+                        for (const k of CUSTOM_META_KEYS) {
+                            if (src[k] !== undefined && obj[k] === undefined) {
+                                obj[k] = src[k];
+                            }
+                        }
+                    }
+                    this._configureObjectControls(obj);
+                    this.fabricCanvas.add(obj);
+                });
+                this.fabricCanvas.renderAll();
+                this._updateFloatingBar();
+            } finally {
                 this._isRestoring = false;
-                this._hideFloatingBar();
             }
         }
 
@@ -2421,20 +2468,19 @@
             }
 
             // Compare in unscaled PDF scene points matching clientToCanvasPoint()
-            const pageHeightPt = pageState.heightPt || 792;
-
             let closestBlock = null;
             let minDistance = Infinity;
             let closestBoxTop = null;
             let closestDy = Infinity;
 
             for (const b of pageState.textBlocks) {
-                const baselineY = pageHeightPt - (b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY);
+                const stagePt = this._pdfPointToStagePt(b.pdfX, b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY, pageState);
+                const baselineY = stagePt.y;
                 const ascentRatio = b.ascentRatio || 0.85;
                 const descentRatio = b.descentRatio || -0.20;
                 const fontSizePt = b.fontSizePt || 12;
                 const boxTop = baselineY - (fontSizePt * ascentRatio);
-                const boxLeft = b.pdfX;
+                const boxLeft = stagePt.x;
                 const boxWidth = b.origPdfWidth || b.pdfWidth || 50;
                 const boxHeight = fontSizePt * (ascentRatio + Math.abs(descentRatio));
 
@@ -2530,15 +2576,15 @@
                 let ulTop = h > 5 ? (y + h - 2) : y;
                 const pageState = window.EditorState.getActivePage();
                 if (pageState && Array.isArray(pageState.textBlocks) && pageState.textBlocks.length > 0) {
-                    const pageH = pageState.heightPt || 792;
                     const midY = y + h / 2;
                     let bestDist = Infinity;
                     let snappedBaselineY = null;
                     for (const b of pageState.textBlocks) {
+                        const stagePt = this._pdfPointToStagePt(b.pdfX, b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY, pageState);
                         const bw = b.origPdfWidth || b.pdfWidth || 40;
-                        const horizOverlap = (x <= b.pdfX + bw + 8) && (x + w >= b.pdfX - 8);
+                        const horizOverlap = (x <= stagePt.x + bw + 8) && (x + w >= stagePt.x - 8);
                         if (!horizOverlap) continue;
-                        const baselineY = pageH - (b.baselinePdfY !== undefined ? b.baselinePdfY : b.pdfY);
+                        const baselineY = stagePt.y;
                         const d = Math.abs(baselineY - (h > 5 ? (y + h) : midY));
                         if (d < 16 && d < bestDist) {
                             bestDist = d;

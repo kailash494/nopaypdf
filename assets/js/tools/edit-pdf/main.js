@@ -227,10 +227,13 @@
             for (let i = 1; i <= currentPdfProxy.numPages; i++) {
                 const page = await currentPdfProxy.getPage(i);
                 const unscaled = page.getViewport({ scale: 1.0, rotation: page.rotate || 0 });
+                const view = page.view || [0, 0, unscaled.width, unscaled.height];
                 pagesMeta.push({
                     sourcePageIndex: i - 1,
                     widthPt: unscaled.width,
                     heightPt: unscaled.height,
+                    originX: view[0] || 0,
+                    originY: view[1] || 0,
                     rotation: page.rotate || 0,
                 });
 

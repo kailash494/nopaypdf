@@ -287,15 +287,18 @@ const server = http.createServer((req, res) => {
             const appWarnings = cdpLogs.filter(l => l.level === 'warning' && !l.text.includes('Tracking Prevention blocked access to storage'));
             const ownAuditIssues = cdpIssues.filter(iss => {
                 const serialized = JSON.stringify(iss);
-                return !serialized.includes('googlesyndication') && !serialized.includes('doubleclick') && !serialized.includes('adtrafficquality');
+                return !serialized.includes('googlesyndication') &&
+                       !serialized.includes('doubleclick') &&
+                       !serialized.includes('adtrafficquality') &&
+                       !serialized.includes('/cdn-cgi/challenge-platform/');
             });
 
-            console.log(`CDP Engine Telemetry: ${cdpErrors.length} errors, ${appWarnings.length} app/engine warnings, ${canvasWarnings.length} CanvasTextBaseline warnings, ${ownAuditIssues.length} own-origin Audits issues (${trackingNotices.length} Edge Tracking Prevention storage notices)`);
+            console.log(`CDP Engine Telemetry: ${cdpErrors.length} errors, ${appWarnings.length} app/engine warnings, ${canvasWarnings.length} CanvasTextBaseline warnings, ${ownAuditIssues.length} own-origin Audits issues (${cdpIssues.length} total Audits events, ${trackingNotices.length} Edge Tracking Prevention storage notices)`);
             if (cdpErrors.length > 0 || appWarnings.length > 0) {
                 [...cdpErrors, ...appWarnings].forEach(l => console.log(`  [CDP-${l.level.toUpperCase()}] (${l.source}) ${l.text}`));
             }
             if (ownAuditIssues.length > 0) {
-                ownAuditIssues.forEach(iss => console.log(`  [CDP-AUDIT-ISSUE] ${JSON.stringify(iss)}`));
+                ownAuditIssues.forEach((iss, i) => console.log(`  [CDP-AUDIT-ISSUE-${i + 1}] code=${iss.code} details=${JSON.stringify(iss.details)}`));
             }
 
             let cdpPassed = true;

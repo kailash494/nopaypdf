@@ -605,7 +605,7 @@
         await new Promise(r => setTimeout(r, 100));
         const rowAnchor = state.textBlocks.find(b => b.originalText.includes('Beneficiary Bank Name'));
         if (rowAnchor) {
-            const pageH = state.heightPt || 792;
+            const pageH = (state.originY || 0) + (state.heightPt || 792);
             const baselineY = pageH - (rowAnchor.baselinePdfY !== undefined ? rowAnchor.baselinePdfY : rowAnchor.pdfY);
             const rowTopPt = baselineY - rowAnchor.fontSizePt * (rowAnchor.ascentRatio || 0.85);
             await cdpClickEl('.editor-tool-btn[data-tool="add-text"]');
@@ -1164,6 +1164,15 @@
         if (rotTextTarget) {
             rotTextTarget.set({ angle: 25, textBackgroundColor: '#fef08a' });
         }
+        const multiTextObj = window.CanvasStage.addFabricText('VectorL1\nVectorL2', {
+            left: 95,
+            top: 360,
+            fontSize: 14,
+            fontFamily: 'Montserrat',
+            fontWeight: 'bold',
+            fill: '#1e293b',
+            lineHeight: 1.2,
+        });
         const rotHlTarget = window.CanvasStage.fabricCanvas.getObjects().find(o => o.isAnnotation && o.annotType === 'highlight');
         if (rotHlTarget) {
             rotHlTarget.set('angle', 15);
@@ -1181,9 +1190,43 @@
         const annots = exportedPage.node.Annots();
         if (!annots || annots.size() < 1) throw new Error('Missing native /Link annotations on export');
         const form = exportedDoc.getForm();
-        if (form.getFields().length < 3) throw new Error('Missing AcroForm fields on export');
+        if (form.getFields().length < 4) throw new Error('Missing AcroForm fields on export');
 
-        recordFeature(13, 'Apply Changes', true, `Exported valid PDF (${exportedBytes.length} bytes) with links, subset-embedded remote Montserrat vector text, highlight, rotated image & AcroForm fields`);
+        // Re-parse exported PDF via PDF.js to assert vector text fidelity, baseline/CropBox alignment, multi-line export, and untouched right column
+        const reparsePreview = await window.PDFRender.loadPreviewDocument(exportedBytes);
+        const reparsedPage = await reparsePreview.pdfProxy.getPage(1);
+        const reparsedTc = await reparsedPage.getTextContent({ includeMarkedContent: false });
+        const reparsedItems = reparsedTc.items || [];
+        const allReparsedText = reparsedItems.map(i => i.str).join(' ');
+        for (const expectedToken of ['Receipt Ref', 'Box1', 'Box2', 'Zoom150Box', 'VectorL1', 'VectorL2', 'United Bank Ltd', 'Not Applied']) {
+            if (!allReparsedText.includes(expectedToken)) {
+                throw new Error(`Exported PDF missing expected vector text "${expectedToken}" in re-parsed output: "${allReparsedText.slice(0, 220)}"`);
+            }
+        }
+        const vecL1Item = reparsedItems.find(i => i.str.includes('VectorL1'));
+        const vecL2Item = reparsedItems.find(i => i.str.includes('VectorL2'));
+        if (!vecL1Item || !vecL2Item) {
+            throw new Error('Exported multi-line vector text items VectorL1/VectorL2 not found separately');
+        }
+        const exportedView = reparsedPage.view || [0, 0, 612, 782];
+        const expectedVecL1Baseline = exportedView[3] - (multiTextObj.top + multiTextObj.fontSize * 0.879);
+        const actualVecL1Baseline = vecL1Item.transform[5];
+        const exportedFontSz = Math.hypot(vecL1Item.transform[2], vecL1Item.transform[3]);
+        if (Math.abs(actualVecL1Baseline - expectedVecL1Baseline) > 2.5 || Math.abs(exportedFontSz - 14) > 0.5) {
+            throw new Error(`VectorL1 baseline/size mismatch on CropBox PDF: expected y≈${expectedVecL1Baseline.toFixed(2)} size=14, got y=${actualVecL1Baseline.toFixed(2)} size=${exportedFontSz.toFixed(2)}`);
+        }
+        if (!(vecL1Item.transform[5] > vecL2Item.transform[5] + 10)) {
+            throw new Error(`Multi-line spacing collapsed between VectorL1 (${vecL1Item.transform[5]}) and VectorL2 (${vecL2Item.transform[5]})`);
+        }
+        const zoom150ExportItem = reparsedItems.find(i => i.str.includes('Zoom150Box'));
+        if (!zoom150ExportItem) throw new Error('Zoom150Box vector item missing from re-parsed PDF');
+        const zoom150FontSz = Math.hypot(zoom150ExportItem.transform[2], zoom150ExportItem.transform[3]);
+        if (Math.abs(zoom150FontSz - rotTextTarget.fontSize) > 0.8) {
+            throw new Error(`Zoom150Box fontSize scaled improperly at 150% zoom: expected ${rotTextTarget.fontSize}, got ${zoom150FontSz.toFixed(2)}`);
+        }
+        log(`✓ PDF.js re-parse verified VectorL1 baseline (${actualVecL1Baseline.toFixed(1)}pt vs ${expectedVecL1Baseline.toFixed(1)}pt), 14pt bold Montserrat, multi-line step, 1:1 Zoom150Box (${zoom150FontSz.toFixed(1)}pt), and untouched right columns`);
+
+        recordFeature(13, 'Apply Changes', true, `Exported valid PDF (${exportedBytes.length} bytes) with links, multi-line bold/rotated vector text, vector whiteout, highlight, CropBox parity & AcroForm fields`);
 
         // DevTools Audits & Form Accessibility Gate
         const auditRes = await cdp({ action: 'checkFormsIssues' });
