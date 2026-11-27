@@ -71,10 +71,10 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="space-y-6">
 
         <!-- Error Notification Banner -->
-        <div id="error-alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
+        <div id="error-alert" role="alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
             <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
             <div class="flex-1 text-xs sm:text-sm" id="error-message"></div>
-            <button type="button" id="error-dismiss-btn" class="text-rose-400 hover:text-rose-700">
+            <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="text-rose-400 hover:text-rose-700">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -138,9 +138,11 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="lg:col-span-7 space-y-5">
 
                     <!-- Watermark Type Selector Tabs -->
-                    <div class="bg-slate-100 p-1 rounded-2xl flex items-center">
+                    <div role="tablist" aria-label="Watermark Type" class="bg-slate-100 p-1 rounded-2xl flex items-center">
                         <button
                             type="button"
+                            role="tab"
+                            aria-selected="true"
                             class="watermark-type-tab flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer bg-blue-600 text-white shadow-xs"
                             data-type="text"
                         >
@@ -148,6 +150,8 @@ require_once __DIR__ . '/../includes/header.php';
                         </button>
                         <button
                             type="button"
+                            role="tab"
+                            aria-selected="false"
                             class="watermark-type-tab flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer bg-transparent text-slate-600 hover:text-slate-900"
                             data-type="image"
                         >
@@ -191,7 +195,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <label for="wm-text-color" class="block text-xs font-semibold text-slate-700 mb-1">Color</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="wm-text-color" value="#ef4444" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white">
-                                    <input type="text" id="wm-text-color-hex" value="#ef4444" class="w-20 px-2 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono">
+                                    <input type="text" id="wm-text-color-hex" aria-label="Watermark color hex value" value="#ef4444" class="w-20 px-2 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono">
                                 </div>
                             </div>
                         </div>
@@ -202,7 +206,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Upload Logo / Image</h3>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Select Image (.png, .jpg, .webp)</label>
+                            <label for="wm-image-input" class="block text-xs font-semibold text-slate-700 mb-1.5">Select Image (.png, .jpg, .webp)</label>
                             <input type="file" id="wm-image-input" accept="image/png,image/jpeg,image/webp" class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border file:border-slate-300 file:text-xs file:font-semibold file:bg-slate-50 hover:file:bg-slate-100 cursor-pointer">
                         </div>
 
@@ -259,16 +263,16 @@ require_once __DIR__ . '/../includes/header.php';
                             <!-- 3x3 Anchor Grid (Shown when Single Anchor is selected) -->
                             <div id="anchor-grid-container" class="space-y-1.5 pt-1">
                                 <span class="block text-[11px] font-medium text-slate-500">Anchor Position:</span>
-                                <div class="grid grid-cols-3 gap-1.5 w-36 bg-slate-100 p-1.5 rounded-xl">
-                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="top-left">&nwarr;</button>
-                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="top-center">&uarr;</button>
-                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="top-right">&nearr;</button>
-                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="middle-left">&larr;</button>
-                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors" data-pos="center">&bull;</button>
-                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="middle-right">&rarr;</button>
-                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="bottom-left">&swarr;</button>
-                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="bottom-center">&darr;</button>
-                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="bottom-right">&searr;</button>
+                                <div class="grid grid-cols-3 gap-1.5 w-36 bg-slate-100 p-1.5 rounded-xl" role="group" aria-label="Watermark anchor position">
+                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="top-left" aria-label="Top Left" aria-pressed="false">&nwarr;</button>
+                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="top-center" aria-label="Top Center" aria-pressed="false">&uarr;</button>
+                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="top-right" aria-label="Top Right" aria-pressed="false">&nearr;</button>
+                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="middle-left" aria-label="Middle Left" aria-pressed="false">&larr;</button>
+                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors" data-pos="center" aria-label="Center" aria-pressed="true">&bull;</button>
+                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="middle-right" aria-label="Middle Right" aria-pressed="false">&rarr;</button>
+                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="bottom-left" aria-label="Bottom Left" aria-pressed="false">&swarr;</button>
+                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="bottom-center" aria-label="Bottom Center" aria-pressed="false">&darr;</button>
+                                    <button type="button" class="btn-anchor h-8 rounded-lg bg-white text-slate-700 text-xs font-bold hover:bg-blue-50 transition-colors" data-pos="bottom-right" aria-label="Bottom Right" aria-pressed="false">&searr;</button>
                                 </div>
                             </div>
                         </div>
@@ -290,6 +294,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <input
                                     type="text"
                                     id="wm-page-ranges-input"
+                                    aria-label="Custom watermark page range"
                                     placeholder="e.g. 1, 3-5, 8"
                                     class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white"
                                 >
@@ -387,6 +392,7 @@ require_once __DIR__ . '/../includes/header.php';
 $extraScripts = [
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
     'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js',
+    'https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js',
     '/assets/js/pdf-render.js?v=' . APP_VERSION,
     '/assets/js/tools/watermark-pdf.js?v=' . APP_VERSION,
 ];

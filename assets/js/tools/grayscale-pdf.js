@@ -101,13 +101,19 @@
         // --- Document Loader ---
         async function loadPdfDocument(file) {
             clearError();
-            originalFile = file;
 
             try {
-                originalArrayBuffer = await PDFCore.readFileAsArrayBuffer(file);
-                const loaded = await PDFRender.loadPreviewDoc(originalArrayBuffer);
+                const nextBuffer = await PDFCore.readFileAsArrayBuffer(file);
+                const loaded = await PDFRender.loadPreviewDoc(nextBuffer);
+                if (pdfDocProxy) {
+                    await PDFRender.destroyDoc(pdfDocProxy);
+                    pdfDocProxy = null;
+                }
+                originalFile = file;
+                originalArrayBuffer = nextBuffer;
                 pdfDocProxy = loaded.pdfProxy;
                 totalPages = loaded.numPages;
+                lastConvertedPdfBytes = null;
 
                 // Update UI Header
                 docFilename.textContent = file.name;
@@ -172,8 +178,12 @@
 
                 let finalVal = lum;
                 if (toneMode === 'contrast') {
-                    // S-curve contrast enhancement
-                    finalVal = 255 * Math.pow(lum / 255, 1.35);
+                    // Print S-curve: clean bright paper highlights while keeping dark ink crisp black
+                    const t = lum / 255;
+                    const s = t < 0.55
+                        ? 0.55 * Math.pow(t / 0.55, 1.85)
+                        : 1 - 0.45 * Math.pow((1 - t) / 0.45, 2.0);
+                    finalVal = Math.max(0, Math.min(255, Math.round(s * 255)));
                 } else if (toneMode === 'threshold') {
                     // Binary thresholding (0 or 255)
                     finalVal = lum >= threshold ? 255 : 0;
@@ -292,6 +302,7 @@
             progressBar.style.width = '5%';
             progressTitle.textContent = 'Preparing Conversion...';
             progressDesc.textContent = `Rasterizing and converting ${targetPages.length} of ${totalPages} pages at ${targetDpi} DPI...`;
+            convertGrayscaleBtn.disabled = true;
 
             try {
                 const { PDFDocument } = window.PDFLib;
@@ -310,6 +321,7 @@
 
                         const page = await pdfDocProxy.getPage(pageNum);
                         const intrinsicRotation = page.rotate || 0;
+                        const uprightPt = page.getViewport({ scale: 1.0, rotation: intrinsicRotation });
                         const viewport = page.getViewport({ scale: renderScale, rotation: intrinsicRotation });
 
                         // Offscreen canvas
@@ -328,29 +340,30 @@
                         const monoImgData = applyGrayscaleAlgorithm(srcImgData, selectedTone, threshold);
                         ctx.putImageData(monoImgData, 0, 0);
 
-                        // Convert to blob
+                        // Convert to blob cleanly with null guard
                         const isBinary = selectedTone === 'threshold';
                         const mimeType = isBinary ? 'image/png' : 'image/jpeg';
                         const quality = isBinary ? undefined : 0.88;
 
                         const blob = await new Promise((resolve) => offCanvas.toBlob(resolve, mimeType, quality));
+                        if (!blob) {
+                            offCanvas.width = 0;
+                            offCanvas.height = 0;
+                            throw new Error(`Page ${pageNum} exceeded browser canvas resolution limit at ${targetDpi} DPI. Try a lower DPI preset.`);
+                        }
                         const imgBytes = await PDFCore.readFileAsArrayBuffer(blob);
 
                         const embeddedImage = isBinary
                             ? await outPdfDoc.embedPng(imgBytes)
                             : await outPdfDoc.embedJpg(imgBytes);
 
-                        // Page point dimensions from original
-                        const origPage = sourcePdfDoc.getPage(pageNum - 1);
-                        const ptWidth = origPage.getWidth();
-                        const ptHeight = origPage.getHeight();
-
-                        const newPage = outPdfDoc.addPage([ptWidth, ptHeight]);
+                        // Preserve upright CropBox & /Rotate dimensions accurately
+                        const newPage = outPdfDoc.addPage([uprightPt.width, uprightPt.height]);
                         newPage.drawImage(embeddedImage, {
                             x: 0,
                             y: 0,
-                            width: ptWidth,
-                            height: ptHeight,
+                            width: uprightPt.width,
+                            height: uprightPt.height,
                         });
 
                         // Release memory immediately
@@ -386,6 +399,8 @@
                 console.error('Grayscale conversion error:', err);
                 progressPanel.classList.add('hidden');
                 showError('Failed to convert PDF: ' + err.message);
+            } finally {
+                convertGrayscaleBtn.disabled = false;
             }
         });
 
@@ -401,12 +416,19 @@
         changeFileBtn?.addEventListener('click', resetAll);
         grayscaleResetBtn?.addEventListener('click', resetAll);
 
-        function resetAll() {
+        async function resetAll() {
+            if (pdfDocProxy) {
+                await PDFRender.destroyDoc(pdfDocProxy);
+                pdfDocProxy = null;
+            }
             originalFile = null;
             originalArrayBuffer = null;
-            pdfDocProxy = null;
             cachedPage1ImageData = null;
             lastConvertedPdfBytes = null;
+            if (pdfFileInput) pdfFileInput.value = '';
+            [originalPreviewCanvas, grayscalePreviewCanvas, monoSingleCanvas].forEach((c) => {
+                if (c) { c.width = 0; c.height = 0; }
+            });
             configPanel.classList.add('hidden');
             resultPanel.classList.add('hidden');
             progressPanel.classList.add('hidden');

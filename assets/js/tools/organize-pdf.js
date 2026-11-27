@@ -41,6 +41,7 @@
     let pageList = [];    // Array<{ id: string, sourceFileIndex: number, sourcePageIndex: number, rotationDelta: number, sourceFileName: string }>
     let initialSnapshot = [];
     const historyStack = [];
+    const thumbCache = new Map(); // `${sourceFileIndex}:${sourcePageIndex}` -> HTMLCanvasElement | Promise
     let nextId = 1;
     let draggedIndex = null;
     let lastOrganizedBytes = null;
@@ -76,49 +77,81 @@
     function cleanupAll() {
         sourceFiles.forEach(f => {
             if (f.pdfProxy) {
-                try { f.pdfProxy.destroy(); } catch (e) {}
+                PDFRender.destroyDoc(f.pdfProxy).catch(() => {});
             }
         });
         sourceFiles = [];
         pageList = [];
         initialSnapshot = [];
         historyStack.length = 0;
+        thumbCache.clear();
         updateUndoBtn();
         pagesGrid.innerHTML = '';
         lastOrganizedBytes = null;
     }
 
-    // Add files into workspace
+    async function getCachedPageThumbnail(src, sourceFileIndex, sourcePageIndex) {
+        const key = `${sourceFileIndex}:${sourcePageIndex}`;
+        const existing = thumbCache.get(key);
+        if (existing) return existing;
+
+        const promise = PDFRender.renderPageToCanvas(src.pdfProxy, sourcePageIndex + 1, {
+            maxWidth: 160,
+            rotationDelta: 0,
+        }).then((rendered) => {
+            thumbCache.set(key, rendered);
+            return rendered;
+        });
+        thumbCache.set(key, promise);
+        return promise;
+    }
+
+    function cloneThumbCanvas(sourceCanvas, rotationDeg) {
+        const clone = document.createElement('canvas');
+        clone.width = sourceCanvas.width;
+        clone.height = sourceCanvas.height;
+        const cctx = clone.getContext('2d');
+        cctx?.drawImage(sourceCanvas, 0, 0);
+        clone.className = 'page-thumbnail-canvas max-h-[115px] max-w-[115px] transition-transform duration-150';
+        clone.style.transform = `rotate(${rotationDeg}deg)`;
+        return clone;
+    }
+
+    // Add files into workspace atomically
     async function addFiles(files) {
         clearError();
+        const loadedBatch = [];
         try {
             for (const file of files) {
                 const buffer = await file.arrayBuffer();
                 const { pdfProxy, numPages } = await PDFRender.loadPreviewDocument(buffer);
-                const fileIndex = sourceFiles.length;
-
-                sourceFiles.push({
+                loadedBatch.push({
                     name: file.name,
                     buffer,
                     pdfProxy,
                     numPages,
                 });
+            }
 
-                // Add all pages from this file
-                for (let p = 0; p < numPages; p++) {
-                    pageList.push({
+            const newPages = [];
+            loadedBatch.forEach((entry) => {
+                const fileIndex = sourceFiles.length;
+                sourceFiles.push(entry);
+                for (let p = 0; p < entry.numPages; p++) {
+                    const item = {
                         id: `p-${nextId++}`,
                         sourceFileIndex: fileIndex,
-                        sourcePageIndex: p, // 0-based
+                        sourcePageIndex: p,
                         rotationDelta: 0,
-                        sourceFileName: file.name,
-                    });
+                        sourceFileName: entry.name,
+                    };
+                    pageList.push(item);
+                    newPages.push(JSON.parse(JSON.stringify(item)));
                 }
-            }
+            });
 
-            if (initialSnapshot.length === 0) {
-                initialSnapshot = JSON.parse(JSON.stringify(pageList));
-            }
+            initialSnapshot.push(...newPages);
+            lastOrganizedBytes = null;
 
             dropzoneView.classList.add('hidden');
             resultView.classList.add('hidden');
@@ -126,6 +159,7 @@
 
             renderGridUI();
         } catch (err) {
+            await Promise.all(loadedBatch.map((entry) => PDFRender.destroyDoc(entry.pdfProxy)));
             console.error('Organize load error:', err);
             showError(`Failed to load PDF: ${PDFCore.formatPdfError(err)}`);
         }
@@ -135,6 +169,8 @@
     function renderGridUI() {
         if (!pagesGrid || !totalPagesBadge) return;
         totalPagesBadge.textContent = pageList.length;
+        lastOrganizedBytes = null;
+        resultView?.classList.add('hidden');
 
         if (pageList.length === 0) {
             pagesGrid.innerHTML = `
@@ -162,8 +198,9 @@
                 : '';
 
             const showFileBadge = sourceFiles.length > 1;
+            const safeSourceName = PDFCore.escapeHtml(item.sourceFileName);
             const fileBadge = showFileBadge
-                ? `<span class="text-[9px] text-slate-400 font-medium truncate max-w-[80px]" title="${item.sourceFileName}">${item.sourceFileName}</span>`
+                ? `<span class="text-[9px] text-slate-400 font-medium truncate max-w-[80px]" title="${safeSourceName}">${safeSourceName}</span>`
                 : '';
 
             card.innerHTML = `
@@ -292,22 +329,27 @@
 
             pagesGrid.appendChild(card);
 
-            // Render Canvas
+            // Render or reuse cached Canvas + CSS rotate transform
             const src = sourceFiles[item.sourceFileIndex];
             if (src && src.pdfProxy) {
-                PDFRender.renderPageToCanvas(src.pdfProxy, item.sourcePageIndex + 1, {
-                    maxWidth: 160,
-                    rotationDelta: item.rotationDelta,
-                }).then(canvas => {
-                    const wrapper = card.querySelector('.canvas-wrapper');
+                const wrapper = card.querySelector('.canvas-wrapper');
+                const cacheKey = `${item.sourceFileIndex}:${item.sourcePageIndex}`;
+                const cached = thumbCache.get(cacheKey);
+                if (cached instanceof HTMLCanvasElement) {
                     if (wrapper) {
-                        canvas.className = 'page-thumbnail-canvas max-h-[140px]';
                         wrapper.innerHTML = '';
-                        wrapper.appendChild(canvas);
+                        wrapper.appendChild(cloneThumbCanvas(cached, rot));
                     }
-                }).catch(err => {
-                    console.error('Thumbnail error:', err);
-                });
+                } else {
+                    getCachedPageThumbnail(src, item.sourceFileIndex, item.sourcePageIndex).then((baseCanvas) => {
+                        if (wrapper && card.isConnected) {
+                            wrapper.innerHTML = '';
+                            wrapper.appendChild(cloneThumbCanvas(baseCanvas, rot));
+                        }
+                    }).catch((err) => {
+                        console.error('Thumbnail error:', err);
+                    });
+                }
             }
         });
 
@@ -470,6 +512,9 @@
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
             cleanupAll();
+            if (fileInput) fileInput.value = '';
+            if (addMorePdfInput) addMorePdfInput.value = '';
+            if (outputNameInput) outputNameInput.value = 'organized.pdf';
             progress.reset();
             resultView?.classList.add('hidden');
             workspaceView.classList.add('hidden');

@@ -71,10 +71,10 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="space-y-6">
 
         <!-- Error Notification Banner -->
-        <div id="error-alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
+        <div id="error-alert" role="alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
             <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
             <div class="flex-1 text-xs sm:text-sm" id="error-message"></div>
-            <button type="button" id="error-dismiss-btn" class="text-rose-400 hover:text-rose-700">
+            <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="text-rose-400 hover:text-rose-700">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -126,6 +126,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <button
                             type="button"
                             id="crop-prev-page-btn"
+                            aria-label="Previous page"
                             class="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
                         >
                             <i data-lucide="chevron-left" class="w-4 h-4"></i>
@@ -136,6 +137,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <button
                             type="button"
                             id="crop-next-page-btn"
+                            aria-label="Next page"
                             class="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
                         >
                             <i data-lucide="chevron-right" class="w-4 h-4"></i>
@@ -179,7 +181,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div>
                                     <label for="margin-top" class="block text-slate-500 font-medium mb-1">Top:</label>
                                     <div class="relative">
-                                        <input type="number" id="margin-top" min="0" step="1" value="0" class="w-full px-3 py-2 pr-8 rounded-xl border border-slate-200 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500">
+                                        <input type="number" id="margin-top" min="0" step="any" value="0" class="w-full px-3 py-2 pr-8 rounded-xl border border-slate-200 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500">
                                         <span class="unit-label absolute right-3 top-2 text-slate-400 font-medium text-[11px]">pt</span>
                                     </div>
                                 </div>
@@ -188,7 +190,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div>
                                     <label for="margin-bottom" class="block text-slate-500 font-medium mb-1">Bottom:</label>
                                     <div class="relative">
-                                        <input type="number" id="margin-bottom" min="0" step="1" value="0" class="w-full px-3 py-2 pr-8 rounded-xl border border-slate-200 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500">
+                                        <input type="number" id="margin-bottom" min="0" step="any" value="0" class="w-full px-3 py-2 pr-8 rounded-xl border border-slate-200 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500">
                                         <span class="unit-label absolute right-3 top-2 text-slate-400 font-medium text-[11px]">pt</span>
                                     </div>
                                 </div>
@@ -197,7 +199,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div>
                                     <label for="margin-left" class="block text-slate-500 font-medium mb-1">Left:</label>
                                     <div class="relative">
-                                        <input type="number" id="margin-left" min="0" step="1" value="0" class="w-full px-3 py-2 pr-8 rounded-xl border border-slate-200 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500">
+                                        <input type="number" id="margin-left" min="0" step="any" value="0" class="w-full px-3 py-2 pr-8 rounded-xl border border-slate-200 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500">
                                         <span class="unit-label absolute right-3 top-2 text-slate-400 font-medium text-[11px]">pt</span>
                                     </div>
                                 </div>
@@ -206,7 +208,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div>
                                     <label for="margin-right" class="block text-slate-500 font-medium mb-1">Right:</label>
                                     <div class="relative">
-                                        <input type="number" id="margin-right" min="0" step="1" value="0" class="w-full px-3 py-2 pr-8 rounded-xl border border-slate-200 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500">
+                                        <input type="number" id="margin-right" min="0" step="any" value="0" class="w-full px-3 py-2 pr-8 rounded-xl border border-slate-200 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500">
                                         <span class="unit-label absolute right-3 top-2 text-slate-400 font-medium text-[11px]">pt</span>
                                     </div>
                                 </div>
@@ -246,7 +248,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <!-- Page Scope -->
                         <div class="space-y-2 pt-2 border-t border-slate-100">
-                            <label class="block text-xs font-semibold text-slate-700">Apply Crop To:</label>
+                            <label for="crop-scope-select" class="block text-xs font-semibold text-slate-700">Apply Crop To:</label>
                             <select id="crop-scope-select" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-white focus:ring-2 focus:ring-blue-500">
                                 <option value="all" selected>All Pages</option>
                                 <option value="current">Current Page Only</option>
@@ -258,6 +260,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <input
                                 type="text"
                                 id="crop-custom-range-input"
+                                aria-label="Custom crop page range"
                                 placeholder="e.g. 1-3, 5"
                                 class="hidden w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500"
                             >
@@ -294,7 +297,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <canvas id="crop-base-canvas" class="block pointer-events-none"></canvas>
 
                                 <!-- Interactive Darkened Mask & Crop Overlay Container -->
-                                <div id="crop-mask-overlay" class="absolute inset-0 pointer-events-auto cursor-crosshair">
+                                <div id="crop-mask-overlay" class="absolute inset-0 pointer-events-auto cursor-default" style="touch-action: none;">
                                     <!-- 4 Darkened Outside Mask Panels -->
                                     <div id="mask-top" class="absolute top-0 left-0 right-0 bg-slate-900/50 pointer-events-none"></div>
                                     <div id="mask-bottom" class="absolute bottom-0 left-0 right-0 bg-slate-900/50 pointer-events-none"></div>
@@ -302,18 +305,18 @@ require_once __DIR__ . '/../includes/header.php';
                                     <div id="mask-right" class="absolute right-0 bg-slate-900/50 pointer-events-none"></div>
 
                                     <!-- Active Draggable & Resizable Crop Box -->
-                                    <div id="active-crop-box" class="absolute border-2 border-blue-500 cursor-move bg-transparent shadow-xs">
+                                    <div id="active-crop-box" class="absolute border-2 border-blue-500 cursor-move bg-transparent shadow-xs" style="touch-action: none;">
                                         <!-- Corner Handles -->
-                                        <div class="crop-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-blue-600 border border-white rounded-xs cursor-nwse-resize shadow-xs" data-handle="nw"></div>
-                                        <div class="crop-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-blue-600 border border-white rounded-xs cursor-nesw-resize shadow-xs" data-handle="ne"></div>
-                                        <div class="crop-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-blue-600 border border-white rounded-xs cursor-nesw-resize shadow-xs" data-handle="sw"></div>
-                                        <div class="crop-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-blue-600 border border-white rounded-xs cursor-nwse-resize shadow-xs" data-handle="se"></div>
+                                        <div class="crop-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-blue-600 border border-white rounded-xs cursor-nwse-resize shadow-xs" data-handle="nw" aria-label="Resize top-left crop handle" style="touch-action: none;"></div>
+                                        <div class="crop-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-blue-600 border border-white rounded-xs cursor-nesw-resize shadow-xs" data-handle="ne" aria-label="Resize top-right crop handle" style="touch-action: none;"></div>
+                                        <div class="crop-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-blue-600 border border-white rounded-xs cursor-nesw-resize shadow-xs" data-handle="sw" aria-label="Resize bottom-left crop handle" style="touch-action: none;"></div>
+                                        <div class="crop-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-blue-600 border border-white rounded-xs cursor-nwse-resize shadow-xs" data-handle="se" aria-label="Resize bottom-right crop handle" style="touch-action: none;"></div>
 
                                         <!-- Edge Midpoint Handles -->
-                                        <div class="crop-handle absolute -top-1.5 left-1/2 -translate-x-1/2 w-4 h-3 bg-blue-600 border border-white rounded-xs cursor-ns-resize shadow-xs" data-handle="n"></div>
-                                        <div class="crop-handle absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-3 bg-blue-600 border border-white rounded-xs cursor-ns-resize shadow-xs" data-handle="s"></div>
-                                        <div class="crop-handle absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-4 bg-blue-600 border border-white rounded-xs cursor-ew-resize shadow-xs" data-handle="w"></div>
-                                        <div class="crop-handle absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-4 bg-blue-600 border border-white rounded-xs cursor-ew-resize shadow-xs" data-handle="e"></div>
+                                        <div class="crop-handle absolute -top-1.5 left-1/2 -translate-x-1/2 w-4 h-3 bg-blue-600 border border-white rounded-xs cursor-ns-resize shadow-xs" data-handle="n" aria-label="Resize top crop edge" style="touch-action: none;"></div>
+                                        <div class="crop-handle absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-3 bg-blue-600 border border-white rounded-xs cursor-ns-resize shadow-xs" data-handle="s" aria-label="Resize bottom crop edge" style="touch-action: none;"></div>
+                                        <div class="crop-handle absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-4 bg-blue-600 border border-white rounded-xs cursor-ew-resize shadow-xs" data-handle="w" aria-label="Resize left crop edge" style="touch-action: none;"></div>
+                                        <div class="crop-handle absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-4 bg-blue-600 border border-white rounded-xs cursor-ew-resize shadow-xs" data-handle="e" aria-label="Resize right crop edge" style="touch-action: none;"></div>
 
                                         <!-- Rule-of-Thirds Grid Lines -->
                                         <div class="absolute inset-0 pointer-events-none opacity-40">

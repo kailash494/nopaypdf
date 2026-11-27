@@ -75,10 +75,10 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Interactive Tool Workspace -->
 <section class="py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
     <!-- Error Alert Banner -->
-    <div id="error-alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
+    <div id="error-alert" role="alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
         <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"></i>
         <div class="flex-grow" id="error-message"></div>
-        <button type="button" id="error-dismiss-btn" class="p-1 text-red-400 hover:text-red-700">
+        <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="p-1 text-red-400 hover:text-red-700">
             <i data-lucide="x" class="w-4 h-4"></i>
         </button>
     </div>
@@ -216,7 +216,6 @@ require_once __DIR__ . '/../includes/header.php';
 <?php
 $extraScripts = [
     'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js',
-    '/assets/js/pdf-render.js?v=' . APP_VERSION,
     '/assets/js/tools/merge-pdf.js?v=' . APP_VERSION,
 ];
 require_once __DIR__ . '/../includes/footer.php';

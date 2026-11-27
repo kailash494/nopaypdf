@@ -79,10 +79,10 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="space-y-6">
 
         <!-- Error Notification Banner -->
-        <div id="error-alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
+        <div id="error-alert" role="alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
             <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
             <div class="flex-1 text-xs sm:text-sm" id="error-message"></div>
-            <button type="button" id="error-dismiss-btn" class="text-rose-400 hover:text-rose-700">
+            <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="text-rose-400 hover:text-rose-700">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -262,9 +262,18 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
 
                     <!-- Guard Banner if Output was not smaller -->
-                    <div id="no-savings-guard" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-800 text-left flex items-start gap-2.5 max-w-lg mx-auto">
-                        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
-                        <span>This document is already highly optimized. The compressed file is not smaller than the original. You can download the original or try a stronger visual preset above.</span>
+                    <div id="no-savings-guard" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-800 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 max-w-lg mx-auto">
+                        <div class="flex items-start gap-2.5">
+                            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+                            <span>This document is already highly optimized. The compressed file is not smaller than the original. You can download the original or try a stronger visual preset above.</span>
+                        </div>
+                        <button
+                            type="button"
+                            id="download-original-btn"
+                            class="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors cursor-pointer"
+                        >
+                            Download Original PDF
+                        </button>
                     </div>
 
                     <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">

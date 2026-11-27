@@ -37,6 +37,7 @@
     let currentBuffer = null;
     let currentSecurityStatus = null; // { encrypted, unlocked, exitCode }
     let decryptedBlob = null;
+    let loadSeq = 0;
 
     function showError(msg) {
         if (!errorAlert || !errorMessage) return;
@@ -91,26 +92,45 @@
         });
     }
 
-    // Ingest Selected File
+    // Ingest Selected File (atomic against rapid replacements)
     async function loadPdfFile(file) {
         clearError();
         clearInputError();
         if (resultView) resultView.classList.add('hidden');
-        if (statusNotEncrypted) statusNotEncrypted.classList.add('hidden');
-        if (statusOwnerRestricted) statusOwnerRestricted.classList.add('hidden');
-        if (statusPasswordRequired) statusPasswordRequired.classList.add('hidden');
+        const seq = ++loadSeq;
 
         try {
             submitBtn.disabled = true;
             progress.start('Inspecting document security...');
 
-            currentFile = file;
-            currentBuffer = await PDFCore.readFileAsArrayBuffer(file);
+            const nextBuffer = await PDFCore.readFileAsArrayBuffer(file);
+            const headText = new TextDecoder('latin1').decode(new Uint8Array(nextBuffer.slice(0, 1024)));
+            if (!headText.includes('%PDF-')) {
+                throw new Error('CORRUPT_OR_INVALID_PDF');
+            }
 
             // Pre-initialize QPDF and check security status
             await QPDFClient.init();
-            const status = await QPDFClient.checkPasswordStatus(currentBuffer);
+            const status = await QPDFClient.checkPasswordStatus(nextBuffer);
+
+            if (seq !== loadSeq) return;
+
+            if (status.exitCode !== 0 && status.exitCode !== 2 && status.exitCode !== 3) {
+                throw new Error('CORRUPT_OR_INVALID_PDF');
+            }
+
+            currentFile = file;
+            currentBuffer = nextBuffer;
             currentSecurityStatus = status;
+            decryptedBlob = null;
+            if (unlockPasswordInput) {
+                unlockPasswordInput.value = '';
+                unlockPasswordInput.type = 'password';
+            }
+
+            if (statusNotEncrypted) statusNotEncrypted.classList.add('hidden');
+            if (statusOwnerRestricted) statusOwnerRestricted.classList.add('hidden');
+            if (statusPasswordRequired) statusPasswordRequired.classList.add('hidden');
 
             fileNameLabel.textContent = file.name;
             fileMetaLabel.textContent = `${PDFCore.formatBytes(file.size)}`;
@@ -138,9 +158,9 @@
             submitBtn.disabled = false;
         } catch (err) {
             console.error('File load error:', err);
-            showError('Unable to inspect this PDF document. Please verify the file is not corrupted.');
+            showError('Unable to inspect this PDF document. The file appears corrupted or invalid.');
             progress.reset();
-            submitBtn.disabled = false;
+            submitBtn.disabled = !currentBuffer;
         }
     }
 
@@ -208,8 +228,10 @@
                 }
             } catch (err) {
                 const msg = err.message || '';
-                if (msg.includes('Incorrect password') || msg.includes('password') || msg.includes('Decryption failed')) {
-                    console.warn('Unlock password rejected:', msg);
+                if (/corrupt|damaged|invalid pdf|trailer|xref|startxref|header/i.test(msg)) {
+                    console.error('Unlock corrupt file error:', err);
+                    showError('This PDF appears damaged or invalid and cannot be decrypted.');
+                } else if (/incorrect password|invalid password|wrong password|decryption failed|\bpassword\b/i.test(msg)) {
                     showInputError('Incorrect password. Please verify the password and try again.');
                     unlockPasswordInput?.select();
                 } else {
@@ -237,12 +259,22 @@
     // Reset Handler
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
+            ++loadSeq;
             currentFile = null;
             currentBuffer = null;
             decryptedBlob = null;
             currentSecurityStatus = null;
-            if (unlockPasswordInput) unlockPasswordInput.value = '';
+            if (unlockPasswordInput) {
+                unlockPasswordInput.value = '';
+                unlockPasswordInput.type = 'password';
+            }
             if (fileInput) fileInput.value = '';
+
+            const toggleIcon = togglePwBtn?.querySelector('i');
+            if (toggleIcon) {
+                toggleIcon.setAttribute('data-lucide', 'eye');
+                if (window.lucide) window.lucide.createIcons();
+            }
 
             clearError();
             clearInputError();

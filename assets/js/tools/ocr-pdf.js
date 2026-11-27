@@ -102,13 +102,20 @@
         // --- Load Document ---
         async function loadPdfDocument(file) {
             clearError();
-            originalFile = file;
 
             try {
-                originalArrayBuffer = await PDFCore.readFileAsArrayBuffer(file);
-                const loaded = await PDFRender.loadPreviewDoc(originalArrayBuffer);
+                const nextBuffer = await PDFCore.readFileAsArrayBuffer(file);
+                const loaded = await PDFRender.loadPreviewDoc(nextBuffer);
+                if (pdfDocProxy) {
+                    await PDFRender.destroyDoc(pdfDocProxy);
+                    pdfDocProxy = null;
+                }
+                originalFile = file;
+                originalArrayBuffer = nextBuffer;
                 pdfDocProxy = loaded.pdfProxy;
                 totalPages = loaded.numPages;
+                lastSearchablePdfBytes = null;
+                lastFullExtractedText = '';
 
                 docFilename.textContent = file.name;
                 docMeta.textContent = `${totalPages} page${totalPages === 1 ? '' : 's'} • ${PDFCore.formatBytes(file.size)}`;
@@ -252,7 +259,7 @@
                 });
 
                 // Load source document into pdf-lib for searchable overlay stamping
-                const { PDFDocument, StandardFonts } = window.PDFLib;
+                const { PDFDocument, StandardFonts, degrees } = window.PDFLib;
                 const pdfDoc = await PDFDocument.load(originalArrayBuffer.slice(0));
                 const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
@@ -284,13 +291,19 @@
 
                     await pageProxy.render({ canvasContext: ctx, viewport }).promise;
 
-                    if (isCancelled) break;
+                    if (isCancelled) {
+                        canvas.width = 0; canvas.height = 0;
+                        break;
+                    }
 
                     // Run recognition on offscreen canvas
                     ocrProgressDesc.textContent = 'Analyzing text layout and neural inference...';
                     const ocrResult = await worker.recognize(canvas, {}, { text: true, blocks: true });
 
-                    if (isCancelled) break;
+                    if (isCancelled) {
+                        canvas.width = 0; canvas.height = 0;
+                        break;
+                    }
 
                     const pageText = (ocrResult.data?.text || '').trim();
                     fullTextAccumulator.push(`--- Page ${pageNum} ---\n${pageText}\n`);
@@ -299,13 +312,11 @@
                     const words = extractWordsFromResult(ocrResult.data);
                     totalWordsFound += words.length;
 
-                    // Embed invisible searchable text layer into pdf-lib page
+                    // Embed invisible searchable text layer honoring CropBox & /Rotate
                     const pdfPage = pdfDoc.getPage(pageNum - 1);
-                    const pageWidthPt = pdfPage.getWidth();
-                    const pageHeightPt = pdfPage.getHeight();
-
-                    const scaleX = pageWidthPt / canvas.width;
-                    const scaleY = pageHeightPt / canvas.height;
+                    const pageBox = PDFRender.getEffectivePageBox(pdfPage);
+                    const scaleX = pageBox.visualWidth / Math.max(1, canvas.width);
+                    const scaleY = pageBox.visualHeight / Math.max(1, canvas.height);
 
                     for (const word of words) {
                         if (!word.text || !word.bbox) continue;
@@ -315,21 +326,33 @@
                         if (!sanitizedText) continue;
 
                         const bbox = word.bbox;
-                        const wordX = bbox.x0 * scaleX;
-                        const wordW = (bbox.x1 - bbox.x0) * scaleX;
-                        const wordH = (bbox.y1 - bbox.y0) * scaleY;
-                        // Flip Y-axis: PDF coordinate origin is bottom-left
-                        const wordY = pageHeightPt - (bbox.y1 * scaleY);
+                        const wordW = Math.max(2, (bbox.x1 - bbox.x0) * scaleX);
+                        const wordH = Math.max(4, (bbox.y1 - bbox.y0) * scaleY);
+                        const vcx = ((bbox.x0 + bbox.x1) / 2) * scaleX;
+                        const vcy = ((bbox.y0 + bbox.y1) / 2) * scaleY;
 
-                        const fontSize = Math.max(4, Math.min(wordH * 0.9, 72));
+                        let fontSize = Math.max(4, Math.min(wordH * 0.9, 72));
+                        let measuredW = wordW;
+                        try {
+                            measuredW = helveticaFont.widthOfTextAtSize(sanitizedText, fontSize);
+                            if (measuredW > wordW * 1.05 && measuredW > 0) {
+                                fontSize = Math.max(4, fontSize * (wordW / measuredW));
+                                measuredW = helveticaFont.widthOfTextAtSize(sanitizedText, fontSize);
+                            }
+                        } catch (_) {}
+
+                        const placement = PDFRender.visualCenterRectToPdfDraw(
+                            vcx, vcy, measuredW, fontSize, 0, pageBox
+                        );
 
                         try {
                             pdfPage.drawText(sanitizedText, {
-                                x: wordX,
-                                y: wordY,
+                                x: placement.x,
+                                y: placement.y,
                                 size: fontSize,
                                 font: helveticaFont,
                                 opacity: 0, // Fully invisible text overlay
+                                rotate: degrees(placement.rotateDeg),
                             });
                         } catch (drawErr) {
                             // Skip glyphs that cannot be encoded by standard fonts
@@ -370,6 +393,10 @@
 
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             } catch (err) {
+                if (isCancelled) {
+                    ocrProgressPanel.classList.add('hidden');
+                    return;
+                }
                 console.error('OCR processing error:', err);
                 ocrProgressPanel.classList.add('hidden');
                 showError('OCR failed: ' + (err.message || 'Error executing optical character recognition.'));
@@ -423,12 +450,17 @@
         ocrChangeFileBtn?.addEventListener('click', resetAll);
         ocrResetBtn?.addEventListener('click', resetAll);
 
-        function resetAll() {
+        async function resetAll() {
+            if (pdfDocProxy) {
+                await PDFRender.destroyDoc(pdfDocProxy);
+                pdfDocProxy = null;
+            }
             originalFile = null;
             originalArrayBuffer = null;
-            pdfDocProxy = null;
             lastSearchablePdfBytes = null;
             lastFullExtractedText = '';
+            if (pdfFileInput) pdfFileInput.value = '';
+            if (extractedTextArea) extractedTextArea.value = '';
             ocrConfigPanel.classList.add('hidden');
             ocrResultPanel.classList.add('hidden');
             ocrProgressPanel.classList.add('hidden');

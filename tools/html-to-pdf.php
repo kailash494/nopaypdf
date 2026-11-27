@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/tool-layout.php';
 
 $tool = get_tool_by_slug('html-to-pdf');
 if (!$tool) {
+    http_response_code(404);
     require __DIR__ . '/../pages/404.php';
     exit;
 }
@@ -71,21 +72,21 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Interactive Tool Workspace -->
 <section class="py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
     <!-- Error Alert Banner -->
-    <div id="error-alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
+    <div id="error-alert" role="alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
         <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"></i>
         <div class="flex-grow" id="error-message"></div>
-        <button type="button" id="error-dismiss-btn" class="p-1 text-red-400 hover:text-red-700">
+        <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="p-1 text-red-400 hover:text-red-700">
             <i data-lucide="x" class="w-4 h-4"></i>
         </button>
     </div>
 
     <!-- Mode Selector Tabs -->
-    <div class="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs flex flex-wrap gap-2 mb-6">
-        <button type="button" data-mode="text" class="converter-mode-tab flex-1 min-w-[150px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 text-white transition-all flex items-center justify-center gap-2">
+    <div role="tablist" aria-label="Conversion Mode" class="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs flex flex-wrap gap-2 mb-6">
+        <button type="button" role="tab" aria-selected="true" data-mode="text" class="converter-mode-tab flex-1 min-w-[150px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 text-white transition-all flex items-center justify-center gap-2">
             <i data-lucide="file-text" class="w-4 h-4"></i>
             <span>Plain Text to PDF (Vector Text)</span>
         </button>
-        <button type="button" data-mode="html" class="converter-mode-tab flex-1 min-w-[150px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-transparent text-slate-600 hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
+        <button type="button" role="tab" aria-selected="false" data-mode="html" class="converter-mode-tab flex-1 min-w-[150px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-transparent text-slate-600 hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
             <i data-lucide="code-xml" class="w-4 h-4"></i>
             <span>HTML to PDF (Rich Layout)</span>
         </button>
@@ -114,6 +115,8 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <textarea
                     id="plain-text-input"
+                    name="plain-text-input"
+                    aria-label="Plain text content to convert to PDF"
                     rows="10"
                     placeholder="Type or paste your text here... Long paragraphs will automatically wrap and flow onto new PDF pages seamlessly."
                     class="w-full p-4 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed font-sans"
@@ -217,6 +220,8 @@ require_once __DIR__ . '/../includes/header.php';
 
                     <textarea
                         id="html-source-input"
+                        name="html-source-input"
+                        aria-label="HTML source code to convert to PDF"
                         rows="14"
                         placeholder="Paste your HTML code here with inline or <style> tags..."
                         class="code-editor-textarea w-full p-3.5 text-xs bg-slate-900 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono leading-relaxed resize-y"
@@ -232,8 +237,8 @@ require_once __DIR__ . '/../includes/header.php';
                         </span>
                     </div>
 
-                    <div id="html-preview-container" class="w-full h-[320px] bg-slate-50 border border-slate-200 rounded-xl overflow-auto p-4">
-                        <div id="html-preview-sandbox" class="html-preview-frame"></div>
+                    <div id="html-preview-container" class="w-full h-[320px] bg-slate-50 border border-slate-200 rounded-xl overflow-hidden p-1">
+                        <div id="html-preview-sandbox" class="w-full h-full"></div>
                     </div>
                 </div>
             </div>

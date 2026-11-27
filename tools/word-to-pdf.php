@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/tool-layout.php';
 
 $tool = get_tool_by_slug('word-to-pdf');
 if (!$tool) {
+    http_response_code(404);
     require __DIR__ . '/../pages/404.php';
     exit;
 }
@@ -79,10 +80,10 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Interactive Tool Workspace -->
 <section class="py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
     <!-- Error Alert Banner -->
-    <div id="error-alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
+    <div id="error-alert" role="alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
         <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"></i>
         <div class="flex-grow" id="error-message"></div>
-        <button type="button" id="error-dismiss-btn" class="p-1 text-red-400 hover:text-red-700">
+        <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="p-1 text-red-400 hover:text-red-700">
             <i data-lucide="x" class="w-4 h-4"></i>
         </button>
     </div>
@@ -174,9 +175,9 @@ require_once __DIR__ . '/../includes/header.php';
                 <span class="text-[11px] text-slate-400">Rendered client-side</span>
             </div>
 
-            <div class="bg-slate-100 p-4 sm:p-8 rounded-xl overflow-x-auto max-h-[600px] flex justify-center">
-                <div id="docx-paper-preview" class="bg-white shadow-md p-8 sm:p-12 text-slate-800 text-xs sm:text-sm leading-relaxed max-w-[750px] w-full min-h-[400px] overflow-hidden">
-                    <div id="docx-rendered-content"></div>
+            <div class="bg-slate-100 p-4 sm:p-6 rounded-xl overflow-hidden flex justify-center">
+                <div id="docx-paper-preview" class="bg-white shadow-md text-slate-800 text-xs sm:text-sm leading-relaxed max-w-[750px] w-full h-[460px] overflow-hidden rounded-lg border border-slate-200">
+                    <div id="docx-rendered-content" class="w-full h-full"></div>
                 </div>
             </div>
         </div>
@@ -185,15 +186,12 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="w-full sm:w-auto flex-1 max-w-sm">
                 <label for="output-filename" class="block text-xs font-semibold text-slate-700 mb-1">Output Filename</label>
-                <div class="relative">
-                    <input
-                        type="text"
-                        id="output-filename"
-                        value="document.pdf"
-                        class="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-12 font-mono"
-                    >
-                    <span class="absolute right-3 top-2 text-xs text-slate-400">.pdf</span>
-                </div>
+                <input
+                    type="text"
+                    id="output-filename"
+                    value="document.pdf"
+                    class="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                >
             </div>
 
             <div class="w-full sm:w-auto flex items-center gap-3 self-end sm:self-auto">

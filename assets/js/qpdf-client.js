@@ -39,7 +39,10 @@
                     }
 
                     if (onProgress) onProgress('WebAssembly engine ready.');
-                })();
+                })().catch((err) => {
+                    initPromise = null;
+                    throw err;
+                });
             }
 
             return initPromise;
@@ -51,20 +54,36 @@
          * @param {Array<string>|Function} argsOrBuilder Command arguments or (inPath, outPath) => args
          * @returns {Promise<{ok: boolean, exitCode: number, outputBytes: Uint8Array|null, stdout: string, stderr: string}>}
          */
-        async run(inputBytes, argsOrBuilder) {
+        async run(inputBytes, argsOrBuilder, options = {}) {
             await this.init();
 
             const stdoutLines = [];
             const stderrLines = [];
             let exitCode = 0;
 
-            // Instantiate a clean Emscripten module per run to prevent stale global state
-            const mod = await window.Module({
-                wasmBinary: cachedWasmBinary.slice(0),
-                locateFile: (p) => (p.endsWith('.wasm') ? '/assets/vendor/qpdf/qpdf.wasm' : '/assets/vendor/qpdf/' + p),
-                print: (text) => stdoutLines.push(text),
-                printErr: (text) => stderrLines.push(text),
-            });
+            // qpdf.js binds r = console.error.bind(console) synchronously inside window.Module().
+            // Temporarily capture it synchronously so Emscripten /dev/stderr routes into stderrLines cleanly
+            // without emitting console.error noise during expected probes (e.g. --requires-password).
+            const origConsoleError = console.error;
+            let modPromise;
+            console.error = (...args) => {
+                const line = args.map(a => String(a ?? '')).join(' ');
+                stderrLines.push(line);
+                if (!options.quiet && !line.includes('invalid password')) {
+                    origConsoleError.apply(console, args);
+                }
+            };
+            try {
+                modPromise = window.Module({
+                    wasmBinary: cachedWasmBinary.slice(0),
+                    locateFile: (p) => (p.endsWith('.wasm') ? '/assets/vendor/qpdf/qpdf.wasm' : '/assets/vendor/qpdf/' + p),
+                    print: (text) => stdoutLines.push(text),
+                    printErr: (text) => stderrLines.push(text),
+                });
+            } finally {
+                console.error = origConsoleError;
+            }
+            const mod = await modPromise;
 
             const inPath = '/in.pdf';
             const outPath = '/out.pdf';
@@ -81,7 +100,10 @@
             }
 
             try {
-                mod.callMain(args);
+                const callRet = mod.callMain(args);
+                if (typeof callRet === 'number') {
+                    exitCode = callRet;
+                }
             } catch (err) {
                 if (err && (typeof err.status === 'number' || err.name === 'ExitStatus')) {
                     exitCode = err.status ?? 0;
@@ -134,13 +156,20 @@
             }
             args.push('--requires-password', '/in.pdf');
 
-            const res = await this.run(inputBytes, args);
+            const res = await this.run(inputBytes, args, { quiet: true });
 
-            if (res.exitCode === 2) {
-                return { encrypted: false, unlocked: true, exitCode: 2 };
+            // QPDF exits 2 with "invalid password" when an open password is required or incorrect.
+            if (/invalid password/i.test(res.stderr || '')) {
+                return { encrypted: true, unlocked: false, exitCode: 0 };
             }
             if (res.exitCode === 3) {
                 return { encrypted: true, unlocked: true, exitCode: 3 };
+            }
+            if (res.exitCode === 2) {
+                if ((res.stderr || '').trim().length > 0) {
+                    throw new Error(res.stderr);
+                }
+                return { encrypted: false, unlocked: true, exitCode: 2 };
             }
             if (res.exitCode === 0) {
                 return { encrypted: true, unlocked: false, exitCode: 0 };
@@ -190,8 +219,8 @@
                 outPath,
             ];
 
-            const res = await this.run(inputBytes, args);
-            if (!res.outputBytes) {
+            const res = await this.run(inputBytes, args, { quiet: true });
+            if (!res.ok || !res.outputBytes) {
                 throw new Error(res.stderr || 'Encryption failed: no output document generated.');
             }
 
@@ -215,11 +244,17 @@
                 outPath,
             ];
 
-            const res = await this.run(inputBytes, args);
+            const res = await this.run(inputBytes, args, { quiet: true });
 
-            if (res.exitCode !== 0 || !res.outputBytes) {
+            if (!res.ok || !res.outputBytes) {
                 const combined = (res.stderr + '\n' + res.stdout).toLowerCase();
-                if (combined.includes('invalid password') || combined.includes('password') || res.exitCode === 2 || Boolean(password)) {
+                if (combined.includes('invalid password')) {
+                    throw new Error('Incorrect password. Please verify the password and try again.');
+                }
+                if (combined.includes('damaged') || combined.includes('damaged pdf') || combined.includes('expected') || combined.includes('header')) {
+                    throw new Error('The selected file appears to be corrupted or is not a valid PDF document.');
+                }
+                if (combined.includes('password') && Boolean(password)) {
                     throw new Error('Incorrect password. Please verify the password and try again.');
                 }
                 throw new Error(res.stderr || res.stdout || 'Decryption failed: invalid or corrupt document.');
@@ -247,8 +282,8 @@
                 outPath,
             ];
 
-            const res = await this.run(inputBytes, args);
-            if (!res.outputBytes) {
+            const res = await this.run(inputBytes, args, { quiet: true });
+            if (!res.ok || !res.outputBytes) {
                 throw new Error(res.stderr || 'Lossless optimization failed.');
             }
 

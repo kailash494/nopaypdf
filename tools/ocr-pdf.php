@@ -83,10 +83,10 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="space-y-6">
 
         <!-- Error Notification Banner -->
-        <div id="error-alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
+        <div id="error-alert" role="alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
             <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
             <div class="flex-1 text-xs sm:text-sm" id="error-message"></div>
-            <button type="button" id="error-dismiss-btn" class="text-rose-400 hover:text-rose-700">
+            <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="text-rose-400 hover:text-rose-700">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -189,7 +189,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <!-- Page Range Selector -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <label class="block text-xs font-semibold text-slate-700">Pages to Recognize:</label>
+                    <span class="block text-xs font-semibold text-slate-700">Pages to Recognize:</span>
                     <div class="flex items-center gap-5 text-xs font-medium text-slate-700">
                         <label class="flex items-center gap-1.5 cursor-pointer">
                             <input type="radio" name="ocr-scope" value="all" checked class="accent-blue-600">
@@ -203,6 +203,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <input
                         type="text"
                         id="ocr-custom-range-input"
+                        aria-label="Custom OCR page range"
                         placeholder="e.g. 1-3, 5"
                         class="hidden w-full max-w-sm px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500"
                     >
@@ -328,6 +329,8 @@ require_once __DIR__ . '/../includes/header.php';
 
                     <textarea
                         id="extracted-text-area"
+                        name="extracted-text-area"
+                        aria-label="Recognized OCR text preview"
                         readonly
                         rows="10"
                         class="w-full p-4 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-xs text-slate-800 focus:outline-hidden leading-relaxed resize-y select-text"

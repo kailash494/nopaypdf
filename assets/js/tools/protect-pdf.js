@@ -35,12 +35,44 @@
     const errorAlert = document.getElementById('error-alert');
     const errorMessage = document.getElementById('error-message');
     const errorDismissBtn = document.getElementById('error-dismiss-btn');
+    const autoOwnerPwCard = document.getElementById('auto-owner-pw-card');
+    const autoOwnerPwValue = document.getElementById('auto-owner-pw-value');
+    const copyOwnerPwBtn = document.getElementById('copy-owner-pw-btn');
 
     // State
     const progress = PDFCore.createProgress(progressContainer);
     let currentFile = null;
     let currentBuffer = null;
     let protectedBlob = null;
+    let isAlreadyEncrypted = false;
+    let loadSeq = 0;
+
+    function generateMasterKey(length = 20) {
+        const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*';
+        const bytes = new Uint8Array(length);
+        window.crypto.getRandomValues(bytes);
+        let out = '';
+        for (let i = 0; i < length; i++) {
+            out += charset[bytes[i] % charset.length];
+        }
+        return out;
+    }
+
+    if (copyOwnerPwBtn && autoOwnerPwValue) {
+        copyOwnerPwBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(autoOwnerPwValue.textContent || '');
+                copyOwnerPwBtn.textContent = 'Copied!';
+                setTimeout(() => { copyOwnerPwBtn.textContent = 'Copy Key'; }, 1800);
+            } catch (e) {
+                const range = document.createRange();
+                range.selectNodeContents(autoOwnerPwValue);
+                const sel = window.getSelection();
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+            }
+        });
+    }
 
     function showError(msg) {
         if (!errorAlert || !errorMessage) return;
@@ -129,25 +161,34 @@
     if (userPasswordInput) userPasswordInput.addEventListener('input', updateStrength);
     if (confirmPasswordInput) confirmPasswordInput.addEventListener('input', checkMatch);
 
-    // Ingest Selected File
+    // Ingest Selected File (atomic against rapid swaps)
     async function loadPdfFile(file) {
         clearError();
         if (resultView) resultView.classList.add('hidden');
         if (alreadyEncryptedBanner) alreadyEncryptedBanner.classList.add('hidden');
+        if (autoOwnerPwCard) autoOwnerPwCard.classList.add('hidden');
+        const seq = ++loadSeq;
 
         try {
             submitBtn.disabled = true;
             progress.start('Reading PDF document...');
 
-            currentFile = file;
-            currentBuffer = await PDFCore.readFileAsArrayBuffer(file);
-
-            // Pre-initialize QPDF & check if file is already encrypted
+            const nextBuffer = await PDFCore.readFileAsArrayBuffer(file);
             await QPDFClient.init();
-            const status = await QPDFClient.checkPasswordStatus(currentBuffer);
+            const status = await QPDFClient.checkPasswordStatus(nextBuffer);
 
-            if (status.encrypted) {
+            if (seq !== loadSeq) return;
+
+            currentFile = file;
+            currentBuffer = nextBuffer;
+            protectedBlob = null;
+            isAlreadyEncrypted = Boolean(status.encrypted);
+
+            if (isAlreadyEncrypted) {
                 if (alreadyEncryptedBanner) alreadyEncryptedBanner.classList.remove('hidden');
+                submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            } else {
+                submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
             }
 
             fileNameLabel.textContent = file.name;
@@ -156,12 +197,12 @@
             dropzone.classList.add('hidden');
             workspace.classList.remove('hidden');
             progress.reset();
-            submitBtn.disabled = false;
+            submitBtn.disabled = isAlreadyEncrypted;
         } catch (err) {
             console.error('File load error:', err);
             showError('Unable to open this PDF document. Please verify the file is not corrupted.');
             progress.reset();
-            submitBtn.disabled = false;
+            submitBtn.disabled = !currentBuffer || isAlreadyEncrypted;
         }
     }
 
@@ -195,13 +236,23 @@
                 return;
             }
 
+            if (isAlreadyEncrypted) {
+                showError('This document is already encrypted. Unlock it first before applying a new password.');
+                return;
+            }
+
             const userPassword = userPasswordInput?.value || '';
             const confirmPassword = confirmPasswordInput?.value || '';
-            const ownerPassword = ownerPasswordInput?.value || '';
+            const rawOwnerPassword = ownerPasswordInput?.value || '';
 
             if (!userPassword || userPassword.length < 4) {
                 showError('Please enter an open password with at least 4 characters.');
                 userPasswordInput?.focus();
+                return;
+            }
+
+            if (userPassword.startsWith('-') || rawOwnerPassword.startsWith('-')) {
+                showError('Passwords cannot start with a hyphen (-). Please choose another starting character.');
                 return;
             }
 
@@ -211,8 +262,12 @@
                 return;
             }
 
+            const autoGeneratedMaster = !rawOwnerPassword;
+            const ownerPassword = rawOwnerPassword || generateMasterKey(20);
+
             clearError();
             if (resultView) resultView.classList.add('hidden');
+            if (autoOwnerPwCard) autoOwnerPwCard.classList.add('hidden');
 
             try {
                 submitBtn.disabled = true;
@@ -239,6 +294,16 @@
                 protectedBlob = new Blob([result.outputBytes], { type: 'application/pdf' });
                 progress.complete('Document protected successfully!');
 
+                if (autoOwnerPwCard && autoOwnerPwValue) {
+                    if (autoGeneratedMaster) {
+                        autoOwnerPwValue.textContent = ownerPassword;
+                        autoOwnerPwCard.classList.remove('hidden');
+                        if (copyOwnerPwBtn) copyOwnerPwBtn.textContent = 'Copy Key';
+                    } else {
+                        autoOwnerPwCard.classList.add('hidden');
+                    }
+                }
+
                 if (resultSummary) {
                     resultSummary.textContent = `Encrypted "${currentFile.name}" with 256-bit AES security (${PDFCore.formatBytes(protectedBlob.size)}).`;
                 }
@@ -252,7 +317,7 @@
                 showError(err.message || 'An error occurred during encryption.');
                 progress.reset();
             } finally {
-                submitBtn.disabled = false;
+                submitBtn.disabled = isAlreadyEncrypted;
                 submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
             }
         });
@@ -271,18 +336,38 @@
     // Reset Handler
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
+            ++loadSeq;
             currentFile = null;
             currentBuffer = null;
             protectedBlob = null;
-            if (userPasswordInput) userPasswordInput.value = '';
-            if (confirmPasswordInput) confirmPasswordInput.value = '';
-            if (ownerPasswordInput) ownerPasswordInput.value = '';
+            isAlreadyEncrypted = false;
+            if (userPasswordInput) { userPasswordInput.value = ''; userPasswordInput.type = 'password'; }
+            if (confirmPasswordInput) { confirmPasswordInput.value = ''; confirmPasswordInput.type = 'password'; }
+            if (ownerPasswordInput) { ownerPasswordInput.value = ''; ownerPasswordInput.type = 'password'; }
+            if (permPrint) permPrint.value = 'full';
+            if (permExtract) permExtract.value = 'y';
+            if (permModify) permModify.value = 'all';
             if (fileInput) fileInput.value = '';
+
+            document.querySelectorAll('.btn-toggle-pw i').forEach((icon) => {
+                icon.setAttribute('data-lucide', 'eye');
+            });
+            if (window.lucide) window.lucide.createIcons();
+
+            const detailsEl = workspace?.querySelector('details');
+            if (detailsEl) detailsEl.open = false;
+
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+            }
 
             updateStrength();
             clearError();
             progress.reset();
 
+            if (autoOwnerPwCard) autoOwnerPwCard.classList.add('hidden');
+            if (autoOwnerPwValue) autoOwnerPwValue.textContent = '';
             if (resultView) resultView.classList.add('hidden');
             if (alreadyEncryptedBanner) alreadyEncryptedBanner.classList.add('hidden');
             if (workspace) workspace.classList.add('hidden');

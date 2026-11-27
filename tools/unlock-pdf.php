@@ -79,10 +79,10 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="space-y-6">
 
         <!-- Error Notification Banner -->
-        <div id="error-alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
+        <div id="error-alert" role="alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
             <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
             <div class="flex-1 text-xs sm:text-sm" id="error-message"></div>
-            <button type="button" id="error-dismiss-btn" class="text-rose-400 hover:text-rose-700">
+            <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="text-rose-400 hover:text-rose-700">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -187,6 +187,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <button
                                 type="button"
                                 id="btn-toggle-unlock-pw"
+                                aria-label="Toggle PDF password visibility"
                                 class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1"
                             >
                                 <i data-lucide="eye" class="w-4 h-4"></i>
@@ -263,7 +264,6 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Permissive Client Libraries -->
 <?php
 $extraScripts = [
-    'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js',
     '/assets/vendor/qpdf/qpdf.js',
     '/assets/js/qpdf-client.js?v=' . APP_VERSION,
     '/assets/js/tools/unlock-pdf.js?v=' . APP_VERSION,

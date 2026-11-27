@@ -97,13 +97,18 @@
             modeTabs.forEach(t => {
                 t.classList.remove('bg-blue-600', 'text-white');
                 t.classList.add('bg-transparent', 'text-slate-600');
+                t.setAttribute('aria-selected', 'false');
             });
             tab.classList.add('bg-blue-600', 'text-white');
             tab.classList.remove('bg-transparent', 'text-slate-600');
+            tab.setAttribute('aria-selected', 'true');
 
             modePanels.forEach(p => p.classList.add('hidden'));
             const activePanel = document.getElementById(`mode-panel-${targetMode}`);
             if (activePanel) activePanel.classList.remove('hidden');
+
+            lastResultPayload = null;
+            resultView?.classList.add('hidden');
         });
     });
 
@@ -119,6 +124,7 @@
             const isSelected = selectedPages.has(pageNum);
             const checkbox = card.querySelector('.page-checkbox');
             if (checkbox) checkbox.checked = isSelected;
+            card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
 
             if (isSelected) {
                 card.classList.add('selected');
@@ -182,20 +188,24 @@
         // Create card placeholders first
         for (let i = 1; i <= totalPages; i++) {
             const card = document.createElement('div');
-            card.className = 'page-thumbnail-card bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs flex flex-col items-center justify-between cursor-pointer relative';
+            card.className = 'page-thumbnail-card bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs flex flex-col items-center justify-between cursor-pointer relative focus:outline-none focus:ring-2 focus:ring-blue-500';
             card.dataset.page = i;
+            card.setAttribute('role', 'checkbox');
+            card.setAttribute('aria-checked', selectedPages.has(i) ? 'true' : 'false');
+            card.setAttribute('tabindex', '0');
+            card.setAttribute('aria-label', `Select page ${i}`);
 
             card.innerHTML = `
                 <div class="w-full flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-1.5 px-0.5">
                     <span>#${i}</span>
-                    <input type="checkbox" class="page-checkbox rounded text-blue-600 focus:ring-blue-500 pointer-events-none" checked>
+                    <input type="checkbox" tabindex="-1" aria-hidden="true" class="page-checkbox rounded text-blue-600 pointer-events-none" checked>
                 </div>
                 <div class="canvas-wrapper w-full h-[140px] flex items-center justify-center bg-slate-50 rounded-lg overflow-hidden border border-slate-100">
                     <span class="text-[10px] text-slate-400 loading-indicator animate-pulse">Loading...</span>
                 </div>
             `;
 
-            // Click handling with Shift+Click range support
+            // Click & keyboard handling with Shift+Click range support
             card.addEventListener('click', (e) => {
                 const pageNum = parseInt(card.dataset.page, 10);
                 if (e.shiftKey && lastShiftIndex !== null) {
@@ -214,7 +224,16 @@
                     }
                     lastShiftIndex = pageNum;
                 }
+                lastResultPayload = null;
+                resultView?.classList.add('hidden');
                 updateVisualSelectionUI();
+            });
+
+            card.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    card.click();
+                }
             });
 
             visualGrid.appendChild(card);
@@ -344,7 +363,8 @@
                 progress.start('Preparing document for extraction...');
 
                 const sourceDoc = await PDFLib.PDFDocument.load(originalBuffer);
-                const baseDocName = currentFile?.name ? currentFile.name.replace(/\.[^/.]+$/, '') : 'document';
+                const baseDocName = PDFCore.sanitizeFilename(currentFile?.name || 'document', 'pdf').replace(/\.pdf$/i, '') || 'document';
+                const padWidth = Math.max(2, String(totalPages).length);
 
                 // ==========================================
                 // 1. VISUAL SELECTION MODE
@@ -384,12 +404,13 @@
                             const [cp] = await singleDoc.copyPages(sourceDoc, [pNum - 1]);
                             singleDoc.addPage(cp);
                             const b = await singleDoc.save();
-                            const pad = String(pNum).padStart(2, '0');
+                            const pad = String(pNum).padStart(padWidth, '0');
                             zipEntries.push({
                                 name: `${baseDocName}-page-${pad}.pdf`,
                                 bytes: b
                             });
                             progress.update(20 + Math.round((i / sortedPages.length) * 60));
+                            if (i % 10 === 9) await new Promise((r) => setTimeout(r, 0));
                         }
 
                         progress.update(85, 'Packaging ZIP archive...');
@@ -436,9 +457,10 @@
 
                         resultSummary.textContent = `Combined ${parsed.groups.length} range(s) into 1 document (${PDFCore.formatBytes(pdfBytes.length)}).`;
                     } else {
-                        // ZIP of separate range PDFs
+                        // ZIP of separate range PDFs with duplicate name disambiguation
                         progress.update(20, 'Extracting range documents...');
                         const zipEntries = [];
+                        const usedNames = new Set();
                         for (let g = 0; g < parsed.groups.length; g++) {
                             const groupPages = parsed.groups[g];
                             const rangeDoc = await PDFLib.PDFDocument.create();
@@ -451,11 +473,19 @@
                                 ? `${groupPages[0]}-${groupPages[groupPages.length - 1]}`
                                 : `${groupPages[0]}`;
 
+                            let entryName = `${baseDocName}-range-${rangeLabel}.pdf`;
+                            let dupSuffix = 2;
+                            while (usedNames.has(entryName)) {
+                                entryName = `${baseDocName}-range-${rangeLabel}-part${dupSuffix++}.pdf`;
+                            }
+                            usedNames.add(entryName);
+
                             zipEntries.push({
-                                name: `${baseDocName}-range-${rangeLabel}.pdf`,
+                                name: entryName,
                                 bytes: b
                             });
                             progress.update(20 + Math.round((g / parsed.groups.length) * 60));
+                            if (g % 10 === 9) await new Promise((r) => setTimeout(r, 0));
                         }
 
                         progress.update(85, 'Packaging ZIP...');
@@ -486,12 +516,13 @@
                         singleDoc.addPage(copied);
                         const b = await singleDoc.save();
 
-                        const pad = String(p).padStart(2, '0');
+                        const pad = String(p).padStart(padWidth, '0');
                         zipEntries.push({
                             name: `${baseDocName}-page-${pad}.pdf`,
                             bytes: b
                         });
                         progress.update(15 + Math.round((p / totalPages) * 65));
+                        if (p % 10 === 0) await new Promise((r) => setTimeout(r, 0));
                     }
 
                     progress.update(85, 'Compressing into ZIP archive...');
@@ -523,7 +554,7 @@
                 }
             } catch (err) {
                 console.error('Split execution error:', err);
-                showError(err.message || 'An error occurred while splitting the PDF.');
+                showError(PDFCore.formatPdfError(err) || 'An error occurred while splitting the PDF.');
                 progress.reset();
             } finally {
                 splitActionBtn.disabled = false;
@@ -548,6 +579,9 @@
             currentFile = null;
             originalBuffer = null;
             totalPages = 0;
+            if (fileInput) fileInput.value = '';
+            if (rangeInput) rangeInput.value = '';
+            if (rangeFeedback) rangeFeedback.textContent = '';
             progress.reset();
             resultView?.classList.add('hidden');
             workspaceView.classList.add('hidden');

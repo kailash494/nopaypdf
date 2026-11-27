@@ -75,10 +75,10 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="space-y-6">
 
         <!-- Error Notification Banner -->
-        <div id="error-alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
+        <div id="error-alert" role="alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
             <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
             <div class="flex-1 text-xs sm:text-sm" id="error-message"></div>
-            <button type="button" id="error-dismiss-btn" class="text-rose-400 hover:text-rose-700">
+            <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="text-rose-400 hover:text-rose-700">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -91,7 +91,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <span class="font-bold">Need to directly edit existing text, add links, or create form fields?</span> Try our full in-browser PDF Editor.
                 </p>
             </div>
-            <a href="/edit-pdf" class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shrink-0 shadow-xs transition-colors">
+            <a href="/edit-pdf/" class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shrink-0 shadow-xs transition-colors">
                 Open Full Editor
             </a>
         </div>
@@ -159,6 +159,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <button
                         type="button"
                         id="reset-editor-btn"
+                        aria-label="Upload another PDF"
                         class="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 text-xs transition-colors cursor-pointer"
                         title="Upload another PDF"
                     >
@@ -240,6 +241,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <button
                             type="button"
                             id="stamp-check-btn"
+                            aria-label="Stamp Checkmark"
                             class="p-1.5 rounded-lg text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 text-xs transition-colors"
                             title="Stamp Checkmark (✓)"
                         >
@@ -249,6 +251,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <button
                             type="button"
                             id="stamp-cross-btn"
+                            aria-label="Stamp Cross"
                             class="p-1.5 rounded-lg text-slate-600 hover:text-rose-600 hover:bg-rose-50 text-xs transition-colors"
                             title="Stamp Cross (✕)"
                         >
@@ -268,6 +271,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <button
                             type="button"
                             id="stamp-rect-btn"
+                            aria-label="Add Box Outline"
                             class="p-1.5 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 text-xs transition-colors"
                             title="Add Box Outline"
                         >
@@ -282,6 +286,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <button
                                 type="button"
                                 id="prev-page-btn"
+                                aria-label="Previous Page"
                                 class="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
                                 title="Previous Page"
                             >
@@ -293,6 +298,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <button
                                 type="button"
                                 id="next-page-btn"
+                                aria-label="Next Page"
                                 class="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
                                 title="Next Page"
                             >
@@ -305,6 +311,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <button
                                 type="button"
                                 id="zoom-out-btn"
+                                aria-label="Zoom Out"
                                 class="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition-colors"
                                 title="Zoom Out"
                             >
@@ -314,6 +321,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <button
                                 type="button"
                                 id="zoom-in-btn"
+                                aria-label="Zoom In"
                                 class="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition-colors"
                                 title="Zoom In"
                             >
@@ -333,6 +341,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <button
                             type="button"
                             id="toggle-thumbnails-btn"
+                            aria-label="Toggle Page Thumbnails"
                             class="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
                             title="Toggle Page Thumbnails"
                         >
@@ -350,11 +359,12 @@ require_once __DIR__ . '/../includes/header.php';
                         <div class="flex items-center gap-1.5">
                             <span class="text-slate-500 font-medium">Color:</span>
                             <div class="flex items-center gap-1">
-                                <button type="button" class="color-preset-btn w-5 h-5 rounded-full bg-black ring-2 ring-blue-500 ring-offset-1" data-color="#000000" title="Black"></button>
-                                <button type="button" class="color-preset-btn w-5 h-5 rounded-full bg-blue-600 hover:scale-110 transition-transform" data-color="#2563eb" title="Blue"></button>
-                                <button type="button" class="color-preset-btn w-5 h-5 rounded-full bg-rose-600 hover:scale-110 transition-transform" data-color="#dc2626" title="Red"></button>
-                                <button type="button" class="color-preset-btn w-5 h-5 rounded-full bg-emerald-600 hover:scale-110 transition-transform" data-color="#16a34a" title="Green"></button>
-                                <label class="cursor-pointer" title="Custom Color">
+                                <button type="button" class="color-preset-btn w-5 h-5 rounded-full bg-black ring-2 ring-blue-500 ring-offset-1" data-color="#000000" title="Black" aria-label="Black color"></button>
+                                <button type="button" class="color-preset-btn w-5 h-5 rounded-full bg-blue-600 hover:scale-110 transition-transform" data-color="#2563eb" title="Blue" aria-label="Blue color"></button>
+                                <button type="button" class="color-preset-btn w-5 h-5 rounded-full bg-rose-600 hover:scale-110 transition-transform" data-color="#dc2626" title="Red" aria-label="Red color"></button>
+                                <button type="button" class="color-preset-btn w-5 h-5 rounded-full bg-emerald-600 hover:scale-110 transition-transform" data-color="#16a34a" title="Green" aria-label="Green color"></button>
+                                <label for="custom-color-picker" class="cursor-pointer" title="Custom Color">
+                                    <span class="sr-only">Custom Color</span>
                                     <input type="color" id="custom-color-picker" value="#000000" class="w-5 h-5 rounded-full border border-slate-300 p-0 overflow-hidden cursor-pointer">
                                 </label>
                             </div>
@@ -364,7 +374,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <!-- Font Size (For Text Tool) -->
                         <div id="font-size-group" class="flex items-center gap-1.5">
-                            <span class="text-slate-500 font-medium">Size:</span>
+                            <label for="text-font-size" class="text-slate-500 font-medium">Size:</label>
                             <select id="text-font-size" class="px-2 py-1 rounded-lg border border-slate-200 bg-white font-medium text-slate-700">
                                 <option value="12">12 pt</option>
                                 <option value="14">14 pt</option>
@@ -378,6 +388,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <!-- Font Family -->
                         <div id="font-family-group" class="flex items-center gap-1.5">
+                            <label for="text-font-family" class="sr-only">Font Family</label>
                             <select id="text-font-family" class="px-2 py-1 rounded-lg border border-slate-200 bg-white font-medium text-slate-700">
                                 <option value="Arial, sans-serif" selected>Sans-Serif</option>
                                 <option value="'Times New Roman', serif">Serif</option>
@@ -388,7 +399,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <!-- Line / Pen Stroke Width -->
                         <div id="stroke-width-group" class="hidden items-center gap-1.5">
-                            <span class="text-slate-500 font-medium">Stroke:</span>
+                            <label for="pen-stroke-width" class="text-slate-500 font-medium">Stroke:</label>
                             <input type="range" id="pen-stroke-width" min="1" max="12" value="2" class="w-20 accent-blue-600 cursor-pointer">
                             <span id="stroke-width-label" class="font-bold text-slate-700 min-w-[20px]">2px</span>
                         </div>
@@ -399,6 +410,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <button
                             type="button"
                             id="undo-btn"
+                            aria-label="Undo"
                             class="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                             title="Undo (Ctrl+Z)"
                             disabled
@@ -408,6 +420,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <button
                             type="button"
                             id="redo-btn"
+                            aria-label="Redo"
                             class="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                             title="Redo (Ctrl+Y)"
                             disabled
@@ -514,7 +527,7 @@ require_once __DIR__ . '/../includes/header.php';
 </section>
 
 <!-- Signature Studio Modal -->
-<div id="signature-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+<div id="signature-modal" role="dialog" aria-modal="true" aria-labelledby="sig-modal-title" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         <!-- Modal Header -->
@@ -523,18 +536,21 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
                     <i data-lucide="pen" class="w-4 h-4"></i>
                 </div>
-                <h3 class="text-base font-bold text-slate-900">Signature Studio</h3>
+                <h3 id="sig-modal-title" class="text-base font-bold text-slate-900">Signature Studio</h3>
             </div>
-            <button type="button" id="close-signature-modal-btn" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 transition-colors">
+            <button type="button" id="close-signature-modal-btn" aria-label="Close Signature Studio" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 transition-colors">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
 
         <!-- Signature Mode Tabs -->
-        <div class="border-b border-slate-100 bg-slate-50/70 px-6 pt-3 flex gap-2">
+        <div role="tablist" aria-label="Signature creation methods" class="border-b border-slate-100 bg-slate-50/70 px-6 pt-3 flex gap-2">
             <button
                 type="button"
                 id="sig-tab-draw-btn"
+                role="tab"
+                aria-selected="true"
+                aria-controls="sig-pane-draw"
                 class="px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer"
             >
                 <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
@@ -543,6 +559,9 @@ require_once __DIR__ . '/../includes/header.php';
             <button
                 type="button"
                 id="sig-tab-type-btn"
+                role="tab"
+                aria-selected="false"
+                aria-controls="sig-pane-type"
                 class="px-4 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer"
             >
                 <i data-lucide="type" class="w-3.5 h-3.5"></i>
@@ -551,6 +570,9 @@ require_once __DIR__ . '/../includes/header.php';
             <button
                 type="button"
                 id="sig-tab-upload-btn"
+                role="tab"
+                aria-selected="false"
+                aria-controls="sig-pane-upload"
                 class="px-4 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer"
             >
                 <i data-lucide="upload" class="w-3.5 h-3.5"></i>
@@ -561,8 +583,10 @@ require_once __DIR__ . '/../includes/header.php';
         <!-- Modal Body Content -->
         <div class="p-6 space-y-4">
 
+            <div id="sig-modal-error" role="alert" class="hidden rounded-xl bg-rose-50 border border-rose-200 px-3.5 py-2.5 text-xs font-medium text-rose-700"></div>
+
             <!-- Tab 1: Draw Signature -->
-            <div id="sig-pane-draw" class="space-y-3">
+            <div id="sig-pane-draw" role="tabpanel" aria-labelledby="sig-tab-draw-btn" class="space-y-3">
                 <div class="relative bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden h-48 flex items-center justify-center">
                     <canvas id="signature-draw-canvas" width="500" height="192" class="w-full h-full cursor-crosshair touch-none"></canvas>
                     <span id="sig-draw-hint" class="absolute pointer-events-none text-xs text-slate-400 select-none">Draw your signature with mouse or touch</span>
@@ -570,9 +594,9 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <span class="text-xs text-slate-500 font-medium">Ink:</span>
-                        <button type="button" class="sig-ink-btn w-6 h-6 rounded-full bg-black ring-2 ring-blue-500 ring-offset-1" data-ink="#000000"></button>
-                        <button type="button" class="sig-ink-btn w-6 h-6 rounded-full bg-blue-700" data-ink="#1d4ed8"></button>
-                        <button type="button" class="sig-ink-btn w-6 h-6 rounded-full bg-rose-700" data-ink="#be123c"></button>
+                        <button type="button" aria-label="Black signature ink" title="Black ink" class="sig-ink-btn w-6 h-6 rounded-full bg-black ring-2 ring-blue-500 ring-offset-1" data-ink="#000000"></button>
+                        <button type="button" aria-label="Blue signature ink" title="Blue ink" class="sig-ink-btn w-6 h-6 rounded-full bg-blue-700" data-ink="#1d4ed8"></button>
+                        <button type="button" aria-label="Red signature ink" title="Red ink" class="sig-ink-btn w-6 h-6 rounded-full bg-rose-700" data-ink="#be123c"></button>
                     </div>
                     <button type="button" id="sig-clear-draw-btn" class="text-xs text-slate-500 hover:text-rose-600 font-medium flex items-center gap-1">
                         <i data-lucide="trash" class="w-3.5 h-3.5"></i>
@@ -582,7 +606,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
 
             <!-- Tab 2: Type Signature -->
-            <div id="sig-pane-type" class="hidden space-y-4">
+            <div id="sig-pane-type" role="tabpanel" aria-labelledby="sig-tab-type-btn" class="hidden space-y-4">
                 <div>
                     <label for="sig-type-input" class="block text-xs font-semibold text-slate-700 mb-1">Your Full Name:</label>
                     <input
@@ -617,9 +641,12 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
 
             <!-- Tab 3: Upload Image Signature -->
-            <div id="sig-pane-upload" class="hidden space-y-3">
+            <div id="sig-pane-upload" role="tabpanel" aria-labelledby="sig-tab-upload-btn" class="hidden space-y-3">
                 <div
                     id="sig-upload-box"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Upload signature image"
                     class="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center cursor-pointer hover:bg-slate-50 transition-colors"
                 >
                     <input type="file" id="sig-file-input" class="hidden" accept="image/png,image/jpeg">
@@ -629,7 +656,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <div id="sig-upload-preview-wrap" class="hidden relative h-32 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center p-2">
                     <img id="sig-upload-preview-img" alt="Signature preview" class="max-h-full max-w-full object-contain">
-                    <button type="button" id="sig-upload-remove-btn" class="absolute top-2 right-2 p-1 bg-white rounded-lg border border-slate-200 text-rose-600 hover:bg-rose-50 shadow-xs">
+                    <button type="button" id="sig-upload-remove-btn" aria-label="Remove uploaded signature" class="absolute top-2 right-2 p-1 bg-white rounded-lg border border-slate-200 text-rose-600 hover:bg-rose-50 shadow-xs">
                         <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
                 </div>

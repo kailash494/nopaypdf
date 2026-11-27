@@ -79,10 +79,10 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="space-y-6">
 
         <!-- Error Notification Banner -->
-        <div id="error-alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
+        <div id="error-alert" role="alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
             <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
             <div class="flex-1 text-xs sm:text-sm" id="error-message"></div>
-            <button type="button" id="error-dismiss-btn" class="text-rose-400 hover:text-rose-700">
+            <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="text-rose-400 hover:text-rose-700">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -96,7 +96,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <p class="text-xs text-amber-700 mt-0.5">To remove or change existing security restrictions, open our Unlock PDF tool.</p>
                 </div>
             </div>
-            <a href="/unlock-pdf" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors shrink-0">
+            <a href="/unlock-pdf/" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors shrink-0">
                 Go to Unlock PDF
             </a>
         </div>
@@ -183,6 +183,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 type="button"
                                 class="btn-toggle-pw absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1"
                                 data-target="user-password-input"
+                                aria-label="Toggle open password visibility"
                             >
                                 <i data-lucide="eye" class="w-4 h-4"></i>
                             </button>
@@ -213,6 +214,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 type="button"
                                 class="btn-toggle-pw absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1"
                                 data-target="confirm-password-input"
+                                aria-label="Toggle confirm password visibility"
                             >
                                 <i data-lucide="eye" class="w-4 h-4"></i>
                             </button>
@@ -248,6 +250,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     type="button"
                                     class="btn-toggle-pw absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1"
                                     data-target="owner-password-input"
+                                    aria-label="Toggle owner password visibility"
                                 >
                                     <i data-lucide="eye" class="w-4 h-4"></i>
                                 </button>
@@ -319,7 +322,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <p id="result-summary" class="text-xs sm:text-sm text-emerald-800 mt-1"></p>
                     </div>
 
-                    <div class="bg-white/80 p-4 rounded-xl border border-emerald-200 max-w-md mx-auto text-xs text-slate-600 space-y-1">
+                    <div class="bg-white/80 p-4 rounded-xl border border-emerald-200 max-w-md mx-auto text-xs text-slate-600 space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="font-semibold text-slate-700">Encryption:</span>
                             <span class="font-bold text-emerald-700">AES-256 Bit</span>
@@ -327,6 +330,16 @@ require_once __DIR__ . '/../includes/header.php';
                         <div class="flex items-center justify-between">
                             <span class="font-semibold text-slate-700">Status:</span>
                             <span class="text-slate-800">Password Required to Open</span>
+                        </div>
+                        <div id="auto-owner-pw-card" class="hidden pt-2 mt-2 border-t border-emerald-100 text-left space-y-1.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-semibold text-slate-700">Auto-Generated Master Key:</span>
+                                <button type="button" id="copy-owner-pw-btn" class="px-2 py-0.5 rounded-md bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-semibold text-[11px] transition-colors cursor-pointer">
+                                    Copy Key
+                                </button>
+                            </div>
+                            <code id="auto-owner-pw-value" class="block w-full px-2.5 py-1.5 rounded-lg bg-slate-900 text-emerald-300 font-mono text-[11px] select-all break-all"></code>
+                            <p class="text-[11px] text-slate-500">Save this master key if you need to modify permissions later without resetting security.</p>
                         </div>
                     </div>
 
@@ -361,7 +374,6 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Permissive Client Libraries -->
 <?php
 $extraScripts = [
-    'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js',
     '/assets/vendor/qpdf/qpdf.js',
     '/assets/js/qpdf-client.js?v=' . APP_VERSION,
     '/assets/js/tools/protect-pdf.js?v=' . APP_VERSION,

@@ -75,10 +75,10 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Interactive Tool Workspace -->
 <section class="py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
     <!-- Error Alert Banner -->
-    <div id="error-alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
+    <div id="error-alert" role="alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
         <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"></i>
         <div class="flex-grow" id="error-message"></div>
-        <button type="button" id="error-dismiss-btn" class="p-1 text-red-400 hover:text-red-700">
+        <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="p-1 text-red-400 hover:text-red-700">
             <i data-lucide="x" class="w-4 h-4"></i>
         </button>
     </div>
@@ -123,23 +123,23 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <!-- Mode Selection Tabs -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs flex flex-wrap gap-1">
-            <button type="button" data-mode="visual" class="split-mode-tab flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 text-white transition-all flex items-center justify-center gap-2">
+        <div role="tablist" aria-label="Split modes" class="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs flex flex-wrap gap-1">
+            <button type="button" id="split-tab-visual" role="tab" aria-selected="true" aria-controls="mode-panel-visual" data-mode="visual" class="split-mode-tab flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 text-white transition-all flex items-center justify-center gap-2">
                 <i data-lucide="layout-grid" class="w-4 h-4"></i>
                 <span>Visual Selection</span>
             </button>
-            <button type="button" data-mode="ranges" class="split-mode-tab flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-transparent text-slate-600 hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
+            <button type="button" id="split-tab-ranges" role="tab" aria-selected="false" aria-controls="mode-panel-ranges" data-mode="ranges" class="split-mode-tab flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-transparent text-slate-600 hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
                 <i data-lucide="hash" class="w-4 h-4"></i>
                 <span>Custom Ranges</span>
             </button>
-            <button type="button" data-mode="all" class="split-mode-tab flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-transparent text-slate-600 hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
+            <button type="button" id="split-tab-all" role="tab" aria-selected="false" aria-controls="mode-panel-all" data-mode="all" class="split-mode-tab flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-transparent text-slate-600 hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
                 <i data-lucide="copy" class="w-4 h-4"></i>
                 <span>Split Every Page</span>
             </button>
         </div>
 
         <!-- Sub-panel: Visual Selection Mode -->
-        <div id="mode-panel-visual" class="mode-panel space-y-4">
+        <div id="mode-panel-visual" role="tabpanel" aria-labelledby="split-tab-visual" class="mode-panel space-y-4">
             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div class="flex items-center gap-1.5 flex-wrap">
                     <span class="font-semibold text-slate-700 mr-1">Select:</span>
@@ -176,7 +176,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <!-- Sub-panel: Custom Ranges Mode -->
-        <div id="mode-panel-ranges" class="mode-panel hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div id="mode-panel-ranges" role="tabpanel" aria-labelledby="split-tab-ranges" class="mode-panel hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <div>
                 <label for="range-input" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                     Enter Page Ranges (e.g. 1-3, 5, 8-10)
@@ -207,7 +207,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <!-- Sub-panel: Split Every Page Mode -->
-        <div id="mode-panel-all" class="mode-panel hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+        <div id="mode-panel-all" role="tabpanel" aria-labelledby="split-tab-all" class="mode-panel hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div class="flex items-start gap-3">
                 <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <i data-lucide="layers" class="w-5 h-5"></i>

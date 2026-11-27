@@ -30,11 +30,13 @@
     const errorDismissBtn = document.getElementById('error-dismiss-btn');
 
     // State
+    const MAX_TOTAL_BYTES = 200 * 1024 * 1024;
     const queue = PDFCore.createFileQueue();
     const progress = PDFCore.createProgress(progressContainer);
-    const fileMetaCache = new WeakMap(); // file -> { pageCount, arrayBuffer }
+    const fileMetaCache = new WeakMap(); // file -> { pageCount, buffer, encrypted }
     let lastMergedBytes = null;
     let draggedIndex = null;
+    let isReordering = false;
 
     // Error helper
     function showError(msg) {
@@ -51,7 +53,7 @@
         errorDismissBtn.addEventListener('click', clearError);
     }
 
-    // Read and cache file ArrayBuffer & page count
+    // Read and cache file ArrayBuffer & page count (single metadata read)
     async function loadFileMetadata(file) {
         if (fileMetaCache.has(file)) {
             return fileMetaCache.get(file);
@@ -60,21 +62,39 @@
         try {
             const buffer = await file.arrayBuffer();
             let pageCount = 0;
+            let encrypted = false;
             try {
-                const doc = await PDFLib.PDFDocument.load(buffer, { ignoreEncryption: true });
+                const doc = await PDFLib.PDFDocument.load(buffer);
                 pageCount = doc.getPageCount();
             } catch (e) {
-                // If encrypted or corrupted, still hold buffer; will error on merge
-                pageCount = 0;
+                if (/encrypt|password/i.test(e?.message || '')) {
+                    encrypted = true;
+                    try {
+                        const doc = await PDFLib.PDFDocument.load(buffer, { ignoreEncryption: true });
+                        pageCount = doc.getPageCount();
+                    } catch (inner) {
+                        pageCount = 0;
+                    }
+                }
             }
 
-            const meta = { buffer, pageCount };
+            const meta = { buffer, pageCount, encrypted };
             fileMetaCache.set(file, meta);
             return meta;
         } catch (err) {
             console.error('Error reading file buffer:', err);
-            return { buffer: null, pageCount: 0 };
+            return { buffer: null, pageCount: 0, encrypted: false };
         }
+    }
+
+    function addFilesChecked(candidateFiles) {
+        const currentTotal = queue.getAll().reduce((sum, f) => sum + (f.size || 0), 0);
+        const addedTotal = candidateFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+        if (currentTotal + addedTotal > MAX_TOTAL_BYTES) {
+            showError('Combined file size exceeds the 200 MB browser memory limit. Please merge fewer or smaller PDFs.');
+            return;
+        }
+        queue.add(candidateFiles);
     }
 
     // Render file queue item UI
@@ -100,9 +120,13 @@
             card.draggable = true;
             card.dataset.index = index;
 
-            // Retrieve cached page count if available
             const cached = fileMetaCache.get(file);
-            const pageCountText = cached && cached.pageCount > 0 ? `${cached.pageCount} pages` : 'Reading...';
+            const pageCountText = cached
+                ? (cached.encrypted
+                    ? `${cached.pageCount > 0 ? cached.pageCount + ' pages • ' : ''}Password-protected (needs Unlock)`
+                    : (cached.pageCount > 0 ? `${cached.pageCount} pages` : 'PDF document'))
+                : 'Reading...';
+            const safeName = PDFCore.escapeHtml(file.name);
 
             card.innerHTML = `
                 <div class="flex items-center gap-3 overflow-hidden flex-grow cursor-grab active:cursor-grabbing">
@@ -113,13 +137,13 @@
                         ${index + 1}
                     </span>
                     <div class="overflow-hidden">
-                        <h4 class="text-sm font-semibold text-slate-900 truncate" title="${file.name}">
-                            ${file.name}
+                        <h4 class="text-sm font-semibold text-slate-900 truncate" title="${safeName}">
+                            ${safeName}
                         </h4>
                         <div class="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                             <span>${PDFCore.formatBytes(file.size)}</span>
                             <span>&bull;</span>
-                            <span class="file-page-count font-medium text-slate-600">${pageCountText}</span>
+                            <span class="file-page-count font-medium ${cached?.encrypted ? 'text-amber-700' : 'text-slate-600'}">${pageCountText}</span>
                         </div>
                     </div>
                 </div>
@@ -177,12 +201,18 @@
 
             fileQueueList.appendChild(card);
 
-            // Fetch page count async if not cached
+            // Fetch metadata async once if not cached
             if (!cached) {
                 loadFileMetadata(file).then(meta => {
                     const countEl = card.querySelector('.file-page-count');
                     if (countEl) {
-                        countEl.textContent = meta.pageCount > 0 ? `${meta.pageCount} pages` : 'PDF document';
+                        if (meta.encrypted) {
+                            countEl.textContent = `${meta.pageCount > 0 ? meta.pageCount + ' pages • ' : ''}Password-protected (needs Unlock)`;
+                            countEl.classList.remove('text-slate-600');
+                            countEl.classList.add('text-amber-700');
+                        } else {
+                            countEl.textContent = meta.pageCount > 0 ? `${meta.pageCount} pages` : 'PDF document';
+                        }
                     }
                 });
             }
@@ -195,9 +225,10 @@
 
     // Subscribe to queue changes
     queue.onChange((files) => {
+        if (isReordering) return;
+        lastMergedBytes = null;
+        resultView?.classList.add('hidden');
         renderQueueUI(files);
-        // Preload metadata for all files
-        files.forEach(f => loadFileMetadata(f));
     });
 
     // Dropzone initialization
@@ -207,7 +238,7 @@
         multiple: true,
         onFilesAdded: (addedFiles) => {
             clearError();
-            queue.add(addedFiles);
+            addFilesChecked(addedFiles);
         },
         onError: (errors) => {
             showError(errors.join(' '));
@@ -228,25 +259,33 @@
                     multiple: true,
                 });
                 if (errors.length > 0) showError(errors.join(' '));
-                if (valid.length > 0) queue.add(valid);
+                if (valid.length > 0) addFilesChecked(valid);
             }
         });
     }
 
-    // Quick sort actions
+    // Quick sort actions without intermediate empty render
+    function replaceOrderWithoutFlicker(reordered) {
+        isReordering = true;
+        queue.clear();
+        queue.add(reordered);
+        isReordering = false;
+        lastMergedBytes = null;
+        resultView?.classList.add('hidden');
+        renderQueueUI(queue.getAll());
+    }
+
     if (sortAzBtn) {
         sortAzBtn.addEventListener('click', () => {
             const sorted = [...queue.getAll()].sort((a, b) => a.name.localeCompare(b.name));
-            queue.clear();
-            queue.add(sorted);
+            replaceOrderWithoutFlicker(sorted);
         });
     }
 
     if (sortReverseBtn) {
         sortReverseBtn.addEventListener('click', () => {
             const reversed = [...queue.getAll()].reverse();
-            queue.clear();
-            queue.add(reversed);
+            replaceOrderWithoutFlicker(reversed);
         });
     }
 
@@ -339,6 +378,9 @@
         resetBtn.addEventListener('click', () => {
             queue.clear();
             lastMergedBytes = null;
+            if (fileInput) fileInput.value = '';
+            if (addMoreInput) addMoreInput.value = '';
+            if (outputFilenameInput) outputFilenameInput.value = 'merged.pdf';
             progress.reset();
             resultView?.classList.add('hidden');
             clearError();

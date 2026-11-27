@@ -189,8 +189,13 @@
                         return { valid: false, groups: [], flatPages: [], error: `Invalid range format: "${token}"` };
                     }
 
-                    const start = parseInt(parts[0].trim(), 10);
-                    const end = parseInt(parts[1].trim(), 10);
+                    const partZero = parts[0].trim();
+                    const partOne = parts[1].trim();
+                    if (!/^\d+$/.test(partZero) || !/^\d+$/.test(partOne)) {
+                        return { valid: false, groups: [], flatPages: [], error: `Invalid range syntax: "${token}"` };
+                    }
+                    const start = parseInt(partZero, 10);
+                    const end = parseInt(partOne, 10);
 
                     if (isNaN(start) || isNaN(end)) {
                         return { valid: false, groups: [], flatPages: [], error: `Non-numeric values in range: "${token}"` };
@@ -215,6 +220,9 @@
                     }
                     groups.push(group);
                 } else {
+                    if (!/^\d+$/.test(token)) {
+                        return { valid: false, groups: [], flatPages: [], error: `Invalid page number: "${token}"` };
+                    }
                     const page = parseInt(token, 10);
                     if (isNaN(page)) {
                         return { valid: false, groups: [], flatPages: [], error: `Invalid page number: "${token}"` };
@@ -266,7 +274,65 @@
             );
 
             PDFCore.downloadBlob(blob, zipFilename, 'application/zip');
-        }
+        },
+
+        /**
+         * Return the visible effective boundary box (MediaBox intersected with CropBox)
+         * and normalized clockwise /Rotate degrees (0, 90, 180, 270) for a pdf-lib PDFPage.
+         * Matches PDF.js viewport bounds and visual dimensions.
+         */
+        getEffectivePageBox(pdfPage) {
+            const media = pdfPage.getMediaBox();
+            const crop = pdfPage.getCropBox() || media;
+            const x = Math.max(media.x, crop.x);
+            const y = Math.max(media.y, crop.y);
+            const right = Math.min(media.x + media.width, crop.x + crop.width);
+            const top = Math.min(media.y + media.height, crop.y + crop.height);
+            const width = Math.max(1, right - x);
+            const height = Math.max(1, top - y);
+            const rawAngle = (typeof pdfPage.getRotation === 'function' ? pdfPage.getRotation()?.angle : 0) || 0;
+            const rotation = ((rawAngle % 360) + 360) % 360;
+            const visualWidth = (rotation === 90 || rotation === 270) ? height : width;
+            const visualHeight = (rotation === 90 || rotation === 270) ? width : height;
+            return { x, y, width, height, rotation, visualWidth, visualHeight };
+        },
+
+        /**
+         * Map a visual upright coordinate (top-left origin, +vx right, +vy down) into
+         * unrotated pdf-lib user space within pageBox = getEffectivePageBox(pdfPage).
+         */
+        visualPointToPdfPoint(vx, vy, pageBox) {
+            const { x: ox, y: oy, width: pw, height: ph, rotation } = pageBox;
+            if (rotation === 90) {
+                return { x: ox + vy, y: oy + vx };
+            }
+            if (rotation === 180) {
+                return { x: ox + pw - vx, y: oy + vy };
+            }
+            if (rotation === 270) {
+                return { x: ox + pw - vy, y: oy + ph - vx };
+            }
+            return { x: ox + vx, y: oy + ph - vy };
+        },
+
+        /**
+         * Map a centered object of size (w, h) rotated clockwise by thetaDeg on the visual canvas
+         * to pdf-lib { x, y, rotateDeg } compensating for page /Rotate and Y-up axes.
+         */
+        visualCenterRectToPdfDraw(vcx, vcy, w, h, thetaDeg, pageBox) {
+            const center = this.visualPointToPdfPoint(vcx, vcy, pageBox);
+            const pdfRotateDeg = pageBox.rotation - (thetaDeg || 0);
+            const beta = (pdfRotateDeg * Math.PI) / 180;
+            const halfW = w / 2;
+            const halfH = h / 2;
+            const dx = halfW * Math.cos(beta) - halfH * Math.sin(beta);
+            const dy = halfW * Math.sin(beta) + halfH * Math.cos(beta);
+            return {
+                x: center.x - dx,
+                y: center.y - dy,
+                rotateDeg: pdfRotateDeg,
+            };
+        },
     };
 
     window.PDFRender = PDFRender;

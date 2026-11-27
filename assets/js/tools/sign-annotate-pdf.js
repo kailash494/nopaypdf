@@ -113,11 +113,17 @@
         let pdfDocProxy = null;
         let totalPages = 1;
         let currentPage = 1;
+        let activeRenderedPageIdx = null;
         let zoomScale = 1.0;
+        let currentNumericScale = 1.0;
         let fabricCanvas = null;
+        let loadSeq = 0;
+        let thumbAbortCtrl = null;
+        const sigModalError = document.getElementById('sig-modal-error');
 
         // Multi-page state persistence: Map<pageIndex (0-based), fabricJSON>
         const pageAnnotations = new Map();
+        const pageBaseDims = new Map();
         // Undo / Redo history stacks: Map<pageIndex, { undo: string[], redo: string[] }>
         const pageHistories = new Map();
         let isHistoryPushLocked = false;
@@ -151,6 +157,18 @@
             errorMessage.textContent = '';
         }
 
+        function showSigModalError(msg) {
+            if (!sigModalError) return;
+            sigModalError.textContent = msg;
+            sigModalError.classList.remove('hidden');
+        }
+
+        function clearSigModalError() {
+            if (!sigModalError) return;
+            sigModalError.textContent = '';
+            sigModalError.classList.add('hidden');
+        }
+
         errorDismissBtn?.addEventListener('click', clearError);
 
         // --- Initialize Dropzone ---
@@ -160,38 +178,55 @@
             accept: '.pdf,application/pdf',
             multiple: false,
             onFilesAdded: async (files) => {
-                const validation = PDFCore.validateFiles(files, {
-                    acceptExtensions: ['pdf'],
-                    maxFiles: 1,
-                    maxSizeBytes: 80 * 1024 * 1024,
-                });
-
-                if (validation.errors.length > 0) {
-                    showError(validation.errors[0]);
-                    return;
-                }
-
-                await loadPdfDocument(validation.valid[0]);
+                await loadPdfDocument(files[0]);
             },
-            onError: (err) => showError(err),
+            onError: (err) => showError(Array.isArray(err) ? err.join(' ') : err),
         });
 
         // --- Document Loader ---
         async function loadPdfDocument(file) {
+            if (!file) return;
             clearError();
-            originalFile = file;
+            const seq = ++loadSeq;
+            let nextLoaded = null;
 
             try {
-                originalArrayBuffer = await PDFCore.readFileAsArrayBuffer(file);
-                const loaded = await PDFRender.loadPreviewDoc(originalArrayBuffer);
-                pdfDocProxy = loaded.pdfProxy;
-                totalPages = loaded.numPages;
+                const nextBuffer = await PDFCore.readFileAsArrayBuffer(file);
+                nextLoaded = await PDFRender.loadPreviewDocument(nextBuffer);
+
+                if (seq !== loadSeq) {
+                    await PDFRender.destroyDoc(nextLoaded.pdfProxy);
+                    return;
+                }
+
+                if (thumbAbortCtrl) {
+                    thumbAbortCtrl.abort();
+                    thumbAbortCtrl = null;
+                }
+                if (pdfDocProxy) {
+                    await PDFRender.destroyDoc(pdfDocProxy);
+                    pdfDocProxy = null;
+                }
+
+                originalFile = file;
+                originalArrayBuffer = nextBuffer;
+                pdfDocProxy = nextLoaded.pdfProxy;
+                totalPages = nextLoaded.numPages;
+                nextLoaded = null;
 
                 // Reset state
                 currentPage = 1;
+                activeRenderedPageIdx = null;
                 zoomScale = 1.0;
+                currentNumericScale = 1.0;
+                zoomLevelText.textContent = '100%';
+                lastSignedPdfBytes = null;
                 pageAnnotations.clear();
+                pageBaseDims.clear();
                 pageHistories.clear();
+                savedSignatures.length = 0;
+                if (signaturesShelfList) signaturesShelfList.innerHTML = '';
+                if (signaturesShelf) signaturesShelf.classList.add('hidden');
 
                 // Update UI Header
                 docFilename.textContent = file.name;
@@ -215,6 +250,9 @@
 
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             } catch (err) {
+                if (nextLoaded?.pdfProxy) {
+                    await PDFRender.destroyDoc(nextLoaded.pdfProxy);
+                }
                 console.error('Error loading PDF:', err);
                 showError(PDFCore.formatPdfError(err));
             }
@@ -242,11 +280,21 @@
             fabricCanvas.on('selection:updated', onObjectSelected);
             fabricCanvas.on('selection:cleared', onSelectionCleared);
 
-            // Text editing keyboard shortcut protection
+            // Keyboard shortcuts with modal and active-input guards
             document.addEventListener('keydown', (e) => {
+                if (signatureModal && !signatureModal.classList.contains('hidden')) {
+                    if (e.key === 'Escape') {
+                        closeSigModal();
+                    }
+                    return;
+                }
+                if (e.target && e.target.closest('input, textarea, select, [contenteditable="true"]')) {
+                    return;
+                }
+                if (!fabricCanvas) return;
+
                 if (e.key === 'Delete' || e.key === 'Backspace') {
                     const activeObj = fabricCanvas.getActiveObject();
-                    // Do not delete if currently editing text inside an IText instance
                     if (activeObj && !activeObj.isEditing) {
                         deleteSelectedObject();
                         e.preventDefault();
@@ -281,10 +329,14 @@
         }
 
         function deleteSelectedObject() {
-            const activeObj = fabricCanvas.getActiveObject();
-            if (activeObj) {
-                fabricCanvas.remove(activeObj);
+            if (!fabricCanvas) return;
+            const objs = fabricCanvas.getActiveObjects();
+            if (objs && objs.length > 0) {
+                isHistoryPushLocked = true;
+                objs.forEach((obj) => fabricCanvas.remove(obj));
                 fabricCanvas.discardActiveObject();
+                isHistoryPushLocked = false;
+                recordHistorySnapshot();
                 fabricCanvas.requestRenderAll();
             }
         }
@@ -293,10 +345,9 @@
 
         // --- Multi-Page Annotations Persistence ---
         function saveCurrentPageAnnotations() {
-            if (!fabricCanvas) return;
-            const pageIndex = currentPage - 1;
+            if (!fabricCanvas || activeRenderedPageIdx === null) return;
             const json = fabricCanvas.toJSON();
-            pageAnnotations.set(pageIndex, json);
+            pageAnnotations.set(activeRenderedPageIdx, json);
         }
 
         async function restorePageAnnotations(pageIndex) {
@@ -317,6 +368,11 @@
             }
 
             isHistoryPushLocked = false;
+
+            const history = getPageHistory(pageIndex);
+            if (history.undo.length === 0) {
+                history.undo.push(JSON.stringify(fabricCanvas.toJSON()));
+            }
             updateUndoRedoButtons();
         }
 
@@ -380,10 +436,10 @@
         redoBtn?.addEventListener('click', redo);
 
         clearPageBtn?.addEventListener('click', () => {
-            if (confirm('Clear all annotations on this page?')) {
-                fabricCanvas.clear();
-                recordHistorySnapshot();
-            }
+            if (!fabricCanvas) return;
+            if (fabricCanvas.getObjects().length === 0) return;
+            fabricCanvas.clear();
+            recordHistorySnapshot();
         });
 
         // --- Page Navigation & Rendering ---
@@ -398,21 +454,24 @@
             const page = await pdfDocProxy.getPage(currentPage);
             const intrinsicRotation = page.rotate || 0;
             const baseViewport = page.getViewport({ scale: 1.0, rotation: intrinsicRotation });
+            const pageIndex = currentPage - 1;
+            pageBaseDims.set(pageIndex, { width: baseViewport.width, height: baseViewport.height });
 
             // Fit or scale logic
             let effectiveScale = zoomScale;
             if (effectiveScale === 'fit') {
-                const containerWidth = canvasContainerOuter.parentElement.clientWidth - 48;
-                effectiveScale = Math.min(containerWidth / baseViewport.width, 1.8);
+                const containerWidth = Math.max(240, canvasContainerOuter.parentElement.clientWidth - 48);
+                effectiveScale = Math.max(0.4, Math.min(containerWidth / baseViewport.width, 1.8));
             }
+            currentNumericScale = effectiveScale;
 
             const viewport = page.getViewport({ scale: effectiveScale, rotation: intrinsicRotation });
 
             // 1. Render Base PDF.js Canvas
-            pdfBaseCanvas.width = Math.floor(viewport.width);
-            pdfBaseCanvas.height = Math.floor(viewport.height);
-            pdfBaseCanvas.style.width = `${Math.floor(viewport.width)}px`;
-            pdfBaseCanvas.style.height = `${Math.floor(viewport.height)}px`;
+            pdfBaseCanvas.width = Math.max(1, Math.floor(viewport.width));
+            pdfBaseCanvas.height = Math.max(1, Math.floor(viewport.height));
+            pdfBaseCanvas.style.width = `${pdfBaseCanvas.width}px`;
+            pdfBaseCanvas.style.height = `${pdfBaseCanvas.height}px`;
 
             const ctx = pdfBaseCanvas.getContext('2d', { alpha: false });
             ctx.fillStyle = '#ffffff';
@@ -420,16 +479,20 @@
 
             await page.render({ canvasContext: ctx, viewport }).promise;
 
-            // 2. Synchronize Fabric.js Overlay Canvas
+            // 2. Synchronize Fabric.js Overlay Canvas in upright unscaled PDF point space
             canvasContainerOuter.style.width = `${pdfBaseCanvas.width}px`;
             canvasContainerOuter.style.height = `${pdfBaseCanvas.height}px`;
 
-            fabricCanvas.setWidth(pdfBaseCanvas.width);
-            fabricCanvas.setHeight(pdfBaseCanvas.height);
+            fabricCanvas.setZoom(effectiveScale);
+            fabricCanvas.setDimensions({
+                width: pdfBaseCanvas.width,
+                height: pdfBaseCanvas.height,
+            });
             fabricCanvas.calcOffset();
 
             // 3. Restore Annotations for This Page
-            await restorePageAnnotations(currentPage - 1);
+            activeRenderedPageIdx = pageIndex;
+            await restorePageAnnotations(pageIndex);
 
             // Re-apply active tool to fabric
             setToolMode(activeTool);
@@ -454,20 +517,20 @@
 
         // --- Zoom Handlers ---
         zoomInBtn?.addEventListener('click', async () => {
-            const scales = [0.75, 1.0, 1.25, 1.5, 2.0];
-            const currentIdx = scales.indexOf(typeof zoomScale === 'number' ? zoomScale : 1.0);
-            if (currentIdx < scales.length - 1) {
-                zoomScale = scales[currentIdx + 1];
+            const scales = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+            const next = scales.find((s) => s > currentNumericScale + 0.01);
+            if (next !== undefined) {
+                zoomScale = next;
                 zoomLevelText.textContent = `${Math.round(zoomScale * 100)}%`;
                 await renderCurrentPage();
             }
         });
 
         zoomOutBtn?.addEventListener('click', async () => {
-            const scales = [0.75, 1.0, 1.25, 1.5, 2.0];
-            const currentIdx = scales.indexOf(typeof zoomScale === 'number' ? zoomScale : 1.0);
-            if (currentIdx > 0) {
-                zoomScale = scales[currentIdx - 1];
+            const scales = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+            const prev = [...scales].reverse().find((s) => s < currentNumericScale - 0.01);
+            if (prev !== undefined) {
+                zoomScale = prev;
                 zoomLevelText.textContent = `${Math.round(zoomScale * 100)}%`;
                 await renderCurrentPage();
             }
@@ -485,6 +548,12 @@
         });
 
         async function generateThumbnails() {
+            if (thumbAbortCtrl) {
+                thumbAbortCtrl.abort();
+            }
+            thumbAbortCtrl = new AbortController();
+            const signal = thumbAbortCtrl.signal;
+
             thumbnailStripItems.innerHTML = '';
             for (let i = 1; i <= totalPages; i++) {
                 const item = document.createElement('div');
@@ -510,13 +579,22 @@
                 });
 
                 thumbnailStripItems.appendChild(item);
-
-                // Render low-res thumbnail
-                PDFRender.renderPageToCanvas(pdfDocProxy, i, {
-                    maxWidth: 120,
-                    targetCanvas: canvas,
-                }).catch(() => {});
             }
+
+            await PDFRender.renderThumbnailsBatched(pdfDocProxy, thumbnailStripItems, {
+                batchSize: 4,
+                signal,
+                maxWidth: 120,
+                onPageRendered: (pageNum, renderedCanvas) => {
+                    const card = thumbnailStripItems.querySelector(`[data-page="${pageNum}"]`);
+                    const targetCanvas = card?.querySelector('canvas');
+                    if (targetCanvas) {
+                        targetCanvas.width = renderedCanvas.width;
+                        targetCanvas.height = renderedCanvas.height;
+                        targetCanvas.getContext('2d')?.drawImage(renderedCanvas, 0, 0);
+                    }
+                },
+            });
         }
 
         function updateActiveThumbnail() {
@@ -587,7 +665,17 @@
         });
 
         // --- Formatting Options ---
-        function updateColor(hex, updateInput = true) {
+        function getSceneCenter() {
+            const dims = pageBaseDims.get(currentPage - 1);
+            if (dims) {
+                return { left: dims.width / 2, top: dims.height / 2 };
+            }
+            const zoom = fabricCanvas?.getZoom() || 1;
+            const c = fabricCanvas ? fabricCanvas.getCenter() : { left: 300, top: 400 };
+            return { left: c.left / zoom, top: c.top / zoom };
+        }
+
+        function updateColor(hex, updateInput = true, recordHistory = true) {
             currentColor = hex;
             if (updateInput && customColorPicker) customColorPicker.value = hex;
 
@@ -601,8 +689,11 @@
                         activeObj.set('fill', hex);
                     } else if (activeObj.type === 'rect' && activeObj.stroke) {
                         activeObj.set('stroke', hex);
+                    } else if (activeObj.type === 'path' && activeObj.stroke) {
+                        activeObj.set('stroke', hex);
                     }
                     fabricCanvas.requestRenderAll();
+                    if (recordHistory) recordHistorySnapshot();
                 }
             }
 
@@ -616,10 +707,11 @@
         }
 
         colorPresetBtns.forEach((btn) => {
-            btn.addEventListener('click', () => updateColor(btn.dataset.color));
+            btn.addEventListener('click', () => updateColor(btn.dataset.color, true, true));
         });
 
-        customColorPicker?.addEventListener('input', (e) => updateColor(e.target.value));
+        customColorPicker?.addEventListener('input', (e) => updateColor(e.target.value, false, false));
+        customColorPicker?.addEventListener('change', (e) => updateColor(e.target.value, false, true));
 
         textFontSizeSelect?.addEventListener('change', (e) => {
             currentFontSize = parseInt(e.target.value, 10);
@@ -627,6 +719,7 @@
             if (activeObj && activeObj.type === 'i-text') {
                 activeObj.set('fontSize', currentFontSize);
                 fabricCanvas.requestRenderAll();
+                recordHistorySnapshot();
             }
         });
 
@@ -636,6 +729,7 @@
             if (activeObj && activeObj.type === 'i-text') {
                 activeObj.set('fontFamily', currentFontFamily);
                 fabricCanvas.requestRenderAll();
+                recordHistorySnapshot();
             }
         });
 
@@ -647,10 +741,10 @@
             }
         });
 
-        // --- Annotation Creators ---
+        // --- Annotation Creators (in unscaled upright PDF scene points) ---
         function addTextAtCenter() {
             if (!fabricCanvas) return;
-            const center = fabricCanvas.getCenter();
+            const center = getSceneCenter();
             const text = new fabric.IText('Type here...', {
                 left: center.left - 60,
                 top: center.top - 15,
@@ -671,7 +765,7 @@
 
         function addHighlightBox() {
             if (!fabricCanvas) return;
-            const center = fabricCanvas.getCenter();
+            const center = getSceneCenter();
             const rect = new fabric.Rect({
                 left: center.left - 75,
                 top: center.top - 12,
@@ -691,7 +785,7 @@
 
         function addWhiteoutBox() {
             if (!fabricCanvas) return;
-            const center = fabricCanvas.getCenter();
+            const center = getSceneCenter();
             const rect = new fabric.Rect({
                 left: center.left - 80,
                 top: center.top - 15,
@@ -713,7 +807,7 @@
         // Quick Stamps
         stampCheckBtn?.addEventListener('click', () => {
             if (!fabricCanvas) return;
-            const center = fabricCanvas.getCenter();
+            const center = getSceneCenter();
             const check = new fabric.IText('\u2713', {
                 left: center.left - 12,
                 top: center.top - 18,
@@ -729,7 +823,7 @@
 
         stampCrossBtn?.addEventListener('click', () => {
             if (!fabricCanvas) return;
-            const center = fabricCanvas.getCenter();
+            const center = getSceneCenter();
             const cross = new fabric.IText('\u2715', {
                 left: center.left - 12,
                 top: center.top - 18,
@@ -745,7 +839,7 @@
 
         stampDateBtn?.addEventListener('click', () => {
             if (!fabricCanvas) return;
-            const center = fabricCanvas.getCenter();
+            const center = getSceneCenter();
             const todayStr = new Date().toISOString().split('T')[0];
             const dateText = new fabric.IText(todayStr, {
                 left: center.left - 45,
@@ -761,7 +855,7 @@
 
         stampRectBtn?.addEventListener('click', () => {
             if (!fabricCanvas) return;
-            const center = fabricCanvas.getCenter();
+            const center = getSceneCenter();
             const rect = new fabric.Rect({
                 left: center.left - 75,
                 top: center.top - 35,
@@ -791,6 +885,7 @@
             sigCtx.lineJoin = 'round';
 
             const startDraw = (x, y) => {
+                clearSigModalError();
                 isDrawingSig = true;
                 sigDrawEmpty = false;
                 sigDrawHint.classList.add('hidden');
@@ -808,29 +903,39 @@
                 isDrawingSig = false;
             };
 
+            const toCanvasCoords = (clientX, clientY) => {
+                const rect = signatureDrawCanvas.getBoundingClientRect();
+                const scaleX = signatureDrawCanvas.width / (rect.width || 1);
+                const scaleY = signatureDrawCanvas.height / (rect.height || 1);
+                return {
+                    x: (clientX - rect.left) * scaleX,
+                    y: (clientY - rect.top) * scaleY,
+                };
+            };
+
             // Mouse events
             signatureDrawCanvas.addEventListener('mousedown', (e) => {
-                const rect = signatureDrawCanvas.getBoundingClientRect();
-                startDraw(e.clientX - rect.left, e.clientY - rect.top);
+                const pt = toCanvasCoords(e.clientX, e.clientY);
+                startDraw(pt.x, pt.y);
             });
             signatureDrawCanvas.addEventListener('mousemove', (e) => {
-                const rect = signatureDrawCanvas.getBoundingClientRect();
-                moveDraw(e.clientX - rect.left, e.clientY - rect.top);
+                const pt = toCanvasCoords(e.clientX, e.clientY);
+                moveDraw(pt.x, pt.y);
             });
             window.addEventListener('mouseup', endDraw);
 
             // Touch events
             signatureDrawCanvas.addEventListener('touchstart', (e) => {
-                const rect = signatureDrawCanvas.getBoundingClientRect();
                 const touch = e.touches[0];
-                startDraw(touch.clientX - rect.left, touch.clientY - rect.top);
+                const pt = toCanvasCoords(touch.clientX, touch.clientY);
+                startDraw(pt.x, pt.y);
                 e.preventDefault();
             }, { passive: false });
 
             signatureDrawCanvas.addEventListener('touchmove', (e) => {
-                const rect = signatureDrawCanvas.getBoundingClientRect();
                 const touch = e.touches[0];
-                moveDraw(touch.clientX - rect.left, touch.clientY - rect.top);
+                const pt = toCanvasCoords(touch.clientX, touch.clientY);
+                moveDraw(pt.x, pt.y);
                 e.preventDefault();
             }, { passive: false });
 
@@ -857,25 +962,27 @@
 
         // Tab Switching in Signature Studio
         function switchSigTab(mode) {
+            clearSigModalError();
             sigMode = mode;
-            [sigTabDrawBtn, sigTabTypeBtn, sigTabUploadBtn].forEach((btn) => {
-                btn.className = 'px-4 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer';
+            const tabMap = [
+                { btn: sigTabDrawBtn, pane: sigPaneDraw, key: 'draw' },
+                { btn: sigTabTypeBtn, pane: sigPaneType, key: 'type' },
+                { btn: sigTabUploadBtn, pane: sigPaneUpload, key: 'upload' },
+            ];
+
+            tabMap.forEach(({ btn, pane, key }) => {
+                const active = key === mode;
+                if (btn) {
+                    btn.className = active
+                        ? 'px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer'
+                        : 'px-4 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer';
+                    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+                }
+                if (pane) pane.classList.toggle('hidden', !active);
             });
 
-            sigPaneDraw.classList.add('hidden');
-            sigPaneType.classList.add('hidden');
-            sigPaneUpload.classList.add('hidden');
-
-            if (mode === 'draw') {
-                sigTabDrawBtn.className = 'px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer';
-                sigPaneDraw.classList.remove('hidden');
-            } else if (mode === 'type') {
-                sigTabTypeBtn.className = 'px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer';
-                sigPaneType.classList.remove('hidden');
+            if (mode === 'type') {
                 sigTypeInput.focus();
-            } else if (mode === 'upload') {
-                sigTabUploadBtn.className = 'px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer';
-                sigPaneUpload.classList.remove('hidden');
             }
         }
 
@@ -903,7 +1010,14 @@
 
         // Upload Signature image handling
         sigUploadBox?.addEventListener('click', () => sigFileInput.click());
+        sigUploadBox?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                sigFileInput.click();
+            }
+        });
         sigFileInput?.addEventListener('change', (e) => {
+            clearSigModalError();
             const file = e.target.files?.[0];
             if (!file) return;
             const reader = new FileReader();
@@ -912,6 +1026,9 @@
                 sigUploadPreviewImg.src = sigUploadedDataUrl;
                 sigUploadBox.classList.add('hidden');
                 sigUploadPreviewWrap.classList.remove('hidden');
+            };
+            reader.onerror = () => {
+                showSigModalError('Could not read the selected image file. Please try another PNG or JPG.');
             };
             reader.readAsDataURL(file);
         });
@@ -925,26 +1042,32 @@
 
         // Open & Close Modal
         openSignatureModalBtn?.addEventListener('click', () => {
+            clearSigModalError();
             signatureModal.classList.remove('hidden');
             if (!sigCtx) initSigDrawCanvas();
             if (typeof lucide !== 'undefined') lucide.createIcons();
         });
 
-        const closeSigModal = () => signatureModal.classList.add('hidden');
+        const closeSigModal = () => {
+            clearSigModalError();
+            signatureModal.classList.add('hidden');
+        };
         closeSignatureModalBtn?.addEventListener('click', closeSigModal);
         cancelSigModalBtn?.addEventListener('click', closeSigModal);
 
-        // Stamp Signature into Fabric
+        // Stamp Signature into Fabric (unscaled PDF scene coordinates)
         function stampSignatureDataUrl(dataUrl) {
             if (!fabricCanvas) return;
             fabric.Image.fromURL(dataUrl, (img) => {
-                const center = fabricCanvas.getCenter();
-                // Scale signature to an aesthetically balanced width (around 160px)
-                const targetWidth = 160;
-                const scale = targetWidth / img.width;
+                if (!img) return;
+                const center = getSceneCenter();
+                const targetWidth = 140;
+                const safeImgWidth = img.width || targetWidth;
+                const safeImgHeight = img.height || 50;
+                const scale = targetWidth / safeImgWidth;
                 img.set({
                     left: center.left - targetWidth / 2,
-                    top: center.top - (img.height * scale) / 2,
+                    top: center.top - (safeImgHeight * scale) / 2,
                     scaleX: scale,
                     scaleY: scale,
                     cornerColor: '#2563eb',
@@ -980,30 +1103,36 @@
         }
 
         applySignatureBtn?.addEventListener('click', () => {
+            clearSigModalError();
             let signatureDataUrl = null;
 
             if (sigMode === 'draw') {
                 if (sigDrawEmpty) {
-                    alert('Please draw your signature before applying.');
+                    showSigModalError('Please draw your signature before applying.');
                     return;
                 }
                 signatureDataUrl = signatureDrawCanvas.toDataURL('image/png');
             } else if (sigMode === 'type') {
                 const text = sigTypeInput.value.trim() || 'Jane Doe';
-                // Render typed signature on offscreen canvas
+                // Render typed signature on offscreen canvas with auto-shrink to prevent horizontal clipping
                 const offCanvas = document.createElement('canvas');
                 offCanvas.width = 400;
                 offCanvas.height = 120;
                 const offCtx = offCanvas.getContext('2d');
                 offCtx.fillStyle = sigInkColor;
-                offCtx.font = `italic 42px ${sigSelectedFont}`;
+                let fontSize = 42;
+                offCtx.font = `italic ${fontSize}px ${sigSelectedFont}`;
+                while (fontSize > 16 && offCtx.measureText(text).width > 360) {
+                    fontSize -= 2;
+                    offCtx.font = `italic ${fontSize}px ${sigSelectedFont}`;
+                }
                 offCtx.textAlign = 'center';
                 offCtx.textBaseline = 'middle';
                 offCtx.fillText(text, 200, 60);
                 signatureDataUrl = offCanvas.toDataURL('image/png');
             } else if (sigMode === 'upload') {
                 if (!sigUploadedDataUrl) {
-                    alert('Please upload an image signature.');
+                    showSigModalError('Please upload a PNG or JPG signature image before applying.');
                     return;
                 }
                 signatureDataUrl = sigUploadedDataUrl;
@@ -1025,18 +1154,8 @@
 
             saveCurrentPageAnnotations();
 
-            // Check if there are any annotations on any page
-            let totalAnnotations = 0;
-            pageAnnotations.forEach((json) => {
-                if (json?.objects?.length > 0) totalAnnotations += json.objects.length;
-            });
-
-            if (totalAnnotations === 0) {
-                if (!confirm('No signatures or annotations were added. Do you want to export the original PDF?')) {
-                    return;
-                }
-            }
-
+            exportPdfBtn.disabled = true;
+            exportPdfBtn.classList.add('opacity-75', 'cursor-not-allowed');
             exportProgressPanel.classList.remove('hidden');
             resultPanel.classList.add('hidden');
             exportProgressBar.style.width = '10%';
@@ -1044,7 +1163,7 @@
             exportStatusDesc.textContent = 'Preparing vector document pages for annotation stamping...';
 
             try {
-                const { PDFDocument } = window.PDFLib;
+                const { PDFDocument, degrees } = window.PDFLib;
                 const pdfDoc = await PDFDocument.load(originalArrayBuffer.slice(0));
                 const totalDocPages = pdfDoc.getPageCount();
 
@@ -1060,14 +1179,17 @@
                     }
 
                     const page = pdfDoc.getPage(pageIdx);
-                    const pageWidth = page.getWidth();
-                    const pageHeight = page.getHeight();
+                    const pageBox = PDFRender.getEffectivePageBox(page);
+                    let baseDims = pageBaseDims.get(pageIdx);
+                    if (!baseDims) {
+                        baseDims = { width: pageBox.visualWidth, height: pageBox.visualHeight };
+                    }
 
-                    // Render offscreen fabric static canvas at 2.5x high-DPI
+                    // Render offscreen fabric static canvas at unscaled upright page dimensions + 2.5x multiplier
                     const staticCanvasEl = document.createElement('canvas');
                     const staticCanvas = new fabric.StaticCanvas(staticCanvasEl, {
-                        width: fabricCanvas.width,
-                        height: fabricCanvas.height,
+                        width: Math.max(1, Math.round(baseDims.width)),
+                        height: Math.max(1, Math.round(baseDims.height)),
                     });
 
                     await new Promise((resolve) => {
@@ -1077,24 +1199,32 @@
                         });
                     });
 
-                    // Export transparent overlay at 2.5x multiplier for razor-sharp vector clarity
+                    // Export transparent overlay at 2.5x multiplier for razor-sharp clarity
                     const overlayPngDataUrl = staticCanvas.toDataURL({
                         format: 'png',
                         multiplier: 2.5,
                     });
 
-                    // Embed PNG into pdf-lib
+                    // Embed PNG into pdf-lib & align against CropBox + /Rotate
                     const embeddedImage = await pdfDoc.embedPng(overlayPngDataUrl);
+                    const placement = PDFRender.visualCenterRectToPdfDraw(
+                        pageBox.visualWidth / 2,
+                        pageBox.visualHeight / 2,
+                        pageBox.visualWidth,
+                        pageBox.visualHeight,
+                        0,
+                        pageBox
+                    );
 
-                    // Draw image over the page
                     page.drawImage(embeddedImage, {
-                        x: 0,
-                        y: 0,
-                        width: pageWidth,
-                        height: pageHeight,
+                        x: placement.x,
+                        y: placement.y,
+                        width: pageBox.visualWidth,
+                        height: pageBox.visualHeight,
+                        rotate: degrees(placement.rotateDeg),
                     });
 
-                    // Zero out offscreen canvas memory
+                    staticCanvas.dispose();
                     staticCanvasEl.width = 0;
                     staticCanvasEl.height = 0;
                 }
@@ -1114,6 +1244,9 @@
                 console.error('Export error:', err);
                 exportProgressPanel.classList.add('hidden');
                 showError('Failed to export signed PDF: ' + err.message);
+            } finally {
+                exportPdfBtn.disabled = false;
+                exportPdfBtn.classList.remove('opacity-75', 'cursor-not-allowed');
             }
         });
 
@@ -1130,18 +1263,35 @@
         });
 
         // Reset
-        resetEditorBtn?.addEventListener('click', () => {
-            if (confirm('Upload another PDF? Any unsaved edits will be discarded.')) {
-                originalFile = null;
-                originalArrayBuffer = null;
-                pdfDocProxy = null;
-                pageAnnotations.clear();
-                pageHistories.clear();
-                if (fabricCanvas) fabricCanvas.clear();
-                editorPanel.classList.add('hidden');
-                resultPanel.classList.add('hidden');
-                uploadPanel.classList.remove('hidden');
+        resetEditorBtn?.addEventListener('click', async () => {
+            ++loadSeq;
+            if (thumbAbortCtrl) {
+                thumbAbortCtrl.abort();
+                thumbAbortCtrl = null;
             }
+            if (pdfDocProxy) {
+                await PDFRender.destroyDoc(pdfDocProxy);
+                pdfDocProxy = null;
+            }
+            originalFile = null;
+            originalArrayBuffer = null;
+            activeRenderedPageIdx = null;
+            lastSignedPdfBytes = null;
+            zoomScale = 1.0;
+            currentNumericScale = 1.0;
+            zoomLevelText.textContent = '100%';
+            savedSignatures.length = 0;
+            if (signaturesShelfList) signaturesShelfList.innerHTML = '';
+            if (signaturesShelf) signaturesShelf.classList.add('hidden');
+            pageAnnotations.clear();
+            pageBaseDims.clear();
+            pageHistories.clear();
+            if (pdfFileInput) pdfFileInput.value = '';
+            if (fabricCanvas) fabricCanvas.clear();
+            clearError();
+            editorPanel.classList.add('hidden');
+            resultPanel.classList.add('hidden');
+            uploadPanel.classList.remove('hidden');
         });
     });
 })(window, document);

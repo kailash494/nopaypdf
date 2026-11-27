@@ -71,10 +71,10 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="space-y-6">
 
         <!-- Error Notification Banner -->
-        <div id="error-alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
+        <div id="error-alert" role="alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-start gap-3">
             <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
             <div class="flex-1 text-xs sm:text-sm" id="error-message"></div>
-            <button type="button" id="error-dismiss-btn" class="text-rose-400 hover:text-rose-700">
+            <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="text-rose-400 hover:text-rose-700">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -317,7 +317,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <label for="pn-color" class="block text-xs font-semibold text-slate-700 mb-1">Text Color</label>
                                 <div class="flex items-center gap-1.5">
                                     <input type="color" id="pn-color" value="#334155" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white">
-                                    <input type="text" id="pn-color-hex" value="#334155" class="w-16 px-1.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono">
+                                    <input type="text" id="pn-color-hex" value="#334155" aria-label="Text color hex" class="w-16 px-1.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono">
                                 </div>
                             </div>
                         </div>
@@ -339,6 +339,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <input
                                     type="text"
                                     id="pn-page-ranges-input"
+                                    aria-label="Custom page ranges to number"
                                     placeholder="e.g. 2-10, 15"
                                     class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white"
                                 >

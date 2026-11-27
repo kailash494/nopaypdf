@@ -26,6 +26,7 @@
     const metricReduction = document.getElementById('metric-reduction-percent');
     const noSavingsGuard = document.getElementById('no-savings-guard');
     const downloadBtn = document.getElementById('download-compressed-btn');
+    const downloadOriginalBtn = document.getElementById('download-original-btn');
     const resetBtn = document.getElementById('compress-reset-btn');
     const errorAlert = document.getElementById('error-alert');
     const errorMessage = document.getElementById('error-message');
@@ -38,6 +39,7 @@
     let currentPdfDoc = null;
     let totalPages = 0;
     let compressedBlob = null;
+    let loadSeq = 0;
 
     PDFRender.initPdfJsWorker();
 
@@ -82,27 +84,36 @@
         });
     }
 
-    // Ingest Selected File
+    // Ingest Selected File (atomic against rapid replacements)
     async function loadPdfFile(file) {
         clearError();
         if (resultView) resultView.classList.add('hidden');
+        const seq = ++loadSeq;
+        let nextPreview = null;
 
         try {
             submitBtn.disabled = true;
             progress.start('Reading PDF document...');
 
-            currentFile = file;
-            currentBuffer = await PDFCore.readFileAsArrayBuffer(file);
+            const nextBuffer = await PDFCore.readFileAsArrayBuffer(file);
+            nextPreview = await PDFRender.loadPreviewDoc(nextBuffer);
 
-            // Load via PDF.js to inspect pages and validity
+            if (seq !== loadSeq) {
+                await PDFRender.destroyDoc(nextPreview.pdfDoc);
+                return;
+            }
+
             if (currentPdfDoc) {
                 await PDFRender.destroyDoc(currentPdfDoc);
                 currentPdfDoc = null;
             }
 
-            const preview = await PDFRender.loadPreviewDoc(currentBuffer);
-            currentPdfDoc = preview.pdfDoc;
-            totalPages = preview.pageCount;
+            currentFile = file;
+            currentBuffer = nextBuffer;
+            currentPdfDoc = nextPreview.pdfDoc;
+            totalPages = nextPreview.pageCount;
+            compressedBlob = null;
+            nextPreview = null;
 
             fileNameLabel.textContent = file.name;
             fileMetaLabel.textContent = `${PDFCore.formatBytes(file.size)} • ${totalPages} page${totalPages === 1 ? '' : 's'}`;
@@ -112,10 +123,13 @@
             progress.reset();
             submitBtn.disabled = false;
         } catch (err) {
+            if (nextPreview?.pdfDoc) {
+                await PDFRender.destroyDoc(nextPreview.pdfDoc);
+            }
             console.error('File load error:', err);
             showError('Unable to open this PDF document: ' + (err.message || String(err)));
             progress.reset();
-            submitBtn.disabled = false;
+            submitBtn.disabled = !currentBuffer;
         }
     }
 
@@ -156,56 +170,56 @@
         const { PDFDocument } = window.PDFLib;
         const outPdf = await PDFDocument.create();
 
-        // Load PDF.js proxy with cloned buffer
-        const pdfJsDoc = await window.pdfjsLib.getDocument({
-            data: new Uint8Array(buffer).slice(),
-        }).promise;
-
-        const count = pdfJsDoc.numPages;
-
-        for (let pageNum = 1; pageNum <= count; pageNum++) {
-            const pct = Math.round(15 + ((pageNum - 1) / count) * 75);
-            progress.update(pct, `Optimizing page ${pageNum} of ${count}...`);
-
-            const page = await pdfJsDoc.getPage(pageNum);
-            const viewport = page.getViewport({ scale });
-
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.floor(viewport.width);
-            canvas.height = Math.floor(viewport.height);
-            const ctx = canvas.getContext('2d', { alpha: false });
-
-            // Fill white background to prevent transparent backgrounds turning black
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            await page.render({
-                canvasContext: ctx,
-                viewport: viewport,
-            }).promise;
-
-            // Re-encode to JPEG
-            const jpegDataUrl = canvas.toDataURL('image/jpeg', quality);
-
-            // Clean canvas memory immediately
-            canvas.width = 0;
-            canvas.height = 0;
-
-            // Embed into new PDF preserving original page dimensions in points
-            const unscaledViewport = page.getViewport({ scale: 1.0 });
-            const embeddedImage = await outPdf.embedJpg(jpegDataUrl);
-            const newPage = outPdf.addPage([unscaledViewport.width, unscaledViewport.height]);
-            newPage.drawImage(embeddedImage, {
-                x: 0,
-                y: 0,
-                width: unscaledViewport.width,
-                height: unscaledViewport.height,
-            });
-        }
+        // Load PDF.js proxy via PDFRender so CMap URLs are included
+        const preview = await PDFRender.loadPreviewDoc(buffer);
+        const pdfJsDoc = preview.pdfDoc;
+        const count = preview.pageCount;
 
         try {
-            await pdfJsDoc.destroy();
-        } catch (e) {}
+            for (let pageNum = 1; pageNum <= count; pageNum++) {
+                const pct = Math.round(15 + ((pageNum - 1) / count) * 75);
+                progress.update(pct, `Optimizing page ${pageNum} of ${count}...`);
+
+                const page = await pdfJsDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.floor(viewport.width));
+                canvas.height = Math.max(1, Math.floor(viewport.height));
+                const ctx = canvas.getContext('2d', { alpha: false });
+
+                // Fill white background to prevent transparent backgrounds turning black
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                await page.render({
+                    canvasContext: ctx,
+                    viewport: viewport,
+                }).promise;
+
+                // Re-encode to JPEG
+                const jpegDataUrl = canvas.toDataURL('image/jpeg', quality);
+
+                // Clean canvas memory immediately
+                canvas.width = 0;
+                canvas.height = 0;
+
+                // Embed into new PDF preserving original upright page dimensions in points
+                const unscaledViewport = page.getViewport({ scale: 1.0 });
+                const embeddedImage = await outPdf.embedJpg(jpegDataUrl);
+                const newPage = outPdf.addPage([unscaledViewport.width, unscaledViewport.height]);
+                newPage.drawImage(embeddedImage, {
+                    x: 0,
+                    y: 0,
+                    width: unscaledViewport.width,
+                    height: unscaledViewport.height,
+                });
+
+                await new Promise((resolve) => setTimeout(resolve, 0));
+            }
+        } finally {
+            await PDFRender.destroyDoc(pdfJsDoc);
+        }
 
         progress.update(95, 'Assembling compressed document...');
         const pdfBytes = await outPdf.save();
@@ -286,30 +300,48 @@
         });
     }
 
-    // Download Handler
+    // Download Handlers
     if (downloadBtn) {
         downloadBtn.addEventListener('click', () => {
             if (!compressedBlob || !currentFile) return;
             const originalName = currentFile.name.replace(/\.[^/.]+$/, '');
             const downloadName = `${originalName}-compressed.pdf`;
-            PDFCore.downloadBlob(compressedBlob, downloadName);
+            PDFCore.downloadBlob(compressedBlob, downloadName, 'application/pdf');
+        });
+    }
+
+    if (downloadOriginalBtn) {
+        downloadOriginalBtn.addEventListener('click', () => {
+            if (!currentBuffer || !currentFile) return;
+            const downloadName = PDFCore.sanitizeFilename(currentFile.name, 'pdf', { preserveCase: true });
+            PDFCore.downloadBlob(new Blob([currentBuffer], { type: 'application/pdf' }), downloadName, 'application/pdf');
         });
     }
 
     // Reset Handler
     if (resetBtn) {
         resetBtn.addEventListener('click', async () => {
+            ++loadSeq;
             currentFile = null;
             currentBuffer = null;
             compressedBlob = null;
+            totalPages = 0;
             if (currentPdfDoc) {
                 await PDFRender.destroyDoc(currentPdfDoc);
                 currentPdfDoc = null;
             }
             if (fileInput) fileInput.value = '';
+
+            const defaultPreset = document.querySelector('input[name="compression-preset"][value="balanced"]');
+            if (defaultPreset) {
+                defaultPreset.checked = true;
+                defaultPreset.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
             clearError();
             progress.reset();
 
+            if (noSavingsGuard) noSavingsGuard.classList.add('hidden');
             if (resultView) resultView.classList.add('hidden');
             if (workspace) workspace.classList.add('hidden');
             if (dropzone) dropzone.classList.remove('hidden');

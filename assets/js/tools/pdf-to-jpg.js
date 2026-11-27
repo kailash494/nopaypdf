@@ -47,12 +47,11 @@
     // State
     const progress = PDFCore.createProgress(progressContainer);
     let currentFile = null;
-    let originalBuffer = null;
     let currentPdfProxy = null;
     let totalPages = 0;
     let selectedPages = new Set();
     let renderAbortCtrl = null;
-    let convertedEntries = []; // Array<{ pageNum: number, name: string, bytes: Uint8Array, url: string, width: number, height: number, sizeBytes: number }>
+    let convertedEntries = []; // Array<{ pageNum: number, name: string, blob: Blob, url: string, width: number, height: number, sizeBytes: number }>
 
     function showError(msg) {
         if (!errorAlert || !errorMessage) return;
@@ -220,8 +219,8 @@
         docSizeEl.textContent = PDFCore.formatBytes(file.size);
 
         try {
-            originalBuffer = await file.arrayBuffer();
-            const { pdfProxy, numPages } = await PDFRender.loadPreviewDocument(originalBuffer);
+            const buffer = await file.arrayBuffer();
+            const { pdfProxy, numPages } = await PDFRender.loadPreviewDocument(buffer);
             currentPdfProxy = pdfProxy;
             totalPages = numPages;
             docPageCountEl.textContent = numPages;
@@ -344,6 +343,17 @@
                 return;
             }
 
+            const scope = document.querySelector('input[name="page-scope"]:checked')?.value || 'all';
+            if (scope === 'custom') {
+                const parsed = validateRangeInput();
+                if (!parsed.valid || parsed.flatPages.length === 0) {
+                    showError(parsed.error || 'Please enter valid page ranges to convert.');
+                    return;
+                }
+                selectedPages = new Set(parsed.flatPages);
+                updateThumbnailSelectionUI();
+            }
+
             const targetPages = Array.from(selectedPages).sort((a, b) => a - b);
             if (targetPages.length === 0) {
                 showError('Please select at least one page to convert.');
@@ -362,7 +372,8 @@
                 ? parseFloat((parseInt(qualitySlider?.value || '88', 10) / 100).toFixed(2))
                 : 1.0;
 
-            const baseName = currentFile?.name ? currentFile.name.replace(/\.[^/.]+$/, '') : 'document';
+            const baseName = (currentFile?.name ? currentFile.name.replace(/\.[^/.]+$/, '') : 'document') || 'document';
+            const padWidth = Math.max(2, String(totalPages).length);
 
             try {
                 convertBtn.disabled = true;
@@ -386,12 +397,12 @@
                     const viewport = page.getViewport({ scale, rotation: page.rotate || 0 });
 
                     const canvas = document.createElement('canvas');
-                    canvas.width = Math.floor(viewport.width);
-                    canvas.height = Math.floor(viewport.height);
+                    canvas.width = Math.max(1, Math.floor(viewport.width));
+                    canvas.height = Math.max(1, Math.floor(viewport.height));
 
                     const ctx = canvas.getContext('2d', { alpha: format === 'png' });
 
-                    // CRITICAL: Paint solid white background for JPEG so transparent PDFs don't export black
+                    // Paint solid white background for JPEG so transparent PDFs don't export black
                     if (format === 'jpg') {
                         ctx.fillStyle = '#ffffff';
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -399,28 +410,31 @@
 
                     await page.render({ canvasContext: ctx, viewport }).promise;
 
-                    // Extract blob
-                    const blob = await new Promise(resolve => canvas.toBlob(resolve, mimeType, qualityVal));
-                    const arrayBuffer = await blob.arrayBuffer();
-                    const bytes = new Uint8Array(arrayBuffer);
-                    const previewUrl = URL.createObjectURL(blob);
+                    const outWidth = canvas.width;
+                    const outHeight = canvas.height;
 
-                    const pad = String(pageNum).padStart(2, '0');
+                    // Extract single Blob cleanly (avoids keeping duplicate Uint8Array buffers in memory)
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, mimeType, qualityVal));
+                    canvas.width = 0;
+                    canvas.height = 0;
+
+                    if (!blob) {
+                        throw new Error(`Failed to encode page ${pageNum} as ${ext.toUpperCase()}.`);
+                    }
+
+                    const previewUrl = URL.createObjectURL(blob);
+                    const pad = String(pageNum).padStart(padWidth, '0');
                     const imgFileName = `${baseName}-page-${pad}.${ext}`;
 
                     convertedEntries.push({
                         pageNum,
                         name: imgFileName,
-                        bytes,
+                        blob,
                         url: previewUrl,
-                        width: canvas.width,
-                        height: canvas.height,
-                        sizeBytes: bytes.length,
+                        width: outWidth,
+                        height: outHeight,
+                        sizeBytes: blob.size,
                     });
-
-                    // Explicit canvas cleanup to free heap
-                    canvas.width = 0;
-                    canvas.height = 0;
 
                     // Yield control to main thread
                     await new Promise(resolve => setTimeout(resolve, 0));
@@ -430,19 +444,20 @@
 
                 // Render result cards into convertedImagesGrid
                 convertedEntries.forEach(entry => {
+                    const safeName = PDFCore.escapeHtml(entry.name);
                     const card = document.createElement('div');
                     card.className = 'converted-image-card bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between';
                     card.innerHTML = `
                         <div>
                             <div class="w-full h-[150px] bg-slate-50 border border-slate-100 rounded-lg overflow-hidden flex items-center justify-center p-1 mb-2">
-                                <img src="${entry.url}" alt="${entry.name}" class="max-h-full max-w-full object-contain">
+                                <img src="${entry.url}" alt="${safeName}" class="max-h-full max-w-full object-contain">
                             </div>
                             <div class="px-0.5">
                                 <div class="flex items-center justify-between text-xs font-bold text-slate-800">
                                     <span>Page ${entry.pageNum}</span>
                                     <span class="text-[11px] text-slate-400 font-normal">${entry.width} × ${entry.height} px</span>
                                 </div>
-                                <p class="text-[11px] text-slate-500 mt-0.5 truncate" title="${entry.name}">${entry.name}</p>
+                                <p class="text-[11px] text-slate-500 mt-0.5 truncate" title="${safeName}">${safeName}</p>
                                 <span class="text-[10px] font-semibold text-slate-400">${PDFCore.formatBytes(entry.sizeBytes)}</span>
                             </div>
                         </div>
@@ -455,7 +470,7 @@
                     `;
 
                     card.querySelector('.btn-download-single')?.addEventListener('click', () => {
-                        PDFCore.downloadBlob(entry.bytes, entry.name, mimeType);
+                        PDFCore.downloadBlob(entry.blob, entry.name, mimeType);
                     });
 
                     convertedImagesGrid.appendChild(card);
@@ -503,20 +518,20 @@
 
     // Download ZIP button
     if (downloadZipBtn) {
-        downloadZipBtn.addEventListener('click', () => {
+        downloadZipBtn.addEventListener('click', async () => {
             if (convertedEntries.length === 0) return;
             const format = document.querySelector('input[name="image-format"]:checked')?.value || 'jpg';
             const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
-            const baseName = currentFile?.name ? currentFile.name.replace(/\.[^/.]+$/, '') : 'document';
+            const baseName = PDFCore.sanitizeFilename(currentFile?.name || 'document', 'pdf').replace(/\.pdf$/i, '') || 'document';
 
             if (convertedEntries.length === 1) {
                 const single = convertedEntries[0];
-                PDFCore.downloadBlob(single.bytes, single.name, mimeType);
+                PDFCore.downloadBlob(single.blob, single.name, mimeType);
             } else {
-                PDFRender.buildAndDownloadZip(
-                    convertedEntries.map(e => ({ name: e.name, bytes: e.bytes })),
-                    `${baseName}-images.zip`
-                );
+                const zip = new window.JSZip();
+                convertedEntries.forEach((e) => zip.file(e.name, e.blob, { binary: true }));
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                PDFCore.downloadBlob(zipBlob, `${baseName}-images.zip`, 'application/zip');
             }
         });
     }
@@ -526,8 +541,19 @@
         resetBtn.addEventListener('click', () => {
             cleanupPreviews();
             currentFile = null;
-            originalBuffer = null;
             totalPages = 0;
+            if (fileInput) fileInput.value = '';
+            if (rangeInput) rangeInput.value = '';
+            if (rangeFeedback) rangeFeedback.textContent = '';
+            const jpgRadio = document.querySelector('input[name="image-format"][value="jpg"]');
+            if (jpgRadio) jpgRadio.checked = true;
+            if (qualitySliderContainer) qualitySliderContainer.classList.remove('hidden');
+            if (dpiSelect) dpiSelect.value = '150';
+            if (qualitySlider) qualitySlider.value = '88';
+            if (qualityDisplay) qualityDisplay.textContent = '88%';
+            const allScope = document.querySelector('input[name="page-scope"][value="all"]');
+            if (allScope) allScope.checked = true;
+            if (customRangeRow) customRangeRow.classList.add('hidden');
             progress.reset();
             resultView?.classList.add('hidden');
             workspaceView.classList.add('hidden');

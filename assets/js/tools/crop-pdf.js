@@ -120,14 +120,24 @@
             onError: (err) => showError(err),
         });
 
+        function invalidateResult() {
+            lastCroppedPdfBytes = null;
+            resultPanel?.classList.add('hidden');
+        }
+
         // --- Load Document ---
         async function loadPdfDocument(file) {
             clearError();
-            originalFile = file;
 
             try {
-                originalArrayBuffer = await PDFCore.readFileAsArrayBuffer(file);
-                const loaded = await PDFRender.loadPreviewDoc(originalArrayBuffer);
+                const nextBuffer = await PDFCore.readFileAsArrayBuffer(file);
+                const loaded = await PDFRender.loadPreviewDoc(nextBuffer);
+                if (pdfDocProxy) {
+                    await PDFRender.destroyDoc(pdfDocProxy);
+                    pdfDocProxy = null;
+                }
+                originalFile = file;
+                originalArrayBuffer = nextBuffer;
                 pdfDocProxy = loaded.pdfProxy;
                 totalPages = loaded.numPages;
 
@@ -136,6 +146,7 @@
                 marginsPt.right = 0;
                 marginsPt.bottom = 0;
                 marginsPt.left = 0;
+                lastCroppedPdfBytes = null;
 
                 docFilename.textContent = file.name;
                 docMeta.textContent = `${totalPages} page${totalPages === 1 ? '' : 's'} • ${PDFCore.formatBytes(file.size)}`;
@@ -170,8 +181,17 @@
             pagePtWidth = baseViewport.width;
             pagePtHeight = baseViewport.height;
 
-            // Target canvas width around 380-420px for clear desktop/mobile layout
-            const maxDisplayWidth = Math.min(cropViewportWrap.parentElement.clientWidth - 48, 420);
+            // Clamp stored margins cleanly if switching between heterogeneous page sizes
+            const maxW = Math.max(0, pagePtWidth - 36);
+            const maxH = Math.max(0, pagePtHeight - 36);
+            marginsPt.top = Math.min(marginsPt.top, maxH);
+            marginsPt.bottom = Math.min(marginsPt.bottom, Math.max(0, maxH - marginsPt.top));
+            marginsPt.left = Math.min(marginsPt.left, maxW);
+            marginsPt.right = Math.min(marginsPt.right, Math.max(0, maxW - marginsPt.left));
+
+            // Guard positive stage width even if container is narrow/reflowing
+            const parentWidth = cropViewportWrap.parentElement?.clientWidth || 420;
+            const maxDisplayWidth = Math.max(220, Math.min(parentWidth - 48, 420));
             displayScale = maxDisplayWidth / pagePtWidth;
 
             const viewport = page.getViewport({ scale: displayScale, rotation: intrinsicRotation });
@@ -286,31 +306,45 @@
             maskRight.style.width = `${Math.max(0, cWidth - (boxLeft + boxWidth))}px`;
         }
 
-        function onNumericInputChanged() {
-            const maxW = pagePtWidth - 36;
-            const maxH = pagePtHeight - 36;
+        function onNumericInputChanged(syncInputs = false) {
+            const maxW = Math.max(0, pagePtWidth - 36);
+            const maxH = Math.max(0, pagePtHeight - 36);
 
             const topPt = Math.max(0, unitToPt(marginTopInput.value, activeUnit));
             const bottomPt = Math.max(0, unitToPt(marginBottomInput.value, activeUnit));
             const leftPt = Math.max(0, unitToPt(marginLeftInput.value, activeUnit));
             const rightPt = Math.max(0, unitToPt(marginRightInput.value, activeUnit));
 
-            marginsPt.top = Math.min(topPt, maxH - bottomPt);
-            marginsPt.bottom = Math.min(bottomPt, maxH - marginsPt.top);
-            marginsPt.left = Math.min(leftPt, maxW - rightPt);
-            marginsPt.right = Math.min(rightPt, maxW - marginsPt.left);
+            marginsPt.top = Math.min(topPt, maxH);
+            marginsPt.bottom = Math.min(bottomPt, Math.max(0, maxH - marginsPt.top));
+            marginsPt.left = Math.min(leftPt, maxW);
+            marginsPt.right = Math.min(rightPt, Math.max(0, maxW - marginsPt.left));
 
+            invalidateResult();
             updateVisualCropOverlayFromPoints();
-            updateNumericInputsFromPoints();
+            if (syncInputs) {
+                updateNumericInputsFromPoints();
+            } else {
+                const origW = ptToUnit(pagePtWidth, activeUnit);
+                const origH = ptToUnit(pagePtHeight, activeUnit);
+                origSizeLabel.textContent = `${origW} \u00D7 ${origH} ${activeUnit}`;
+                const croppedW = Math.max(0, pagePtWidth - marginsPt.left - marginsPt.right);
+                const croppedH = Math.max(0, pagePtHeight - marginsPt.top - marginsPt.bottom);
+                croppedSizeLabel.textContent = `${ptToUnit(croppedW, activeUnit)} \u00D7 ${ptToUnit(croppedH, activeUnit)} ${activeUnit}`;
+            }
         }
 
         [marginTopInput, marginBottomInput, marginLeftInput, marginRightInput].forEach((inp) => {
-            inp.addEventListener('input', onNumericInputChanged);
+            // Preserve partial decimals like "0." / "1." while typing; normalize formatting on change/blur
+            inp.addEventListener('input', () => onNumericInputChanged(false));
+            inp.addEventListener('change', () => onNumericInputChanged(true));
+            inp.addEventListener('blur', () => onNumericInputChanged(true));
         });
 
         // --- Quick Presets ---
         presetBtns.forEach((btn) => {
             btn.addEventListener('click', () => {
+                invalidateResult();
                 const preset = btn.dataset.preset;
                 if (preset === 'reset') {
                     marginsPt.top = 0;
@@ -364,21 +398,23 @@
             startBoxHeight = cropBaseCanvas.height - (marginsPt.top + marginsPt.bottom) * displayScale;
         }
 
-        activeCropBox?.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('crop-handle')) return; // Handle handled separately
+        activeCropBox?.addEventListener('pointerdown', (e) => {
+            if (e.target.classList.contains('crop-handle')) return;
+            e.preventDefault();
             startCropDrag('move', e.clientX, e.clientY);
             e.stopPropagation();
         });
 
         cropHandles.forEach((handle) => {
-            handle.addEventListener('mousedown', (e) => {
+            handle.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
                 startCropDrag(handle.dataset.handle, e.clientX, e.clientY);
                 e.stopPropagation();
             });
         });
 
-        // Window Move & Up
-        window.addEventListener('mousemove', (e) => {
+        // Window Move & Up (Pointer Events support both Mouse and Touch)
+        window.addEventListener('pointermove', (e) => {
             if (!isDragging) return;
 
             const dx = e.clientX - dragStartX;
@@ -421,19 +457,23 @@
             marginsPt.right = (cWidth - (newLeft + newWidth)) / displayScale;
             marginsPt.bottom = (cHeight - (newTop + newHeight)) / displayScale;
 
+            invalidateResult();
             updateVisualCropOverlayFromPoints();
             updateNumericInputsFromPoints();
         });
 
-        window.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                dragMode = null;
-            }
+        ['pointerup', 'pointercancel'].forEach((evName) => {
+            window.addEventListener(evName, () => {
+                if (isDragging) {
+                    isDragging = false;
+                    dragMode = null;
+                }
+            });
         });
 
         // Scope Selector
         cropScopeSelect?.addEventListener('change', () => {
+            invalidateResult();
             if (cropScopeSelect.value === 'custom') {
                 cropCustomRangeInput.classList.remove('hidden');
                 cropCustomRangeInput.focus();
@@ -489,41 +529,49 @@
 
                 for (const pageNum of targetPages) {
                     const page = pdfDoc.getPage(pageNum - 1);
-                    const rotation = (page.getRotation()?.angle || 0) % 360;
-                    
-                    // Retrieve existing CropBox or MediaBox boundaries
-                    const existingBox = page.getCropBox() || page.getMediaBox();
-                    const curX = existingBox.x;
-                    const curY = existingBox.y;
-                    const curW = existingBox.width;
-                    const curH = existingBox.height;
+                    const box = PDFRender.getEffectivePageBox(page);
+                    const curX = box.x;
+                    const curY = box.y;
+                    const curW = box.width;
+                    const curH = box.height;
+                    const rotation = box.rotation;
+
+                    // Clamp per-page margins safely for heterogeneous PDF dimensions (minimum 36pt kept)
+                    const maxVisualW = Math.max(0, box.visualWidth - 36);
+                    const maxVisualH = Math.max(0, box.visualHeight - 36);
+                    const pLeft = Math.min(mL, maxVisualW);
+                    const pRight = Math.min(mR, Math.max(0, maxVisualW - pLeft));
+                    const pTop = Math.min(mT, maxVisualH);
+                    const pBottom = Math.min(mB, Math.max(0, maxVisualH - pTop));
 
                     let newX = curX;
                     let newY = curY;
                     let newW = curW;
                     let newH = curH;
 
-                    // Account for page orientation in coordinate mapping
+                    // Account for clockwise /Rotate in PDF Y-up coordinates
                     if (rotation === 0) {
-                        newX = curX + mL;
-                        newY = curY + mB;
-                        newW = Math.max(36, curW - mL - mR);
-                        newH = Math.max(36, curH - mT - mB);
+                        newX = curX + pLeft;
+                        newY = curY + pBottom;
+                        newW = Math.max(36, curW - pLeft - pRight);
+                        newH = Math.max(36, curH - pTop - pBottom);
                     } else if (rotation === 90) {
-                        newX = curX + mB;
-                        newY = curY + mR;
-                        newW = Math.max(36, curW - mB - mT);
-                        newH = Math.max(36, curH - mL - mR);
+                        // Visual Top maps to +X from curX; Visual Left maps to +Y from curY
+                        newX = curX + pTop;
+                        newY = curY + pLeft;
+                        newW = Math.max(36, curW - pTop - pBottom);
+                        newH = Math.max(36, curH - pLeft - pRight);
                     } else if (rotation === 180) {
-                        newX = curX + mR;
-                        newY = curY + mT;
-                        newW = Math.max(36, curW - mL - mR);
-                        newH = Math.max(36, curH - mT - mB);
+                        newX = curX + pRight;
+                        newY = curY + pTop;
+                        newW = Math.max(36, curW - pLeft - pRight);
+                        newH = Math.max(36, curH - pTop - pBottom);
                     } else if (rotation === 270) {
-                        newX = curX + mT;
-                        newY = curY + mL;
-                        newW = Math.max(36, curW - mB - mT);
-                        newH = Math.max(36, curH - mL - mR);
+                        // Visual Bottom maps to +X from curX; Visual Right maps to +Y from curY
+                        newX = curX + pBottom;
+                        newY = curY + pRight;
+                        newW = Math.max(36, curW - pTop - pBottom);
+                        newH = Math.max(36, curH - pLeft - pRight);
                     }
 
                     // Apply updated boundary boxes
@@ -562,11 +610,19 @@
         cropChangeFileBtn?.addEventListener('click', resetAll);
         cropResetBtn?.addEventListener('click', resetAll);
 
-        function resetAll() {
+        async function resetAll() {
+            if (pdfDocProxy) {
+                await PDFRender.destroyDoc(pdfDocProxy);
+                pdfDocProxy = null;
+            }
             originalFile = null;
             originalArrayBuffer = null;
-            pdfDocProxy = null;
             lastCroppedPdfBytes = null;
+            if (pdfFileInput) pdfFileInput.value = '';
+            if (cropBaseCanvas) {
+                cropBaseCanvas.width = 0;
+                cropBaseCanvas.height = 0;
+            }
             cropWorkspacePanel.classList.add('hidden');
             resultPanel.classList.add('hidden');
             uploadPanel.classList.remove('hidden');

@@ -75,10 +75,10 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Interactive Tool Workspace -->
 <section class="py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
     <!-- Error Alert Banner -->
-    <div id="error-alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
+    <div id="error-alert" role="alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
         <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"></i>
         <div class="flex-grow" id="error-message"></div>
-        <button type="button" id="error-dismiss-btn" class="p-1 text-red-400 hover:text-red-700">
+        <button type="button" id="error-dismiss-btn" aria-label="Dismiss error" class="p-1 text-red-400 hover:text-red-700">
             <i data-lucide="x" class="w-4 h-4"></i>
         </button>
     </div>
@@ -129,14 +129,14 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 <!-- Image Format -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-2">Image Format</label>
-                    <div class="grid grid-cols-2 gap-2">
+                    <span id="image-format-label" class="block text-xs font-semibold text-slate-700 mb-2">Image Format</span>
+                    <div role="radiogroup" aria-labelledby="image-format-label" class="grid grid-cols-2 gap-2">
                         <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:text-blue-700 text-xs font-semibold">
-                            <input type="radio" name="image-format" value="jpg" checked class="hidden">
+                            <input type="radio" name="image-format" value="jpg" checked class="sr-only">
                             <span>JPG (Standard)</span>
                         </label>
                         <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:text-blue-700 text-xs font-semibold">
-                            <input type="radio" name="image-format" value="png" class="hidden">
+                            <input type="radio" name="image-format" value="png" class="sr-only">
                             <span>PNG (Lossless)</span>
                         </label>
                     </div>
@@ -196,6 +196,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <input
                         type="text"
                         id="page-range-input"
+                        aria-label="Custom page ranges to convert"
                         placeholder="e.g. 1-3, 5, 8-10"
                         class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
@@ -280,7 +281,6 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Permissive Client Libraries -->
 <?php
 $extraScripts = [
-    'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
     'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js',
     '/assets/js/pdf-render.js?v=' . APP_VERSION,

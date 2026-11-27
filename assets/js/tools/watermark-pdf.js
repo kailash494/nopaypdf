@@ -96,9 +96,11 @@
             typeTabs.forEach((t) => {
                 t.classList.remove('bg-blue-600', 'text-white', 'shadow-xs');
                 t.classList.add('bg-transparent', 'text-slate-600');
+                t.setAttribute('aria-selected', 'false');
             });
             tab.classList.add('bg-blue-600', 'text-white', 'shadow-xs');
             tab.classList.remove('bg-transparent', 'text-slate-600');
+            tab.setAttribute('aria-selected', 'true');
 
             if (type === 'text') {
                 panelText.classList.remove('hidden');
@@ -187,9 +189,11 @@
             anchorBtns.forEach((b) => {
                 b.classList.remove('bg-blue-600', 'text-white');
                 b.classList.add('bg-white', 'text-slate-700');
+                b.setAttribute('aria-pressed', 'false');
             });
             btn.classList.add('bg-blue-600', 'text-white');
             btn.classList.remove('bg-white', 'text-slate-700');
+            btn.setAttribute('aria-pressed', 'true');
             updateLivePreview();
         });
     });
@@ -207,30 +211,38 @@
         });
     });
 
-    // Image Upload Handler
+    // Image Upload Handler (serialized atomic load with explicit error handling)
     if (wmImageInput) {
-        wmImageInput.addEventListener('change', () => {
+        wmImageInput.addEventListener('change', async () => {
             const file = wmImageInput.files?.[0];
             if (!file) return;
+            clearError();
 
-            uploadedImageMime = file.type;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    uploadedImageElement = img;
-                    updateLivePreview();
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+            try {
+                const bytes = await PDFCore.readFileAsArrayBuffer(file);
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = () => reject(new Error('Could not read the selected image file.'));
+                    reader.readAsDataURL(file);
+                });
+                const img = await new Promise((resolve, reject) => {
+                    const el = new Image();
+                    el.onload = () => resolve(el);
+                    el.onerror = () => reject(new Error('Selected file is not a valid image (.png, .jpg, .webp).'));
+                    el.src = dataUrl;
+                });
 
-            // Read array buffer for pdf-lib embedding
-            const bufReader = new FileReader();
-            bufReader.onload = (e) => {
-                uploadedImageBytes = e.target.result;
-            };
-            bufReader.readAsArrayBuffer(file);
+                uploadedImageMime = (file.type || '').toLowerCase();
+                uploadedImageBytes = bytes;
+                uploadedImageElement = img;
+                updateLivePreview();
+            } catch (err) {
+                uploadedImageElement = null;
+                uploadedImageBytes = null;
+                uploadedImageMime = null;
+                showError(err.message || 'Could not load watermark image.');
+            }
         });
     }
 
@@ -358,15 +370,16 @@
             submitBtn.disabled = true;
             progress.start('Rendering document preview...');
 
-            currentFile = file;
-            currentBuffer = await PDFCore.readFileAsArrayBuffer(file);
-
+            const nextBuffer = await PDFCore.readFileAsArrayBuffer(file);
             if (currentPdfDoc) {
                 await PDFRender.destroyDoc(currentPdfDoc);
                 currentPdfDoc = null;
             }
 
-            const preview = await PDFRender.loadPreviewDoc(currentBuffer);
+            const preview = await PDFRender.loadPreviewDoc(nextBuffer);
+            currentFile = file;
+            currentBuffer = nextBuffer;
+            watermarkedBlob = null;
             currentPdfDoc = preview.pdfDoc;
             totalPages = preview.pageCount;
 
@@ -463,7 +476,7 @@
                 progress.start('Stamping watermark onto PDF...');
 
                 const { PDFDocument, rgb, degrees, StandardFonts } = window.PDFLib;
-                const doc = await PDFDocument.load(currentBuffer);
+                const doc = await PDFDocument.load(currentBuffer.slice(0));
 
                 const pages = doc.getPages();
                 const count = pages.length;
@@ -476,36 +489,61 @@
                     for (let i = 1; i <= count; i++) targetPageSet.add(i);
                 } else {
                     const rangeStr = pageRangesInput?.value?.trim() || '';
-                    if (!rangeStr) {
-                        for (let i = 1; i <= count; i++) targetPageSet.add(i);
-                    } else {
-                        const parsed = PDFRender.parsePageRanges(rangeStr, count);
-                        if (!parsed.valid || !parsed.flatPages || parsed.flatPages.length === 0) {
-                            throw new Error(parsed.error || 'Invalid page range entered. Examples: 1, 3-5, 8');
-                        }
-                        parsed.flatPages.forEach((p) => targetPageSet.add(p));
+                    const parsed = PDFRender.parsePageRanges(rangeStr, count);
+                    if (!parsed.valid || !parsed.flatPages || parsed.flatPages.length === 0) {
+                        throw new Error(parsed.error || 'Please enter a valid page range (e.g., 1, 3-5, 8).');
                     }
+                    parsed.flatPages.forEach((p) => targetPageSet.add(p));
                 }
 
-                // Prepare font or image
+                // Prepare font (supports Unicode/non-WinAnsi via bundled SIL OFL Liberation Sans when available) or image
                 let font = null;
                 let embeddedImage = null;
+                let watermarkText = wmTextInput?.value || 'CONFIDENTIAL';
 
                 if (activeType === 'text') {
-                    const fontMap = {
-                        HelveticaBold: StandardFonts.HelveticaBold,
-                        Helvetica: StandardFonts.Helvetica,
-                        TimesRoman: StandardFonts.TimesRoman,
-                        CourierBold: StandardFonts.CourierBold,
-                    };
-                    const chosen = fontMap[wmFontFamily?.value] || StandardFonts.HelveticaBold;
-                    font = await doc.embedFont(chosen);
+                    const hasNonWinAnsi = /[^\x20-\x7E\xA0-\xFF]/.test(watermarkText);
+                    if (hasNonWinAnsi && window.fontkit && typeof doc.registerFontkit === 'function') {
+                        try {
+                            doc.registerFontkit(window.fontkit);
+                            const fontFamilyVal = wmFontFamily?.value || 'HelveticaBold';
+                            const localFontUrl = fontFamilyVal.includes('Times')
+                                ? '/assets/fonts/liberation/LiberationSerif-Regular.ttf'
+                                : (fontFamilyVal.includes('Courier')
+                                    ? '/assets/fonts/liberation/LiberationMono-Bold.ttf'
+                                    : (fontFamilyVal.includes('Bold')
+                                        ? '/assets/fonts/liberation/LiberationSans-Bold.ttf'
+                                        : '/assets/fonts/liberation/LiberationSans-Regular.ttf'));
+                            const resp = await fetch(localFontUrl);
+                            if (resp.ok) {
+                                const fontBytes = await resp.arrayBuffer();
+                                font = await doc.embedFont(fontBytes, { subset: true });
+                            }
+                        } catch (_) {}
+                    }
+
+                    if (!font) {
+                        const fontMap = {
+                            HelveticaBold: StandardFonts.HelveticaBold,
+                            Helvetica: StandardFonts.Helvetica,
+                            TimesRoman: StandardFonts.TimesRoman,
+                            CourierBold: StandardFonts.CourierBold,
+                        };
+                        const chosen = fontMap[wmFontFamily?.value] || StandardFonts.HelveticaBold;
+                        font = await doc.embedFont(chosen);
+                        // Prevent StandardFont WinAnsi encoder crashes
+                        watermarkText = watermarkText.replace(/[^\x20-\x7E\xA0-\xFF]/g, '');
+                        if (!watermarkText.trim()) watermarkText = 'WATERMARK';
+                    }
                 } else if (activeType === 'image') {
                     if (uploadedImageMime === 'image/png') {
                         embeddedImage = await doc.embedPng(uploadedImageBytes);
                     } else if (uploadedImageMime === 'image/jpeg' || uploadedImageMime === 'image/jpg') {
                         embeddedImage = await doc.embedJpg(uploadedImageBytes);
                     } else {
+                        if (!uploadedImageElement) {
+                            throw new Error('Image preview is still loading. Please try again.');
+                        }
                         // Transcode to PNG via canvas for WebP/GIF/BMP
                         const canvas = document.createElement('canvas');
                         canvas.width = uploadedImageElement.width;
@@ -521,26 +559,25 @@
 
                 const opacity = parseInt(wmOpacity?.value || '35', 10) / 100;
                 const rotationDeg = parseInt(wmRotation?.value || '-45', 10);
-                const rotationRad = (rotationDeg * Math.PI) / 180;
                 const placement = document.querySelector('input[name="wm-placement-mode"]:checked')?.value || 'single';
 
-                // Coordinates helper for PDF points (PDF coordinate system: 0,0 at bottom-left)
-                function getPdfAnchorCoords(anchor, w, h, pad = 40) {
+                // Unified visual upright anchor coordinates (matches 40pt preview pad)
+                function getVisualAnchorCoords(anchor, vw, vh, pad = 40) {
                     const map = {
-                        'top-left': { cx: pad, cy: h - pad },
-                        'top-center': { cx: w / 2, cy: h - pad },
-                        'top-right': { cx: w - pad, cy: h - pad },
-                        'middle-left': { cx: pad, cy: h / 2 },
-                        'center': { cx: w / 2, cy: h / 2 },
-                        'middle-right': { cx: w - pad, cy: h / 2 },
-                        'bottom-left': { cx: pad, cy: pad },
-                        'bottom-center': { cx: w / 2, cy: pad },
-                        'bottom-right': { cx: w - pad, cy: pad },
+                        'top-left': { cx: pad, cy: pad },
+                        'top-center': { cx: vw / 2, cy: pad },
+                        'top-right': { cx: vw - pad, cy: pad },
+                        'middle-left': { cx: pad, cy: vh / 2 },
+                        'center': { cx: vw / 2, cy: vh / 2 },
+                        'middle-right': { cx: vw - pad, cy: vh / 2 },
+                        'bottom-left': { cx: pad, cy: vh - pad },
+                        'bottom-center': { cx: vw / 2, cy: vh - pad },
+                        'bottom-right': { cx: vw - pad, cy: vh - pad },
                     };
                     return map[anchor] || map['center'];
                 }
 
-                // Process each page
+                // Process each page honoring /Rotate and CropBox
                 for (let i = 0; i < count; i++) {
                     const pageNum = i + 1;
                     if (!targetPageSet.has(pageNum)) continue;
@@ -549,77 +586,67 @@
                     progress.update(pct, `Stamping watermark on page ${pageNum} of ${count}...`);
 
                     const page = pages[i];
-                    const { width, height } = page.getSize();
+                    const pageBox = PDFRender.getEffectivePageBox(page);
+                    const vw = pageBox.visualWidth;
+                    const vh = pageBox.visualHeight;
 
                     if (activeType === 'text') {
-                        const text = wmTextInput?.value || 'CONFIDENTIAL';
                         const fontSizePt = parseInt(wmFontSize?.value || '48', 10);
-                        const textWidth = font.widthOfTextAtSize(text, fontSizePt);
+                        const textWidth = font.widthOfTextAtSize(watermarkText, fontSizePt);
                         const textHeight = font.heightAtSize(fontSizePt);
                         const { r, g, b } = hexToRgb01(wmTextColor?.value || '#ef4444');
 
-                        // Accurate rotated center offset calculation
-                        // pdf-lib page.drawText rotates around (x, y)
-                        // To rotate around center (cx, cy):
-                        // dx = (W/2)*cos(θ) - (H/2)*sin(θ)
-                        // dy = (W/2)*sin(θ) + (H/2)*cos(θ)
-                        // x = cx - dx, y = cy - dy
-                        function drawRotatedText(cx, cy) {
-                            const halfW = textWidth / 2;
-                            const halfH = textHeight / 2;
-                            const dx = halfW * Math.cos(rotationRad) - halfH * Math.sin(rotationRad);
-                            const dy = halfW * Math.sin(rotationRad) + halfH * Math.cos(rotationRad);
-
-                            page.drawText(text, {
-                                x: cx - dx,
-                                y: cy - dy,
+                        const drawRotatedText = (vcx, vcy) => {
+                            const placementInfo = PDFRender.visualCenterRectToPdfDraw(
+                                vcx, vcy, textWidth, textHeight, rotationDeg, pageBox
+                            );
+                            page.drawText(watermarkText, {
+                                x: placementInfo.x,
+                                y: placementInfo.y,
                                 size: fontSizePt,
                                 font,
                                 color: rgb(r, g, b),
                                 opacity,
-                                rotate: degrees(rotationDeg),
+                                rotate: degrees(placementInfo.rotateDeg),
                             });
-                        }
+                        };
 
                         if (placement === 'single') {
-                            const { cx, cy } = getPdfAnchorCoords(activeAnchor, width, height, 50);
+                            const { cx, cy } = getVisualAnchorCoords(activeAnchor, vw, vh, 40);
                             drawRotatedText(cx, cy);
                         } else {
-                            // Tiled grid: 3 cols x 4 rows
                             const cols = 3;
                             const rows = 4;
                             for (let rIdx = 0; rIdx < rows; rIdx++) {
                                 for (let cIdx = 0; cIdx < cols; cIdx++) {
-                                    const cx = ((cIdx + 0.5) / cols) * width;
-                                    const cy = ((rIdx + 0.5) / rows) * height;
+                                    const cx = ((cIdx + 0.5) / cols) * vw;
+                                    const cy = ((rIdx + 0.5) / rows) * vh;
                                     drawRotatedText(cx, cy);
                                 }
                             }
                         }
                     } else if (activeType === 'image' && embeddedImage) {
                         const scalePct = parseInt(wmImageScale?.value || '35', 10) / 100;
-                        const imgWidth = width * scalePct;
+                        const imgWidth = vw * scalePct;
                         const aspect = embeddedImage.width / embeddedImage.height;
                         const imgHeight = imgWidth / aspect;
 
-                        function drawRotatedImage(cx, cy, w, h) {
-                            const halfW = w / 2;
-                            const halfH = h / 2;
-                            const dx = halfW * Math.cos(rotationRad) - halfH * Math.sin(rotationRad);
-                            const dy = halfW * Math.sin(rotationRad) + halfH * Math.cos(rotationRad);
-
+                        const drawRotatedImage = (vcx, vcy, w, h) => {
+                            const placementInfo = PDFRender.visualCenterRectToPdfDraw(
+                                vcx, vcy, w, h, rotationDeg, pageBox
+                            );
                             page.drawImage(embeddedImage, {
-                                x: cx - dx,
-                                y: cy - dy,
+                                x: placementInfo.x,
+                                y: placementInfo.y,
                                 width: w,
                                 height: h,
                                 opacity,
-                                rotate: degrees(rotationDeg),
+                                rotate: degrees(placementInfo.rotateDeg),
                             });
-                        }
+                        };
 
                         if (placement === 'single') {
-                            const { cx, cy } = getPdfAnchorCoords(activeAnchor, width, height, 50);
+                            const { cx, cy } = getVisualAnchorCoords(activeAnchor, vw, vh, 40);
                             drawRotatedImage(cx, cy, imgWidth, imgHeight);
                         } else {
                             const cols = 3;
@@ -628,8 +655,8 @@
                             const tileH = imgHeight * 0.6;
                             for (let rIdx = 0; rIdx < rows; rIdx++) {
                                 for (let cIdx = 0; cIdx < cols; cIdx++) {
-                                    const cx = ((cIdx + 0.5) / cols) * width;
-                                    const cy = ((rIdx + 0.5) / rows) * height;
+                                    const cx = ((cIdx + 0.5) / cols) * vw;
+                                    const cy = ((rIdx + 0.5) / rows) * vh;
                                     drawRotatedImage(cx, cy, tileW, tileH);
                                 }
                             }
@@ -687,6 +714,15 @@
             }
             if (fileInput) fileInput.value = '';
             if (wmImageInput) wmImageInput.value = '';
+            uploadedImageMime = null;
+            if (wmTextInput) wmTextInput.value = 'CONFIDENTIAL';
+            if (wmFontSize) { wmFontSize.value = '48'; if (wmFontSizeLabel) wmFontSizeLabel.textContent = '48 pt'; }
+            if (wmOpacity) { wmOpacity.value = '35'; if (wmOpacityLabel) wmOpacityLabel.textContent = '35%'; }
+            if (wmRotation) { wmRotation.value = '-45'; if (wmRotationLabel) wmRotationLabel.textContent = '-45°'; }
+            if (wmTextColor) wmTextColor.value = '#ef4444';
+            if (wmTextColorHex) wmTextColorHex.value = '#ef4444';
+            if (previewPageCanvas) { previewPageCanvas.width = 0; previewPageCanvas.height = 0; }
+            if (previewWatermarkCanvas) { previewWatermarkCanvas.width = 0; previewWatermarkCanvas.height = 0; }
 
             clearError();
             progress.reset();

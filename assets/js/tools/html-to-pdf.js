@@ -76,14 +76,17 @@
             modeTabs.forEach(t => {
                 t.classList.remove('bg-blue-600', 'text-white');
                 t.classList.add('bg-transparent', 'text-slate-600');
+                t.setAttribute('aria-selected', 'false');
             });
             tab.classList.add('bg-blue-600', 'text-white');
             tab.classList.remove('bg-transparent', 'text-slate-600');
+            tab.setAttribute('aria-selected', 'true');
 
             tabPanels.forEach(p => p.classList.add('hidden'));
             const activePanel = document.getElementById(`tab-panel-${mode}`);
             if (activePanel) activePanel.classList.remove('hidden');
 
+            lastGeneratedBlob = null;
             if (resultView) {
                 resultView.classList.add('hidden');
             }
@@ -102,7 +105,7 @@
     // ----------------------------------------------------
     function updateTextStats() {
         if (!plainTextInput || !textStats) return;
-        const text = plainTextInput.value;
+        const text = (plainTextInput.value || '').replace(/\r\n?/g, '\n');
         const charCount = text.length;
         const lineCount = text ? text.split('\n').length : 0;
         textStats.textContent = `${charCount} characters • ${lineCount} lines`;
@@ -128,10 +131,14 @@
         txtFileInput.addEventListener('change', () => {
             const file = txtFileInput.files?.[0];
             if (!file) return;
+            clearError();
             const reader = new FileReader();
             reader.onload = (e) => {
                 plainTextInput.value = e.target.result || '';
                 updateTextStats();
+            };
+            reader.onerror = () => {
+                showError('Could not read the selected .txt file.');
             };
             reader.readAsText(file);
         });
@@ -139,7 +146,7 @@
 
     // Generate PDF from Vector Text
     function generateTextPdf() {
-        const text = plainTextInput?.value || '';
+        const text = (plainTextInput?.value || '').replace(/\r\n?/g, '\n');
         if (!text.trim()) {
             throw new Error('Please enter some text to convert.');
         }
@@ -215,13 +222,22 @@
         if (!htmlSourceInput || !htmlPreviewSandbox) return;
         const raw = htmlSourceInput.value;
         if (!raw.trim()) {
-            htmlPreviewSandbox.innerHTML = '<p style="color: #94a3b8; font-style: italic;">Enter HTML in the editor or load a sample to see live preview...</p>';
+            PDFCore.renderIsolatedPreview(
+                htmlPreviewSandbox,
+                '<p style="color: #94a3b8; font-style: italic;">Enter HTML in the editor or load a sample to see live preview...</p>',
+                '',
+                'HTML Live Preview'
+            );
             return;
         }
 
-        // DOMPurify sanitization
-        const clean = DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
-        htmlPreviewSandbox.innerHTML = clean;
+        if (typeof window.DOMPurify === 'undefined') {
+            showError('HTML sanitizer (DOMPurify) is still loading or unavailable. Please check your connection and reload.');
+            return;
+        }
+
+        const clean = window.DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
+        PDFCore.renderIsolatedPreview(htmlPreviewSandbox, clean, '', 'HTML Live Preview');
     }
 
     if (htmlSourceInput) {
@@ -310,128 +326,45 @@
         htmlFileInput.addEventListener('change', () => {
             const file = htmlFileInput.files?.[0];
             if (!file) return;
+            clearError();
             const reader = new FileReader();
             reader.onload = (e) => {
                 htmlSourceInput.value = e.target.result || '';
                 updateHtmlPreview();
             };
+            reader.onerror = () => {
+                showError('Could not read the selected HTML file.');
+            };
             reader.readAsText(file);
         });
     }
 
-    // Generate PDF from HTML with Tailwind v4 / oklch isolation
+    // Generate PDF from HTML with isolated iframe & oklch protection
     async function generateHtmlPdf() {
         const raw = htmlSourceInput?.value || '';
         if (!raw.trim()) {
             throw new Error('Please enter some HTML code or load a sample document.');
         }
 
-        // 1. Mandatory DOMPurify Sanitization
-        const cleanHtml = DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
-
-        // 2. Setup isolated offscreen iframe completely shielded from Tailwind CSS & oklch
-        if (!isolatedIframe) {
-            throw new Error('Render target iframe not found.');
+        if (typeof window.DOMPurify === 'undefined') {
+            throw new Error('HTML sanitizer library (DOMPurify) is unavailable. Please reload the page.');
         }
 
-        const iframeDoc = isolatedIframe.contentDocument || isolatedIframe.contentWindow?.document;
-        if (!iframeDoc) {
-            throw new Error('Could not access render iframe document.');
-        }
-
-        iframeDoc.open();
-        iframeDoc.write(`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body {
-      margin: 0;
-      padding: 24px;
-      background-color: #ffffff;
-      color: #111827;
-      font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
-      font-size: 14px;
-      line-height: 1.5;
-      width: 800px;
-    }
-  </style>
-</head>
-<body>${cleanHtml}</body>
-</html>`);
-        iframeDoc.close();
-
-        // Small delay for DOM layout in iframe
-        await new Promise(r => setTimeout(r, 60));
-
-        const { jsPDF } = window.jspdf;
+        const cleanHtml = window.DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
         const pageSize = htmlPageSize?.value || 'a4';
         const orientation = htmlOrientation?.value || 'portrait';
         const marginMm = parseInt(htmlMargin?.value || '15', 10);
         const scale = parseFloat(htmlRenderScale?.value || '2.0');
 
-        const doc = new jsPDF({
+        return await PDFCore.renderIsolatedHtmlToPdf({
+            iframeEl: isolatedIframe,
+            sanitizedHtml: cleanHtml,
+            pageSize,
             orientation,
-            unit: 'mm',
-            format: pageSize,
+            marginMm,
+            scale,
+            renderWidthPx: 800,
         });
-
-        const pageWidthMm = doc.internal.pageSize.getWidth();
-        const printableWidthMm = pageWidthMm - marginMm * 2;
-
-        // Temporarily detach any <style> elements that contain Tailwind v4 oklch functions
-        // so html2canvas never encounters unsupported color functions during document cloning
-        const detachedStyles = [];
-        document.querySelectorAll('style').forEach(styleEl => {
-            if (styleEl.textContent && styleEl.textContent.includes('oklch')) {
-                const parent = styleEl.parentNode;
-                const next = styleEl.nextSibling;
-                parent.removeChild(styleEl);
-                detachedStyles.push({ el: styleEl, parent, next });
-            }
-        });
-
-        try {
-            await new Promise((resolve, reject) => {
-                try {
-                    doc.html(iframeDoc.body, {
-                        x: marginMm,
-                        y: marginMm,
-                        width: printableWidthMm,
-                        windowWidth: 800,
-                        autoPaging: 'text',
-                        html2canvas: {
-                            scale: scale,
-                            backgroundColor: '#ffffff',
-                            useCORS: true,
-                            logging: false,
-                        },
-                        callback: (renderedDoc) => {
-                            resolve(renderedDoc);
-                        },
-                    });
-                } catch (err) {
-                    reject(err);
-                }
-            });
-        } finally {
-            // Restore any detached Tailwind styles immediately
-            detachedStyles.forEach(({ el, parent, next }) => {
-                try {
-                    parent.insertBefore(el, next);
-                } catch (e) {}
-            });
-
-            // Clean up iframe body immediately after rendering
-            if (iframeDoc && iframeDoc.body) {
-                iframeDoc.body.innerHTML = '';
-            }
-        }
-
-        const pageCount = doc.getNumberOfPages();
-        const blob = doc.output('blob');
-        return { blob, pageCount };
     }
 
     // ----------------------------------------------------
@@ -484,7 +417,7 @@
     if (downloadDocBtn) {
         downloadDocBtn.addEventListener('click', () => {
             if (!lastGeneratedBlob) return;
-            const requested = convertOutputFilename?.value || 'document.pdf';
+            const requested = (convertOutputFilename?.value || '').trim() || 'document.pdf';
             const cleanName = PDFCore.sanitizeFilename(requested, 'pdf');
             PDFCore.downloadBlob(lastGeneratedBlob, cleanName, 'application/pdf');
         });
@@ -496,8 +429,9 @@
             lastGeneratedBlob = null;
             if (plainTextInput) plainTextInput.value = '';
             if (htmlSourceInput) htmlSourceInput.value = '';
-            if (htmlPreviewSandbox) htmlPreviewSandbox.innerHTML = '';
+            if (convertOutputFilename) convertOutputFilename.value = 'document.pdf';
             updateTextStats();
+            updateHtmlPreview();
             progress.reset();
             resultView?.classList.add('hidden');
             clearError();

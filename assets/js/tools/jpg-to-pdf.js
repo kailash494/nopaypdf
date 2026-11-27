@@ -69,41 +69,59 @@
         lastGeneratedPdfBytes = null;
     }
 
-    // Toggle orientation control when "Fit to Image" is chosen
-    if (pageSizeSelect && orientationContainer) {
-        pageSizeSelect.addEventListener('change', () => {
-            if (pageSizeSelect.value === 'fit') {
-                orientationContainer.classList.add('opacity-40', 'pointer-events-none');
+    // Toggle orientation & margin controls when "Fit to Image" is chosen
+    function syncLayoutControls() {
+        const isFit = pageSizeSelect?.value === 'fit';
+        if (orientationContainer) {
+            orientationContainer.classList.toggle('opacity-40', isFit);
+            orientationContainer.classList.toggle('pointer-events-none', isFit);
+        }
+        if (orientationSelect) {
+            orientationSelect.disabled = isFit;
+        }
+        if (marginSelect) {
+            if (isFit) {
+                marginSelect.value = '0';
+                marginSelect.disabled = true;
+                marginSelect.parentElement?.classList.add('opacity-50');
             } else {
-                orientationContainer.classList.remove('opacity-40', 'pointer-events-none');
+                marginSelect.disabled = false;
+                marginSelect.parentElement?.classList.remove('opacity-50');
             }
-        });
+        }
     }
 
-    // Read image natural dimensions via createImageBitmap or Image
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', syncLayoutControls);
+    }
+
+    // Read image natural dimensions via createImageBitmap or Image (fail on corrupt image)
     async function inspectImageFile(file) {
-        try {
-            if ('createImageBitmap' in window) {
-                const bmp = await createImageBitmap(file);
-                const width = bmp.width;
-                const height = bmp.height;
-                bmp.close();
-                return { width, height };
+        if ('createImageBitmap' in window) {
+            const bmp = await createImageBitmap(file);
+            const width = bmp.width;
+            const height = bmp.height;
+            bmp.close();
+            if (!width || !height) {
+                throw new Error(`Invalid image dimensions in "${file.name}".`);
             }
-        } catch (e) {
-            // Fallback to Image element
+            return { width, height };
         }
 
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const url = URL.createObjectURL(file);
             const img = new Image();
             img.onload = () => {
                 URL.revokeObjectURL(url);
-                resolve({ width: img.naturalWidth || 800, height: img.naturalHeight || 600 });
+                if (!img.naturalWidth || !img.naturalHeight) {
+                    reject(new Error(`Invalid image dimensions in "${file.name}".`));
+                    return;
+                }
+                resolve({ width: img.naturalWidth, height: img.naturalHeight });
             };
             img.onerror = () => {
                 URL.revokeObjectURL(url);
-                resolve({ width: 800, height: 600 });
+                reject(new Error(`Unable to decode "${file.name}". Please ensure it is a valid JPG, PNG, or WebP image.`));
             };
             img.src = url;
         });
@@ -161,6 +179,8 @@
                 ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">${item.rotation}°</span>`
                 : '';
 
+            const safeFileName = PDFCore.escapeHtml(item.file.name);
+
             card.innerHTML = `
                 <div>
                     <div class="w-full flex items-center justify-between text-xs mb-1.5 px-0.5 select-none">
@@ -177,11 +197,11 @@
 
                     <!-- Image Preview -->
                     <div class="w-full h-[120px] bg-slate-50 border border-slate-100 rounded-lg overflow-hidden flex items-center justify-center p-1 cursor-grab active:cursor-grabbing">
-                        <img src="${item.previewUrl}" alt="${item.file.name}" class="image-preview-thumb max-h-full max-w-full" style="transform: rotate(${item.rotation}deg)">
+                        <img src="${item.previewUrl}" alt="${safeFileName}" class="image-queue-thumb max-h-[110px] max-w-[110px] object-contain transition-transform" style="transform: rotate(${item.rotation}deg)">
                     </div>
 
                     <div class="mt-2 px-0.5">
-                        <p class="text-[11px] font-semibold text-slate-800 truncate" title="${item.file.name}">${item.file.name}</p>
+                        <p class="text-[11px] font-semibold text-slate-800 truncate" title="${safeFileName}">${safeFileName}</p>
                         <div class="flex items-center justify-between text-[10px] text-slate-400 mt-0.5 font-medium">
                             <span>${item.width} × ${item.height} px</span>
                             <span>${PDFCore.formatBytes(item.file.size)}</span>
@@ -276,11 +296,13 @@
         }
     }
 
-    // Dropzone setup
+    // Dropzone setup (explicitly reject non-image formats such as .pdf)
     PDFCore.initDropzone({
         dropzoneEl,
         inputEl: fileInput,
         accept: 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp',
+        acceptExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        acceptMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
         multiple: true,
         onFilesAdded: (files) => addImages(files),
         onError: (errs) => showError(errs.join(' '))
@@ -329,14 +351,27 @@
         });
     }
 
-    // Helper: Normalize an image file to clean JPEG or PNG bytes using an offscreen canvas
-    async function normalizeImageBytes(item) {
+    // Helper: Embed unrotated JPEG directly when possible, otherwise normalize via offscreen canvas
+    async function embedImageItem(pdfDoc, item) {
         const file = item.file;
-        const isPng = file.type === 'image/png';
-        const hasRotation = item.rotation !== 0;
-        const isWebp = file.type === 'image/webp';
+        const isJpeg = file.type === 'image/jpeg' || /\.(jpe?g)$/i.test(file.name);
+        const isPng = file.type === 'image/png' || /\.png$/i.test(file.name);
 
-        // Load image into bitmap/element
+        // Lossless passthrough for unrotated clean JPEGs
+        if (isJpeg && item.rotation === 0) {
+            try {
+                const rawBytes = new Uint8Array(await file.arrayBuffer());
+                const embeddedImage = await pdfDoc.embedJpg(rawBytes);
+                return {
+                    embeddedImage,
+                    width: embeddedImage.width || item.width,
+                    height: embeddedImage.height || item.height,
+                };
+            } catch (e) {
+                // Fall back to canvas normalization if JPEG encoding isn't directly supported
+            }
+        }
+
         let imgSource;
         if ('createImageBitmap' in window) {
             imgSource = await createImageBitmap(file);
@@ -344,7 +379,7 @@
             imgSource = await new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => resolve(img);
-                img.onerror = reject;
+                img.onerror = () => reject(new Error(`Unable to decode "${file.name}".`));
                 img.src = item.previewUrl;
             });
         }
@@ -376,16 +411,19 @@
 
         const exportFormat = isPng ? 'image/png' : 'image/jpeg';
         const blob = await new Promise(res => canvas.toBlob(res, exportFormat, 0.92));
-        const arrayBuf = await blob.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuf);
-
-        // Cleanup canvas
         canvas.width = 0;
         canvas.height = 0;
+        if (!blob) {
+            throw new Error(`Failed to process image "${file.name}".`);
+        }
+
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const embeddedImage = isPng
+            ? await pdfDoc.embedPng(bytes)
+            : await pdfDoc.embedJpg(bytes);
 
         return {
-            bytes,
-            isPng,
+            embeddedImage,
             width: canvasW,
             height: canvasH,
         };
@@ -409,11 +447,10 @@
                 const pdfDoc = await PDFLib.PDFDocument.create();
                 const pageSizeChoice = pageSizeSelect?.value || 'a4';
                 const orientationChoice = orientationSelect?.value || 'auto';
-                const margin = parseInt(marginSelect?.value || '20', 10);
+                const margin = pageSizeChoice === 'fit' ? 0 : parseInt(marginSelect?.value || '20', 10);
+                const PT_PER_PX = 72 / 96;
 
                 // Standard points dimensions (72 pt per inch)
-                // A4: 595.28 x 841.89 pt
-                // Letter: 612 x 792 pt
                 const baseDimensions = {
                     a4: { w: 595.28, h: 841.89 },
                     letter: { w: 612.0, h: 792.0 },
@@ -426,24 +463,15 @@
                         `Processing image ${i + 1} of ${imageItems.length} (${item.file.name})...`
                     );
 
-                    const normalized = await normalizeImageBytes(item);
-                    let embeddedImage;
-
-                    if (normalized.isPng) {
-                        embeddedImage = await pdfDoc.embedPng(normalized.bytes);
-                    } else {
-                        embeddedImage = await pdfDoc.embedJpg(normalized.bytes);
-                    }
-
-                    const imgW = normalized.width;
-                    const imgH = normalized.height;
+                    const { embeddedImage, width: imgW, height: imgH } = await embedImageItem(pdfDoc, item);
+                    const imgW_pt = imgW * PT_PER_PX;
+                    const imgH_pt = imgH * PT_PER_PX;
 
                     let pageWidth, pageHeight;
 
                     if (pageSizeChoice === 'fit') {
-                        // Fit to image: 1 image pixel = 0.75 pt (96 DPI -> 72 DPI)
-                        pageWidth = (imgW * 72) / 96;
-                        pageHeight = (imgH * 72) / 96;
+                        pageWidth = imgW_pt;
+                        pageHeight = imgH_pt;
                     } else {
                         const standard = baseDimensions[pageSizeChoice] || baseDimensions.a4;
                         const isLandscape = orientationChoice === 'landscape' || (orientationChoice === 'auto' && imgW > imgH);
@@ -460,9 +488,9 @@
                     const printableW = Math.max(10, pageWidth - margin * 2);
                     const printableH = Math.max(10, pageHeight - margin * 2);
 
-                    const scale = Math.min(printableW / imgW, printableH / imgH, 1.0);
-                    const drawW = imgW * scale;
-                    const drawH = imgH * scale;
+                    const scale = Math.min(printableW / imgW_pt, printableH / imgH_pt, 1.0);
+                    const drawW = imgW_pt * scale;
+                    const drawH = imgH_pt * scale;
 
                     const drawX = margin + (printableW - drawW) / 2;
                     const drawY = margin + (printableH - drawH) / 2;
@@ -511,6 +539,13 @@
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
             cleanupPreviews();
+            if (fileInput) fileInput.value = '';
+            if (addMoreInput) addMoreInput.value = '';
+            if (outputFilenameInput) outputFilenameInput.value = 'images-to-pdf.pdf';
+            if (pageSizeSelect) pageSizeSelect.value = 'a4';
+            if (orientationSelect) orientationSelect.value = 'auto';
+            if (marginSelect) marginSelect.value = '20';
+            syncLayoutControls();
             progress.reset();
             resultView?.classList.add('hidden');
             workspaceView.classList.add('hidden');
